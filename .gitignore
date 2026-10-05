@@ -1,0 +1,43 @@
+.tools/
+**/bin/
+**/obj/
+**/node_modules/
+src/HoloTrack.App/Assets/Renderer/
+dist/
+artifacts/
+*.user
+
+# Local configuration and credentials
+**/settings.json
+.env
+.env.*
+!.env.example
+*.pfx
+*.p12
+*.pem
+*.key
+*.credentials.json
+
+# Personal avatars and camera/recording data
+*.vrm
+*.vroid
+*.mp4
+*.mov
+*.mkv
+*.avi
+*.webm
+*.y4m
+recordings/
+captures/
+private/
+
+# Logs, temporary files and editor state
+*.log
+*.tmp
+*.dmp
+.vs/
+.vscode/
+__pycache__/
+*.pyc
+Thumbs.db
+Desktop.ini
