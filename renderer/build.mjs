@@ -1,7 +1,7 @@
 import { build } from 'esbuild';
 import { mkdir, copyFile, cp, writeFile, access } from 'node:fs/promises';
 import { resolve } from 'node:path';
-const out = resolve('../src/HoloTrack.App/Assets/Renderer');
+const out = resolve(process.env.YUI_RENDERER_OUT || '../src/HoloTrack.App/Assets/Renderer');
 await mkdir(out, { recursive: true });
 await build({entryPoints:['src/main.js'],bundle:true,format:'esm',outfile:out+'/main.js',minify:true,sourcemap:true});
 await build({entryPoints:['src/tracking-worker.js'],bundle:true,format:'iife',outfile:out+'/tracking-worker.js',minify:true,sourcemap:true});

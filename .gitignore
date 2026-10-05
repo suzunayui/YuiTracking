@@ -5,6 +5,7 @@
 src/HoloTrack.App/Assets/Renderer/
 dist/
 artifacts/
+electron/renderer/
 *.user
 
 # Local configuration and credentials

@@ -1,5 +1,9 @@
 # YuiTracking — VTuber Studio (試作版)
 
+## Mac / Electron版
+
+Apple Silicon向けのElectron版を `electron/` に追加しました。VRM描画とトラッキング処理をWindows版と共有しています。起動・Mac用パッケージの作成方法は [Electron版の説明](electron/README.md) を参照してください。Mac版の仮想カメラは未対応です。以下はWindowsのWinUI版の説明です。
+
 ## インストーラー
 
 `dist/installer/YuiTracking-Setup-0.1.1-x64.exe` を実行します。現在のユーザーのアプリフォルダへインストールし、スタートメニューとOBS用仮想カメラを登録します。デスクトップのショートカットは任意です。更新前にアプリを終了してください。

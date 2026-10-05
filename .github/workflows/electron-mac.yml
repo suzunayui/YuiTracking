@@ -1,0 +1,34 @@
+name: Build Electron for Apple Silicon
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  mac:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            renderer/package-lock.json
+            electron/package-lock.json
+      - run: npm ci
+        working-directory: renderer
+      - run: npm test
+        working-directory: renderer
+      - run: npm ci
+        working-directory: electron
+      - run: npm run package:mac
+        working-directory: electron
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: YuiTracking-Mac-arm64
+          path: |
+            dist/electron/*.dmg
+            dist/electron/*.zip
+          if-no-files-found: error

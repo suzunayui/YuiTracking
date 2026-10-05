@@ -14,7 +14,11 @@ import {AutoCalibration} from './auto-calibration.js';
 import {SpringStrength} from './spring-strength.js';
 
 const W=1280,H=720;
-const post=(type,rest={})=>window.chrome?.webview?.postMessage({type,...rest});
+const host=window.yuiHost ?? window.chrome?.webview ?? (window.parent!==window ? {
+ postMessage:message=>window.parent.postMessage({yuiRenderer:message},location.origin),
+ addEventListener:(type,callback)=>{if(type==='message')window.addEventListener('message',event=>{if(event.source===window.parent&&event.origin===location.origin&&event.data?.yuiCommand)callback({data:event.data.yuiCommand});});}
+}:null);
+const post=(type,rest={})=>host?.postMessage({type,...rest});
 const status=text=>post('status',{text});
 const scene=new THREE.Scene(); scene.background=new THREE.Color('#00ff00');
 const camera=new THREE.PerspectiveCamera(32,W/H,0.01,100); camera.position.set(0,1.35,3.1); camera.lookAt(0,1.1,0);
@@ -417,7 +421,7 @@ window.chrome?.webview?.addEventListener('sharedbufferreceived',e=>{
  if(sharedFramePixels)window.chrome.webview.releaseBuffer(sharedFramePixels.buffer);
  sharedFramePixels=new Uint8Array(buffer);
 });
-window.chrome?.webview?.addEventListener('message',async e=>{
+host?.addEventListener('message',async e=>{
  const m=e.data;
  try{
  switch(m.type){

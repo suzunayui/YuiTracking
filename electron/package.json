@@ -1,0 +1,32 @@
+{
+  "name": "yuitracking-desktop",
+  "productName": "YuiTracking",
+  "version": "0.2.0",
+  "private": true,
+  "author": "suzunayui",
+  "description": "YuiTracking Electron desktop",
+  "main": "main.cjs",
+  "scripts": {
+    "prepare:renderer": "node prepare-renderer.cjs",
+    "start": "npm run prepare:renderer && electron .",
+    "package:mac": "npm run prepare:renderer && electron-builder --mac --arm64",
+    "package:win": "npm run prepare:renderer && electron-builder --win --x64"
+  },
+  "devDependencies": {"electron": "44.5.1", "electron-builder": "26.15.3"},
+  "build": {
+    "appId": "io.github.suzunayui.yuitracking",
+    "directories": {"output": "../dist/electron"},
+    "files": ["*.cjs", "ui/**", "renderer/**", "!**/*.map"],
+    "extraResources": [{"from": "../src/HoloTrack.App/Assets/Branding/YuiTracking.png", "to": "icon.png"}, {"from": "../THIRD-PARTY-NOTICES.txt", "to": "THIRD-PARTY-NOTICES.txt"}],
+    "mac": {
+      "icon": "../src/HoloTrack.App/Assets/Branding/YuiTracking.png",
+      "target": [{"target": "dmg", "arch": ["arm64"]}, {"target": "zip", "arch": ["arm64"]}],
+      "category": "public.app-category.entertainment",
+      "hardenedRuntime": true,
+      "entitlements": "entitlements.mac.plist",
+      "entitlementsInherit": "entitlements.mac.plist",
+      "extendInfo": {"NSCameraUsageDescription": "顔・体・手を認識し、VRMアバターを動かすためにカメラを使います。映像は端末内で処理します。"}
+    },
+    "win": {"target": "nsis", "icon": "../src/HoloTrack.App/Assets/Branding/YuiTracking.ico"}
+  }
+}
