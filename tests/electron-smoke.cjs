@@ -22,7 +22,7 @@ const assert=require('node:assert/strict');
   if(process.platform==='darwin'){
    await page.locator('#syphon').click();
    await page.waitForFunction(()=>document.querySelector('#output-status').textContent.includes('送信中'));
-   await app.evaluate(async({app})=>{const {TextureReceiver}=await import('file://'+app.getAppPath()+'/node_modules/@napolab/texture-bridge-core/dist/index.mjs');globalThis.syphonReceiver=new TextureReceiver('YuiTracking');});
+   await app.evaluate(({app})=>{const {TextureReceiver}=process.mainModule.require(app.getAppPath()+'/node_modules/@napolab/texture-bridge-core');globalThis.syphonReceiver=new TextureReceiver('YuiTracking');});
    const waitPixel=async expected=>{
     for(let attempt=0;attempt<100;attempt++){
      const pixel=await app.evaluate(()=>{const frame=globalThis.syphonReceiver.receiveFrame();return frame?{width:frame.width,height:frame.height,rgba:[...frame.data.subarray(0,4)]}:null;});
