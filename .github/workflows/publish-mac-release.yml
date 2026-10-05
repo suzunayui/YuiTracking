@@ -1,0 +1,32 @@
+name: Publish tested Mac prerelease
+on:
+  workflow_dispatch:
+    inputs:
+      build_run_id:
+        description: Successful Apple Silicon build run ID
+        required: true
+        type: string
+permissions:
+  actions: read
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      BUILD_RUN_ID: ${{ inputs.build_run_id }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify tested build
+        run: |
+          [[ "$BUILD_RUN_ID" =~ ^[0-9]+$ ]]
+          gh run view "$BUILD_RUN_ID" --json conclusion,headSha,workflowName > build.json
+          jq -e '.conclusion == "success" and .workflowName == "Build Electron for Apple Silicon"' build.json
+      - name: Download and publish
+        run: |
+          gh run download "$BUILD_RUN_ID" --name YuiTracking-Mac-arm64 --dir release
+          cp electron/mac-release-notes.md release-notes.md
+          cd release
+          sha256sum *.dmg *.zip > SHA256SUMS.txt
+          gh release create v0.2.1-mac-syphon *.dmg *.zip SHA256SUMS.txt --prerelease --latest=false --target "$(jq -r .headSha ../build.json)" --title "YuiTracking Mac v0.2.1 — Syphon試用版" --notes-file ../release-notes.md
