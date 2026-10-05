@@ -28,6 +28,7 @@
       "*.cjs",
       "ui/**",
       "renderer/**",
+      "!node_modules/@napolab/texture-bridge-darwin-*/Syphon.framework/**",
       "!**/*.map"
     ],
     "extraResources": [
