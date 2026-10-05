@@ -8,7 +8,8 @@ const assert=require('node:assert/strict');
  const env=Object.fromEntries(Object.entries(process.env).filter(([key])=>key!=='ELECTRON_RUN_AS_NODE'));
  let app;
  try{
-  const launch=()=>_electron.launch({executablePath:require('../electron/node_modules/electron'),args:[path.resolve(__dirname,'../electron'),'--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream','--user-data-dir='+profile],env});
+  const packaged=process.argv.includes('--packaged');
+  const launch=()=>_electron.launch({executablePath:packaged?path.resolve(__dirname,'../dist/electron/mac-arm64/YuiTracking.app/Contents/MacOS/YuiTracking'):require('../electron/node_modules/electron'),args:[...(packaged?[]:[path.resolve(__dirname,'../electron')]),'--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream','--user-data-dir='+profile],env});
   app=await launch();let page=await app.firstWindow();
   await page.waitForFunction(()=>document.querySelector('#status')?.textContent.includes('内蔵サンプル'));
   assert.equal(await page.evaluate(()=>document.querySelector('#tracking').textContent),'カメラを開始');
