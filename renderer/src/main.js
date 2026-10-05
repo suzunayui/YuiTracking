@@ -16,6 +16,7 @@ import {SpringStrength} from './spring-strength.js';
 const W=1280,H=720;
 const host=window.yuiHost ?? window.chrome?.webview ?? (window.parent!==window ? {
  postMessage:message=>window.parent.postMessage({yuiRenderer:message},location.origin),
+ sendFrame:pixels=>window.parent.postMessage({yuiAvatarFrame:pixels.buffer},location.origin,[pixels.buffer]),
  addEventListener:(type,callback)=>{if(type==='message')window.addEventListener('message',event=>{if(event.source===window.parent&&event.origin===location.origin&&event.data?.yuiCommand)callback({data:event.data.yuiCommand});});}
 }:null);
 const post=(type,rest={})=>host?.postMessage({type,...rest});
@@ -387,6 +388,7 @@ async function sendFrame(){
   capture.drawImage(renderer.domElement,0,0,W,H);
   const pixels=capture.getImageData(0,0,W,H).data;
   perfCapture=Math.max(perfCapture,performance.now()-started);perfPendingAt=performance.now();
+  if(host?.sendFrame){host.sendFrame(pixels);sharedPosted=true;return;}
   if(sharedFramePixels){sharedFramePixels.set(pixels);post('frameReady');sharedPosted=true;return;}
   const response=await fetch('/frame',{method:'POST',body:pixels,signal:AbortSignal.timeout(1500)});
   if(!response.ok)throw new Error('Frame receiver rejected frame.');

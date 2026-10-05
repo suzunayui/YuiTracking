@@ -12,5 +12,5 @@
 <label>揺れものの強さ <output id="springStrength-value"></output><input id="springStrength" type="range" min="0.3" max="3" step="0.05" value="1"></label>
 <h2>03 背景</h2><select id="background"><option value="#00ff00">クロマキー・グリーン</option><option value="#0000ff">クロマキー・ブルー</option><option value="#171b2e">ダーク</option></select>
 <p class="note">Ctrl＋ホイールで拡大縮小。ホイールドラッグで位置を調整。前回のモデル・位置・調整値を復元します。</p>
-<p class="note">Mac用の仮想カメラは未実装です。この版はOBSの映像キャプチャデバイスには出力できません。</p></aside></main>
+<h2>04 配信出力</h2><button id="syphon" disabled>Syphon出力を開始</button><p id="output-status">Syphon：停止中</p><p class="note">OBS → Syphonクライアント → YuiTracking。アバターと背景だけを送信します。映像キャプチャデバイスへの出力ではありません。</p></aside></main>
 <script src="app.js"></script></body></html>

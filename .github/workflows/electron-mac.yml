@@ -21,6 +21,8 @@ jobs:
         working-directory: renderer
       - run: npm ci
         working-directory: electron
+      - run: npm test
+        working-directory: electron
       - run: npm run package:mac
         working-directory: electron
         env:

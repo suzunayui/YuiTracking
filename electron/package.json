@@ -1,33 +1,76 @@
 {
   "name": "yuitracking-desktop",
   "productName": "YuiTracking",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "author": "suzunayui",
   "description": "YuiTracking Electron desktop",
   "main": "main.cjs",
   "scripts": {
-    "test": "npm run prepare:renderer && node ../tests/electron-smoke.cjs",
-    "prepare:renderer": "node prepare-renderer.cjs",
+    "test": "npm run prepare:renderer && node --test ../tests/syphon-output.test.cjs && node ../tests/electron-smoke.cjs",
+    "prepare:renderer": "node prepare-syphon.cjs && node prepare-renderer.cjs",
     "start": "npm run prepare:renderer && electron .",
     "package:mac": "npm run prepare:renderer && electron-builder --mac --arm64",
     "package:win": "npm run prepare:renderer && electron-builder --win --x64"
   },
-  "devDependencies": {"electron": "44.5.1", "electron-builder": "26.15.3"},
+  "devDependencies": {
+    "electron": "44.5.1",
+    "electron-builder": "26.15.3"
+  },
   "build": {
+    "asarUnpack": ["node_modules/@napolab/texture-bridge*/**"],
+    "afterPack": "after-pack.cjs",
     "appId": "io.github.suzunayui.yuitracking",
-    "directories": {"output": "../dist/electron"},
-    "files": ["*.cjs", "ui/**", "renderer/**", "!**/*.map"],
-    "extraResources": [{"from": "../src/HoloTrack.App/Assets/Branding/YuiTracking.png", "to": "icon.png"}, {"from": "../THIRD-PARTY-NOTICES.txt", "to": "THIRD-PARTY-NOTICES.txt"}],
+    "directories": {
+      "output": "../dist/electron"
+    },
+    "files": [
+      "*.cjs",
+      "ui/**",
+      "renderer/**",
+      "!**/*.map"
+    ],
+    "extraResources": [
+      {
+        "from": "../src/HoloTrack.App/Assets/Branding/YuiTracking.png",
+        "to": "icon.png"
+      },
+      {
+        "from": "../THIRD-PARTY-NOTICES.txt",
+        "to": "THIRD-PARTY-NOTICES.txt"
+      }
+    ],
     "mac": {
+      "extraFiles": [{"from":"node_modules/@napolab/texture-bridge-darwin-arm64/Syphon.framework","to":"Frameworks/Syphon.framework"}],
       "icon": "../src/HoloTrack.App/Assets/Branding/YuiTracking.png",
-      "target": [{"target": "dmg", "arch": ["arm64"]}, {"target": "zip", "arch": ["arm64"]}],
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
       "category": "public.app-category.entertainment",
       "hardenedRuntime": true,
       "entitlements": "entitlements.mac.plist",
       "entitlementsInherit": "entitlements.mac.plist",
-      "extendInfo": {"NSCameraUsageDescription": "顔・体・手を認識し、VRMアバターを動かすためにカメラを使います。映像は端末内で処理します。"}
+      "extendInfo": {
+        "NSCameraUsageDescription": "顔・体・手を認識し、VRMアバターを動かすためにカメラを使います。映像は端末内で処理します。"
+      }
     },
-    "win": {"target": "nsis", "icon": "../src/HoloTrack.App/Assets/Branding/YuiTracking.ico"}
+    "win": {
+      "target": "nsis",
+      "icon": "../src/HoloTrack.App/Assets/Branding/YuiTracking.ico"
+    }
+  },
+  "dependencies": {
+    "@napolab/texture-bridge-core": "0.15.0"
   }
 }

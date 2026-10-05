@@ -7,6 +7,9 @@ contextBridge.exposeInMainWorld('yuiDesktop',{
  openModel:()=>ipcRenderer.invoke('open-model'),
  getSettings:()=>ipcRenderer.invoke('settings'),
  saveSettings:value=>ipcRenderer.invoke('save-settings',value),
+ syphonAvailable:()=>ipcRenderer.invoke('syphon-capability'),
+ setSyphon:enabled=>ipcRenderer.invoke('syphon-output',enabled),
+ sendAvatarFrame:pixels=>ipcRenderer.invoke('avatar-frame',pixels),
  command:value=>ipcRenderer.send('ui-command',value),
  onEvent:callback=>ipcRenderer.on('renderer-event',(_event,data)=>callback(data))
 });
