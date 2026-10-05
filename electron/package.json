@@ -7,6 +7,7 @@
   "description": "YuiTracking Electron desktop",
   "main": "main.cjs",
   "scripts": {
+    "test": "npm run prepare:renderer && node ../tests/electron-smoke.cjs",
     "prepare:renderer": "node prepare-renderer.cjs",
     "start": "npm run prepare:renderer && electron .",
     "package:mac": "npm run prepare:renderer && electron-builder --mac --arm64",
