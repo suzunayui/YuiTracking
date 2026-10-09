@@ -1,4 +1,4 @@
-#define AppVersion "0.1.2"
+#define AppVersion "0.1.3"
 #define CameraClass "{5C2CD55C-92AD-4999-8666-912BD3E7003B}"
 #define CameraCategory "{860BB310-5D01-11D0-BD3B-00A0C911CE86}"
 

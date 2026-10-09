@@ -9,6 +9,7 @@ namespace HoloTrack;
 public sealed partial class MainWindow : Window
 {
     private bool ready, tracking, closing;
+    private CalibrationShortcut? calibrationShortcut;
     private bool restoreOutputPending;
     private VirtualCamera? output;
     private CoreWebView2SharedBuffer? frameBuffer;
@@ -70,8 +71,16 @@ public sealed partial class MainWindow : Window
         statusTimer = DispatcherQueue.CreateTimer(); statusTimer.Interval = TimeSpan.FromSeconds(1);
         statusTimer.Tick += (_, _) => { if (tracking) UpdateTrackingPowerPolicy(); if (output != null) OutputStatus.Text = "仮想カメラ：" + output.Status + performanceStatus; };
         statusTimer.Start();
+        try
+        {
+            calibrationShortcut = new CalibrationShortcut(() => DispatcherQueue.TryEnqueue(() =>
+            {
+                if (ready && tracking && !closing) { App.Log("Global calibration shortcut triggered"); Send(new { type = "calibrate" }); }
+            }));
+        }
+        catch (Exception ex) { App.Log("Calibration shortcuts unavailable: " + ex.Message); }
         Root.Loaded += async (_, _) => await InitializeRenderer();
-        Closed += (_, _) => { closing = true; SaveFraming(); SaveMouthStrength(); SaveSpringStrength(); output?.Dispose(); statusTimer.Stop(); Viewport.Close(); frameStream?.Dispose(); frameBuffer?.Dispose(); };
+        Closed += (_, _) => { closing = true; calibrationShortcut?.Dispose(); SaveFraming(); SaveMouthStrength(); SaveSpringStrength(); output?.Dispose(); statusTimer.Stop(); Viewport.Close(); frameStream?.Dispose(); frameBuffer?.Dispose(); };
     }
     private async Task InitializeRenderer()
     {
@@ -133,6 +142,21 @@ public sealed partial class MainWindow : Window
             e.Response = sender.Environment.CreateWebResourceResponse(new MemoryStream(Encoding.UTF8.GetBytes("ok")).AsRandomAccessStream(),200,"OK","Content-Type: text/plain\r\nCache-Control: no-store");
         }
         catch (Exception ex) { output?.SetPrivacy(true); App.Log(ex.Message); e.Response = sender.Environment.CreateWebResourceResponse(null,400,"Invalid Frame",""); }
+    }
+    private bool previewMaximized;
+    private void TogglePreviewMaximized()
+    {
+        previewMaximized = !previewMaximized;
+        var visibility = previewMaximized ? Visibility.Collapsed : Visibility.Visible;
+        AppHeader.Visibility = PreviewHeader.Visibility = PreviewStatus.Visibility =
+            SettingsPanel.Visibility = AppFooter.Visibility = visibility;
+        Root.Padding = new Thickness(previewMaximized ? 0 : 28);
+        Root.RowSpacing = previewMaximized ? 0 : 20;
+        MainContent.ColumnSpacing = previewMaximized ? 0 : 22;
+        SettingsColumn.Width = new GridLength(previewMaximized ? 0 : 330);
+        PreviewPanel.RowSpacing = previewMaximized ? 0 : 12;
+        PreviewBorder.CornerRadius = new CornerRadius(previewMaximized ? 0 : 12);
+        PreviewBorder.BorderThickness = new Thickness(previewMaximized ? 0 : 1);
     }
     private void UpdateTrackingPowerPolicy()
     {
@@ -214,6 +238,7 @@ public sealed partial class MainWindow : Window
                     if (root.GetProperty("requestId").GetInt32() == modelRequestId)
                     { pendingModelPath = null; ModelButton.IsEnabled = true; RestoreOutput(); }
                     break;
+                case "togglePreviewMaximized": TogglePreviewMaximized(); break;
                 case "status": TrackingStatus.Text = root.GetProperty("text").GetString(); break;
                 case "error": TrackingStatus.Text = root.GetProperty("text").GetString(); App.Log(TrackingStatus.Text ?? "Renderer error"); break;
                 case "tracking": tracking = root.GetProperty("active").GetBoolean(); UpdateTrackingPowerPolicy(); TrackButton.Content = tracking ? "カメラを停止" : "カメラを開始"; TrackButton.IsEnabled = true; break;

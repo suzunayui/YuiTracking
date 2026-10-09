@@ -13,6 +13,8 @@ try {
         npm test
         if ($LASTEXITCODE) { throw 'Renderer tests failed' }
     } finally { Pop-Location }
+    & $dotnetPath run --project tests/CalibrationShortcutSmoke/CalibrationShortcutSmoke.csproj
+    if ($LASTEXITCODE) { throw 'Calibration shortcut tests failed' }
     & $dotnetPath run --project tests/CameraSmoke/CameraSmoke.csproj
     if ($LASTEXITCODE) { throw 'Virtual-camera tests failed' }
     & $dotnetPath publish src/HoloTrack.App/HoloTrack.App.csproj -c Release -p:OutputPath=bin/Package/ -o dist/YuiTracking

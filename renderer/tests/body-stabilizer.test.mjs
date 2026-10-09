@@ -17,3 +17,14 @@ test('intentional turns remain responsive and repeated rendering does not refilt
  assert.deepEqual(filter.update(null,100,500),{pitch:0,yaw:0,roll:0});
  filter.reset();assert.deepEqual(filter.update({pitch:0,yaw:0,roll:0},600,600),{pitch:0,yaw:0,roll:0});
 });
+
+test('stationary noise around a leaning pose stays anchored',()=>{
+ const filter=new BodyStabilizer();
+ for(let i=0;i<60;i++)filter.update({pitch:.2,yaw:.3,roll:.1},i*100,i*100);
+ const held=filter.update({pitch:.2,yaw:.3,roll:.1},6000,6000);
+ for(let i=1;i<30;i++){
+  const sign=i%2?1:-1;
+  const result=filter.update({pitch:.2+sign*.01,yaw:.3+sign*.015,roll:.1+sign*.008},6000+i*100,6000+i*100);
+  for(const axis of ['pitch','yaw','roll'])assert.ok(Math.abs(result[axis]-held[axis])<1e-6);
+ }
+});

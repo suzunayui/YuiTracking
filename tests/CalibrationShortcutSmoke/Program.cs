@@ -1,0 +1,22 @@
+using HoloTrack;
+static void Check(bool condition, string name) { if (!condition) throw new Exception(name); Console.WriteLine("PASS " + name); }
+var gesture = new RightControlGesture();
+Check(!gesture.Update(true, true), "key down does not trigger");
+Check(!gesture.Update(true, true), "auto-repeat does not trigger");
+Check(gesture.Update(true, false), "right Ctrl release triggers once");
+Check(!gesture.Update(true, false), "duplicate release does not trigger");
+gesture.Update(true, true); gesture.Update(false, true);
+Check(!gesture.Update(true, false), "Ctrl plus another key does not trigger");
+gesture.Update(true, true, otherKeyHeld:true);
+Check(!gesture.Update(true, false), "another key already held does not trigger");
+gesture.Update(true, true, injected:true);
+Check(!gesture.Update(true, false, injected:true), "injected input does not trigger");
+Check(!gesture.Update(false, true) && !gesture.Update(false, false), "left Ctrl and other keys do not trigger");
+gesture.Update(true, true);
+Check(gesture.Update(true, false), "standalone shortcut recovers after chords");
+Check(!RightControlGesture.IsPhysicalChordKey(0xF4), "Japanese IME double-byte mode never cancels standalone shortcut");
+Check(!RightControlGesture.IsPhysicalChordKey(0x15), "IME Kana state is not a physical chord");
+Check(RightControlGesture.IsPhysicalChordKey(0x41) && RightControlGesture.IsPhysicalChordKey(0xA1) && RightControlGesture.IsPhysicalChordKey(0xA3), "letters and right modifiers still count as physical chords");
+var rightShift = new RightControlGesture();
+rightShift.Update(true, true, otherKeyHeld:RightControlGesture.IsPhysicalChordKey(0xF4));
+Check(rightShift.Update(true, false), "right Shift triggers even with IME state active");

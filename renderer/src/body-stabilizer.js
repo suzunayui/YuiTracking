@@ -14,7 +14,7 @@ export class BodyStabilizer {
    if(!Number.isFinite(raw))continue;
    // Remove small neutral errors continuously, avoiding a jump at the boundary.
    const target=Math.sign(raw)*Math.max(0,Math.abs(raw)-deadZone[axis]);
-   if(Math.abs(target-this.target[axis])>deadZone[axis]*.5)this.target[axis]=target;
+   if(Math.abs(target-this.target[axis])>deadZone[axis])this.target[axis]=target;
    const speed=Math.abs(this.target[axis]-this.value[axis])/dt;
    const alpha=1-Math.exp(-2*Math.PI*(1.2+4*speed)*dt);
    this.value[axis]+=(this.target[axis]-this.value[axis])*alpha;

@@ -12,6 +12,7 @@ import {BodyStabilizer} from './body-stabilizer.js';
 import {mouthShapes} from './mouth-shapes.js';
 import {AutoCalibration} from './auto-calibration.js';
 import {SpringStrength} from './spring-strength.js';
+import {RotationStabilizer} from './rotation-stabilizer.js';
 
 const W=1280,H=720;
 const host=window.yuiHost ?? window.chrome?.webview ?? (window.parent!==window ? {
@@ -29,6 +30,17 @@ renderer.setSize(W,H,false); renderer.setPixelRatio(1); renderer.outputColorSpac
 renderer.toneMapping=THREE.NoToneMapping;renderer.toneMappingExposure=1;
 document.body.appendChild(renderer.domElement);
 renderer.domElement.title='Ctrl＋マウスホイール：拡大・縮小／ホイールドラッグ：上下左右に移動';
+// Handle this inside WebView2; its native surface does not reliably bubble
+// pointer gestures to the surrounding XAML controls. Keep the same WebView
+// alive so expanding the preview cannot restart tracking or virtual output.
+if(window.chrome?.webview){
+ renderer.domElement.title+='／ダブルクリック：プレビュー最大化・元に戻す';
+ document.body.addEventListener('dblclick',event=>{
+  if(event.button!==0)return;
+  event.preventDefault();
+  post('togglePreviewMaximized');
+ });
+}
 let panPointer=null,panX=0,panY=0;
 const panDepth=Math.hypot(3.1,.25);
 function saveFraming(){post('framingChanged',{zoom:camera.zoom,x:camera.position.x,y:camera.position.y,z:camera.position.z});}
@@ -79,6 +91,7 @@ let blinkBaseline={left:0,right:0};
 const autoCalibration=new AutoCalibration();
 let latestPose=null,lastPoseDetect=0,bodyNeutral=null;
 const bodyStabilizer=new BodyStabilizer();
+const headStabilizer=new RotationStabilizer();
 let handRest={};
 let mouthMorphBinds=[];
 let springStrength=1,springPhysics=null;
@@ -220,7 +233,7 @@ async function startTracking(deviceId){
 }
 function stopTracking(){
  autoCalibration.stop();
- bodyStabilizer.reset();
+ bodyStabilizer.reset();headStabilizer.reset();
  for(const filter of Object.values(handFilters)){filter.screen.reset();filter.world.reset();}
  trackingGeneration++;tracking=false;restartRenderLoop();stream?.getTracks().forEach(t=>{t.onended=null;t.stop();});stream=null;
  if(video){video.pause();video.srcObject=null;video=null;}
@@ -242,7 +255,7 @@ function calibrateFace(automatic=false){
     autoCalibration.stop();
     const pose=safeTracking(latestPose,performance.now())?bodyPose(latestPose.result.worldLandmarks?.[0]):null;
     bodyNeutral=pose?{...pose}:null;
-    bodyStabilizer.reset();
+    bodyStabilizer.reset();headStabilizer.reset();
     const weights=Object.fromEntries((latestFace.result.faceBlendshapes?.[0]?.categories??[]).map(c=>[c.categoryName,c.score]));
     blinkBaseline={left:clamp(weights.eyeBlinkLeft??0,0,.95),right:clamp(weights.eyeBlinkRight??0,0,.95)};
     if(vrm){vrm.expressionManager?.setValue('blinkLeft',0);vrm.expressionManager?.setValue('blinkRight',0);}
@@ -351,7 +364,7 @@ function animate(now,dt){
  if(mat){
   rawHead.setFromRotationMatrix(new THREE.Matrix4().fromArray(mat));
   const relative=calibration.clone().invert().multiply(rawHead);
-  target.copy(avatarHeadRotation(relative,sensitivity));
+  target.copy(avatarHeadRotation(headStabilizer.update(relative,latestFace.time),sensitivity));
  }
  if(vrm){
   // Face tracking is absolute: remove torso rotation to avoid turning twice.

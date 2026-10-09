@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path $PSScriptRoot -Parent
-$installer = Join-Path $projectRoot 'dist\installer\YuiTracking-Setup-0.1.2-x64.exe'
+$installer = Join-Path $projectRoot 'dist\installer\YuiTracking-Setup-0.1.3-x64.exe'
 $testDir = [IO.Path]::GetFullPath((Join-Path $projectRoot '.tools\installer-smoke'))
 $expectedRoot = [IO.Path]::GetFullPath((Join-Path $projectRoot '.tools')) + [IO.Path]::DirectorySeparatorChar
 if (-not $testDir.StartsWith($expectedRoot, [StringComparison]::OrdinalIgnoreCase)) { throw 'Invalid test target' }
