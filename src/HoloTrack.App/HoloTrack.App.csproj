@@ -7,7 +7,7 @@
     <AssemblyName>YuiTracking</AssemblyName>
     <AssemblyTitle>YuiTracking</AssemblyTitle>
     <Product>YuiTracking</Product>
-    <Version>0.1.1</Version>
+    <Version>0.1.2</Version>
     <DebugType>embedded</DebugType>
     <PathMap>$(MSBuildProjectDirectory)=/_/YuiTracking/src/HoloTrack.App</PathMap>
     <ApplicationIcon>Assets\Branding\YuiTracking.ico</ApplicationIcon>

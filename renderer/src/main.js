@@ -170,6 +170,7 @@ async function loadModel(requestId){
  finally{if(version===loadVersion)loading=false;}
 }
 let trackingWorker,workerReady,workerBusy=false,trackingGeneration=0;
+let lastTrackingReceived=0,trackingGapMs=0,trackingLatencyMs=0,trackingResults=0;
 async function ensureTasks(){
  if(workerReady)return workerReady;
  status('顔・手・上半身の認識エンジンを準備中…');
@@ -182,6 +183,9 @@ async function ensureTasks(){
    if(data.type==='error'){fail(new Error(data.message));return;}
    workerBusy=false;perfDetect=Math.max(perfDetect,data.duration);
    if(!tracking||data.generation!==trackingGeneration)return;
+   const receivedAt=performance.now();
+   if(lastTrackingReceived)trackingGapMs=Math.max(trackingGapMs,receivedAt-lastTrackingReceived);
+   lastTrackingReceived=receivedAt;trackingLatencyMs=Math.max(trackingLatencyMs,receivedAt-data.time);trackingResults++;
    latestFace={result:data.face,time:data.time};latestHands={result:stabilizeHands(data.hands,data.time),time:data.time,receivedAt:performance.now()};
    if(data.pose)latestPose={result:data.pose,time:data.time};
    const matrix=data.face.facialTransformationMatrixes?.[0]?.data;
@@ -210,7 +214,7 @@ async function startTracking(deviceId){
   await video.play(); await listCameras();
   const input=track.getSettings();post('cameraInput',{width:input.width??video.videoWidth,height:input.height??video.videoHeight,fps:input.frameRate??0});
   track.onended=()=>{stopTracking();status('カメラが切断されました。待機ポーズに戻ります。');};
-  tracking=true;lastVideoTime=-1;lastPoseDetect=0;bodyNeutral=null;calibration.identity();blinkBaseline={left:0,right:0};autoCalibration.start(performance.now());post('tracking',{active:true});status('正面を向いて目を開けてください。顔の検出が安定すると一度だけ自動でキャリブレーションします。');
+  lastTrackingReceived=0;trackingGapMs=trackingLatencyMs=trackingResults=0;tracking=true;restartRenderLoop();lastVideoTime=-1;lastPoseDetect=0;bodyNeutral=null;calibration.identity();blinkBaseline={left:0,right:0};autoCalibration.start(performance.now());post('tracking',{active:true});status('正面を向いて目を開けてください。顔の検出が安定すると一度だけ自動でキャリブレーションします。');
  }catch(e){stopTracking();post('error',{text:'カメラを開始できません：'+e.message});}
  finally{initializing=false;}
 }
@@ -218,7 +222,7 @@ function stopTracking(){
  autoCalibration.stop();
  bodyStabilizer.reset();
  for(const filter of Object.values(handFilters)){filter.screen.reset();filter.world.reset();}
- trackingGeneration++;tracking=false;stream?.getTracks().forEach(t=>{t.onended=null;t.stop();});stream=null;
+ trackingGeneration++;tracking=false;restartRenderLoop();stream?.getTracks().forEach(t=>{t.onended=null;t.stop();});stream=null;
  if(video){video.pause();video.srcObject=null;video=null;}
  latestFace=latestHands=latestPose=null;bodyNeutral=null;haveFace=false;post('tracking',{active:false});status('カメラ停止中。待機ポーズを表示しています。');
 }
@@ -398,8 +402,9 @@ async function sendFrame(){
 }
 let loopHandle,loopTimer=false;
 function scheduleLoop(){
- loopTimer=output;
- loopHandle=output?setTimeout(()=>loop(performance.now()),Math.max(1,16.667-(performance.now()-lastRender))):requestAnimationFrame(loop);
+ // Tracking must also run when the preview is occluded or output is disabled.
+ loopTimer=output||tracking;
+ loopHandle=loopTimer?setTimeout(()=>loop(performance.now()),Math.max(1,16.667-(performance.now()-lastRender))):requestAnimationFrame(loop);
 }
 function restartRenderLoop(){if(loopTimer)clearTimeout(loopHandle);else cancelAnimationFrame(loopHandle);scheduleLoop();}
 function loop(now){
@@ -411,9 +416,9 @@ function loop(now){
  perfFrames++;
  if(now-perfLast>=3000){
   const seconds=(now-perfLast)/1000;
-  Object.assign(perfStats,{renderFps:perfFrames/seconds,frameFps:perfSent/seconds,detectMs:perfDetect,captureMs:perfCapture,ackMs:perfAck});
+  Object.assign(perfStats,{renderFps:perfFrames/seconds,frameFps:perfSent/seconds,detectMs:perfDetect,captureMs:perfCapture,ackMs:perfAck,trackingFps:trackingResults/seconds,trackingGapMs,trackingLatencyMs});
   if(output)post('performance',perfStats);
-  perfLast=now;perfFrames=perfSent=perfDetect=perfCapture=perfAck=0;
+  perfLast=now;perfFrames=perfSent=perfDetect=perfCapture=perfAck=0;trackingGapMs=trackingLatencyMs=trackingResults=0;
  }
 }
 window.chrome?.webview?.addEventListener('sharedbufferreceived',e=>{

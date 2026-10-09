@@ -15,6 +15,7 @@ public sealed partial class MainWindow : Window
     private Stream? frameStream;
     private readonly byte[] frameBytes = new byte[VirtualCamera.FrameBytes];
     private string performanceStatus = "";
+    private string? powerPolicyStatus;
     private byte[]? modelBytes;
     private int modelRequestId;
     private string? pendingModelPath;
@@ -67,7 +68,7 @@ public sealed partial class MainWindow : Window
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "Branding", "YuiTracking.ico"));
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1500, 1040));
         statusTimer = DispatcherQueue.CreateTimer(); statusTimer.Interval = TimeSpan.FromSeconds(1);
-        statusTimer.Tick += (_, _) => { if (output != null) OutputStatus.Text = "仮想カメラ：" + output.Status + performanceStatus; };
+        statusTimer.Tick += (_, _) => { if (tracking) UpdateTrackingPowerPolicy(); if (output != null) OutputStatus.Text = "仮想カメラ：" + output.Status + performanceStatus; };
         statusTimer.Start();
         Root.Loaded += async (_, _) => await InitializeRenderer();
         Closed += (_, _) => { closing = true; SaveFraming(); SaveMouthStrength(); SaveSpringStrength(); output?.Dispose(); statusTimer.Stop(); Viewport.Close(); frameStream?.Dispose(); frameBuffer?.Dispose(); };
@@ -77,7 +78,7 @@ public sealed partial class MainWindow : Window
         try
         {
             var profile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HoloTrack", "WebView");
-            var options = new CoreWebView2EnvironmentOptions { AdditionalBrowserArguments = "--disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows" };
+            var options = new CoreWebView2EnvironmentOptions { AdditionalBrowserArguments = "--disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows --disable-features=CalculateNativeWinOcclusion" };
             var env = await CoreWebView2Environment.CreateWithOptionsAsync(null, profile, options);
             await Viewport.EnsureCoreWebView2Async(env);
             var core = Viewport.CoreWebView2;
@@ -132,6 +133,26 @@ public sealed partial class MainWindow : Window
             e.Response = sender.Environment.CreateWebResourceResponse(new MemoryStream(Encoding.UTF8.GetBytes("ok")).AsRandomAccessStream(),200,"OK","Content-Type: text/plain\r\nCache-Control: no-store");
         }
         catch (Exception ex) { output?.SetPrivacy(true); App.Log(ex.Message); e.Response = sender.Environment.CreateWebResourceResponse(null,400,"Invalid Frame",""); }
+    }
+    private void UpdateTrackingPowerPolicy()
+    {
+        if (closing || Viewport.CoreWebView2 == null) return;
+        try
+        {
+            var results = new List<string>();
+            foreach (var process in Viewport.CoreWebView2.Environment.GetProcessInfos())
+            {
+                if (process.Kind != CoreWebView2ProcessKind.Renderer) continue;
+                var error = TrackingPowerPolicy.Apply(checked((uint)process.ProcessId), tracking);
+                results.Add($"{process.ProcessId}:{error}");
+            }
+            var state = $"Tracking power policy active={tracking}: {string.Join(",", results)}";
+            if (state != powerPolicyStatus) { powerPolicyStatus = state; App.Log(state); }
+        }
+        catch (Exception ex)
+        {
+            if (powerPolicyStatus != ex.Message) { powerPolicyStatus = ex.Message; App.Log("Tracking power policy: " + ex.Message); }
+        }
     }
     private async void MessageReceived(CoreWebView2 sender, CoreWebView2WebMessageReceivedEventArgs e)
     {
@@ -195,7 +216,7 @@ public sealed partial class MainWindow : Window
                     break;
                 case "status": TrackingStatus.Text = root.GetProperty("text").GetString(); break;
                 case "error": TrackingStatus.Text = root.GetProperty("text").GetString(); App.Log(TrackingStatus.Text ?? "Renderer error"); break;
-                case "tracking": tracking = root.GetProperty("active").GetBoolean(); TrackButton.Content = tracking ? "カメラを停止" : "カメラを開始"; TrackButton.IsEnabled = true; break;
+                case "tracking": tracking = root.GetProperty("active").GetBoolean(); UpdateTrackingPowerPolicy(); TrackButton.Content = tracking ? "カメラを停止" : "カメラを開始"; TrackButton.IsEnabled = true; break;
                 case "cameraInput":
                     CameraInputStatus.Text = $"カメラ入力：{root.GetProperty("width").GetInt32()} × {root.GetProperty("height").GetInt32()} / {root.GetProperty("fps").GetDouble():0.#}fps";
                     App.Log("Camera input: " + root.GetRawText());
