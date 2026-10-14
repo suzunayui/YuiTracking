@@ -26,7 +26,13 @@
      </Grid>
     </Border>
    </Grid>
-   <ScrollViewer x:Name="SettingsPanel" Grid.Column="1" VerticalScrollBarVisibility="Auto">
+   <Grid x:Name="SettingsPanel" Grid.Column="1" RowSpacing="12">
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+    <StackPanel Spacing="6">
+     <Grid ColumnSpacing="6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><ComboBox x:Name="Cameras" PlaceholderText="カメラを選択" HorizontalAlignment="Stretch" DisplayMemberPath="Label"/><Button x:Name="TrackButton" Grid.Column="1" Content="カメラを開始" Click="Track_Click" IsEnabled="False"/></Grid>
+     <TextBlock x:Name="CameraInputStatus" Text="カメラ入力：720p / 最大30fps" Foreground="#9DA7C0" FontSize="12" TextWrapping="Wrap"/>
+    </StackPanel>
+    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
     <StackPanel Spacing="12">
      <Expander Header="アバター" IsExpanded="True" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
       <StackPanel Spacing="6">
@@ -39,12 +45,6 @@
        <Button Grid.Column="1" Content="男の子" Tag="Z" Click="Sample_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
        <Button Grid.Column="2" Content="ロボット" Click="Demo_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
        </Grid>
-      </StackPanel>
-     </Expander>
-     <Expander Header="トラッキング" IsExpanded="True" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
-      <StackPanel Spacing="6">
-      <Grid ColumnSpacing="6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><ComboBox x:Name="Cameras" PlaceholderText="カメラを選択" HorizontalAlignment="Stretch" DisplayMemberPath="Label"/><Button x:Name="TrackButton" Grid.Column="1" Content="カメラを開始" Click="Track_Click" IsEnabled="False"/></Grid>
-      <TextBlock x:Name="CameraInputStatus" Text="カメラ入力：720p / 最大30fps" Foreground="#9DA7C0" FontSize="12" TextWrapping="Wrap"/>
       </StackPanel>
      </Expander>
      <Expander Header="動き・表情の調整" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
@@ -70,7 +70,8 @@
       </StackPanel>
      </Expander>
     </StackPanel>
-   </ScrollViewer>
+    </ScrollViewer>
+   </Grid>
   </Grid>
  </Grid>
 </Window>
