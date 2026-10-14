@@ -18,7 +18,11 @@
      <Grid ColumnSpacing="12">
       <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
       <StackPanel Spacing="6" VerticalAlignment="Center">
-       <Button Content="正面をキャリブレーション" HorizontalAlignment="Stretch" ToolTipService.ToolTip="右Ctrlまたは右Shiftを単独で押して離しても実行できます" Click="Calibrate_Click"/>
+       <Grid ColumnSpacing="6">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <Button Content="正面をキャリブレーション" HorizontalAlignment="Stretch" ToolTipService.ToolTip="右Ctrlまたは右Shiftを単独で押して離しても実行できます" Click="Calibrate_Click"/>
+        <Button Grid.Column="1" Content="最大化" Click="MaximizePreview_Click" ToolTipService.ToolTip="プレビューを最大化。Escで元に戻します"/>
+       </Grid>
        <TextBlock x:Name="TrackingStatus" Text="描画エンジンを準備しています…" TextWrapping="Wrap" FontSize="12"/>
        <TextBlock x:Name="OutputStatus" Text="仮想カメラ：停止中" Foreground="#9DA7C0" TextWrapping="Wrap" FontSize="12"/>
       </StackPanel>
@@ -35,10 +39,9 @@
     <Grid Grid.Row="1" RowSpacing="12">
      <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
      <Grid ColumnSpacing="4">
-      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-      <ToggleButton x:Name="AvatarTab" Content="アバター" Tag="avatar" IsChecked="True" Click="SettingsTab_Click" HorizontalAlignment="Stretch" Padding="6,8" FontSize="12"/>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+      <ToggleButton x:Name="AvatarTab" Content="アバター・出力" Tag="avatar" IsChecked="True" Click="SettingsTab_Click" HorizontalAlignment="Stretch" Padding="6,8" FontSize="12"/>
       <ToggleButton x:Name="MotionTab" Grid.Column="1" Content="動きの調整" Tag="motion" Click="SettingsTab_Click" HorizontalAlignment="Stretch" Padding="6,8" FontSize="12"/>
-      <ToggleButton x:Name="OutputTab" Grid.Column="2" Content="配信出力" Tag="output" Click="SettingsTab_Click" HorizontalAlignment="Stretch" Padding="6,8" FontSize="12"/>
      </Grid>
       <ScrollViewer x:Name="AvatarSettings" Grid.Row="1" VerticalScrollBarVisibility="Auto">
       <StackPanel Spacing="6">
@@ -51,6 +54,15 @@
        <Button Grid.Column="1" Content="男の子" Tag="Z" Click="Sample_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
        <Button Grid.Column="2" Content="ロボット" Click="Demo_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
        </Grid>
+       <TextBlock Text="背景" Foreground="#9DA7C0" FontSize="12" Margin="0,12,0,0"/>
+       <Grid ColumnSpacing="6">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+        <ToggleButton x:Name="BackgroundGreen" Content="グリーン" Tag="#00ff00" IsChecked="True" Click="Background_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
+        <ToggleButton x:Name="BackgroundBlue" Grid.Column="1" Content="ブルー" Tag="#0000ff" Click="Background_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
+        <ToggleButton x:Name="BackgroundDark" Grid.Column="2" Content="暗色" Tag="#171b2e" Click="Background_Click" HorizontalAlignment="Stretch" Padding="6,4" ToolTipService.ToolTip="ミッドナイト"/>
+       </Grid>
+       <Button x:Name="OutputButton" Content="仮想カメラ出力を開始" Click="Output_Click" HorizontalAlignment="Stretch" IsEnabled="False" ToolTipService.ToolTip="OBSの映像キャプチャデバイスでYuiTracking Cameraを選択してください"/>
+       <Button x:Name="RegisterButton" Content="仮想カメラを登録（初回）" Click="Register_Click" HorizontalAlignment="Stretch"/>
       </StackPanel>
       </ScrollViewer>
       <ScrollViewer x:Name="MotionSettings" Grid.Row="1" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
@@ -60,19 +72,6 @@
        <TextBlock x:Name="MouthSensitivityLabel" Text="口の感度：1.8倍" Foreground="#9DA7C0"/><Slider x:Name="MouthSensitivity" ToolTipService.ToolTip="小さな口の動きへの反応を調整" Minimum="0.5" Maximum="3" Value="1.8" StepFrequency="0.1" ValueChanged="MouthStrength_Changed"/>
        <TextBlock x:Name="SpringStrengthLabel" Text="揺れものの強さ：1.0倍" Foreground="#9DA7C0"/><Slider x:Name="SpringStrength" Minimum="0.3" Maximum="3" Value="1" StepFrequency="0.1" ToolTipService.ToolTip="1.0倍がモデル標準。大きくすると髪・服が揺れやすくなります" ValueChanged="SpringStrength_Changed"/>
        <TextBlock x:Name="SensitivityLabel" Text="顔の動きの強さ：1.0倍" Foreground="#9DA7C0"/><Slider x:Name="Sensitivity" Minimum="0.3" Maximum="2" Value="1" StepFrequency="0.1" ValueChanged="Settings_Changed"/>
-      </StackPanel>
-      </ScrollViewer>
-      <ScrollViewer x:Name="OutputSettings" Grid.Row="1" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
-      <StackPanel Spacing="6">
-      <TextBlock Text="背景" Foreground="#9DA7C0" FontSize="12"/>
-      <Grid ColumnSpacing="6">
-       <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-       <ToggleButton x:Name="BackgroundGreen" Content="グリーン" Tag="#00ff00" IsChecked="True" Click="Background_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
-       <ToggleButton x:Name="BackgroundBlue" Grid.Column="1" Content="ブルー" Tag="#0000ff" Click="Background_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
-       <ToggleButton x:Name="BackgroundDark" Grid.Column="2" Content="暗色" Tag="#171b2e" Click="Background_Click" HorizontalAlignment="Stretch" Padding="6,4" ToolTipService.ToolTip="ミッドナイト"/>
-      </Grid>
-      <Button x:Name="OutputButton" Content="仮想カメラ出力を開始" Click="Output_Click" HorizontalAlignment="Stretch" IsEnabled="False" ToolTipService.ToolTip="OBSの映像キャプチャデバイスでYuiTracking Cameraを選択してください"/>
-      <Button x:Name="RegisterButton" Content="仮想カメラを登録（初回）" Click="Register_Click" HorizontalAlignment="Stretch"/>
       </StackPanel>
       </ScrollViewer>
     </Grid>

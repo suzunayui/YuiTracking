@@ -35,7 +35,12 @@ renderer.domElement.title='Ctrl＋マウスホイール：拡大・縮小／ホ�
 // pointer gestures to the surrounding XAML controls. Keep the same WebView
 // alive so expanding the preview cannot restart tracking or virtual output.
 if(window.chrome?.webview){
- renderer.domElement.title+='／ダブルクリック：プレビュー最大化・元に戻す';
+ renderer.domElement.title+='／ダブルクリック：プレビュー最大化・元に戻す／Esc：元に戻す';
+ document.addEventListener('keydown',event=>{
+  if(event.key!=='Escape')return;
+  event.preventDefault();
+  post('restorePreview');
+ });
  document.body.addEventListener('dblclick',event=>{
   if(event.button!==0)return;
   event.preventDefault();

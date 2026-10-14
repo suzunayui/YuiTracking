@@ -90,6 +90,11 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        Root.AddHandler(UIElement.KeyDownEvent, new Microsoft.UI.Xaml.Input.KeyEventHandler((_, e) =>
+        {
+            if (e.Key == Windows.System.VirtualKey.Escape && previewMaximized)
+            { TogglePreviewMaximized(); e.Handled = true; }
+        }), true);
         UpdateMotionLabels();
         var version = typeof(App).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0]
             ?? typeof(App).Assembly.GetName().Version?.ToString(3);
@@ -235,6 +240,11 @@ public sealed partial class MainWindow : Window
         catch (Exception ex) { output?.SetPrivacy(true); App.Log(ex.Message); e.Response = sender.Environment.CreateWebResourceResponse(null,400,"Invalid Frame",""); }
     }
     private bool previewMaximized;
+    private void MaximizePreview_Click(object sender, RoutedEventArgs e)
+    {
+        if (!previewMaximized) TogglePreviewMaximized();
+        Viewport.Focus(FocusState.Programmatic);
+    }
     private void TogglePreviewMaximized()
     {
         previewMaximized = !previewMaximized;
@@ -334,6 +344,7 @@ public sealed partial class MainWindow : Window
                     { pendingModelPath = pendingSample = null; ModelButton.IsEnabled = true; RestoreOutput(); }
                     break;
                 case "togglePreviewMaximized": TogglePreviewMaximized(); break;
+                case "restorePreview": if (previewMaximized) TogglePreviewMaximized(); break;
                 case "status": TrackingStatus.Text = root.GetProperty("text").GetString(); break;
                 case "error": TrackingStatus.Text = root.GetProperty("text").GetString(); App.Log(TrackingStatus.Text ?? "Renderer error"); break;
                 case "tracking": cameraStarting = false; tracking = root.GetProperty("active").GetBoolean(); UpdateTrackingPowerPolicy(); TrackButton.Content = tracking ? "カメラを停止" : "カメラを開始"; TrackButton.IsEnabled = ready && (tracking || Cameras.Items.Count > 0); break;
@@ -426,10 +437,9 @@ public sealed partial class MainWindow : Window
     private void SettingsTab_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Microsoft.UI.Xaml.Controls.Primitives.ToggleButton button || button.Tag is not string tab) return;
-        AvatarTab.IsChecked = tab == "avatar"; MotionTab.IsChecked = tab == "motion"; OutputTab.IsChecked = tab == "output";
+        AvatarTab.IsChecked = tab == "avatar"; MotionTab.IsChecked = tab == "motion";
         AvatarSettings.Visibility = tab == "avatar" ? Visibility.Visible : Visibility.Collapsed;
         MotionSettings.Visibility = tab == "motion" ? Visibility.Visible : Visibility.Collapsed;
-        OutputSettings.Visibility = tab == "output" ? Visibility.Visible : Visibility.Collapsed;
     }
     private void Settings_Changed(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
     { UpdateMotionLabels(); SendSettings(); }
