@@ -6,11 +6,13 @@ Apple Silicon向けのElectron版を `electron/` に追加しました。VRM描�
 
 ## インストーラー
 
-`dist/installer/YuiTracking-Setup-2026.1014.14-x64.exe` を実行します。現在のユーザーのアプリフォルダへインストールし、スタートメニューとOBS用仮想カメラを登録します。デスクトップのショートカットは任意です。更新前にアプリを終了してください。
+`dist/installer/YuiTracking-Setup-2026.1014.15-x64.exe` を実行します。現在のユーザーのアプリフォルダへインストールし、スタートメニューとOBS用仮想カメラを登録します。デスクトップのショートカットは任意です。更新前にアプリを終了してください。
 
 保存済みVRM設定はそのまま引き継ぎます。VRM本体や個人用設定は配布ファイルに含まれず、アンインストールでも削除しません。WebView2 RuntimeがないPCではMicrosoftのブートストラッパーを実行するためインターネット接続が必要です。未導入環境でのダウンロード経路は実機未検証です。インストーラーとアプリにはコード署名を付けていません。
 
 再作成: `scripts/build-installer.ps1`（Inno Setup 6のISCCがPATHまたは `.tools/InnoSetup` に必要）。生成アイコンの原本・各サイズを含むICOは `src/YuiTracking.App/Assets/Branding` にあります。
+
+2026.1014.15では、MSIX用のパッケージ定義とビルドスクリプトを追加しました。仮想カメラをOBSから参照できる共有領域と、EXE版との設定の引き継ぎを定義しています。`scripts/build-msix.ps1` で開発用パッケージを作成し、Store用にはPartner Centerの正式な識別情報を指定します。詳細は [MSIXの手順](packaging/msix/README.md) を参照してください。
 
 2026.1014.14では、yui-baree-coa-20260122.vrmを参照して生成した新しいアイコンに変更しました。少し口を開けた笑顔と、頬の横に上げた手で顔・手のトラッキングを表しています。PNG原本と16〜256pxのWindows用ICOを同梱します。
 

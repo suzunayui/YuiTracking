@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+         xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+         xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"
+         xmlns:virtualization="http://schemas.microsoft.com/appx/manifest/virtualization/windows10"
+         xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+         IgnorableNamespaces="uap desktop6 virtualization rescap">
+  <!-- build-msix.ps1 replaces identity and version. Store identity must come from Partner Center. -->
+  <Identity Name="YuiTracking.Development" Publisher="CN=YuiTracking Development" Version="0.0.0.0" ProcessorArchitecture="x64"/>
+  <Properties>
+    <DisplayName>YuiTracking</DisplayName>
+    <PublisherDisplayName>YuiTracking</PublisherDisplayName>
+    <Logo>Assets\Msix\StoreLogo.png</Logo>
+    <!-- Windows 10 compatibility: OBS needs to read our per-user camera registration and DLL. -->
+    <desktop6:RegistryWriteVirtualization>disabled</desktop6:RegistryWriteVirtualization>
+    <desktop6:FileSystemWriteVirtualization>disabled</desktop6:FileSystemWriteVirtualization>
+    <!-- Windows 11 narrows these exceptions to our data folder and two camera keys. -->
+    <virtualization:FileSystemWriteVirtualization>
+      <virtualization:ExcludedDirectories>
+        <virtualization:ExcludedDirectory>$(KnownFolder:LocalAppData)\YuiTracking</virtualization:ExcludedDirectory>
+      </virtualization:ExcludedDirectories>
+    </virtualization:FileSystemWriteVirtualization>
+    <virtualization:RegistryWriteVirtualization>
+      <virtualization:ExcludedKeys>
+        <virtualization:ExcludedKey>HKEY_CURRENT_USER\Software\Classes\CLSID\{5C2CD55C-92AD-4999-8666-912BD3E7003B}\InprocServer32</virtualization:ExcludedKey>
+        <virtualization:ExcludedKey>HKEY_CURRENT_USER\Software\Classes\CLSID\{860BB310-5D01-11D0-BD3B-00A0C911CE86}\Instance\{5C2CD55C-92AD-4999-8666-912BD3E7003B}</virtualization:ExcludedKey>
+      </virtualization:ExcludedKeys>
+    </virtualization:RegistryWriteVirtualization>
+  </Properties>
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26100.0"/>
+  </Dependencies>
+  <Resources><Resource Language="ja-JP"/></Resources>
+  <Applications>
+    <Application Id="App" Executable="YuiTracking.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements DisplayName="YuiTracking" Description="顔・手・上半身の動きをVRMアバターへ反映するトラッキングアプリ"
+                          BackgroundColor="transparent" Square150x150Logo="Assets\Msix\Square150x150Logo.png"
+                          Square44x44Logo="Assets\Msix\Square44x44Logo.png"/>
+    </Application>
+  </Applications>
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust"/>
+    <rescap:Capability Name="unvirtualizedResources"/>
+    <DeviceCapability Name="webcam"/>
+  </Capabilities>
+</Package>
