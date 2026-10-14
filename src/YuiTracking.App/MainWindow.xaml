@@ -51,11 +51,11 @@
      <TabViewItem IsClosable="False"><TabViewItem.Header><TextBlock Text="動きの調整" FontSize="12"/></TabViewItem.Header>
       <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,12,0,0">
       <StackPanel Spacing="4">
-       <TextBlock Text="滑らかさ" Foreground="#9DA7C0"/><Slider x:Name="Smoothness" Minimum="0" Maximum="0.95" Value="0.65" StepFrequency="0.05" ValueChanged="Settings_Changed"/>
+       <TextBlock x:Name="SmoothnessLabel" Text="滑らかさ：65%" Foreground="#9DA7C0"/><Slider x:Name="Smoothness" Minimum="0" Maximum="0.95" Value="0.65" StepFrequency="0.05" ValueChanged="Settings_Changed"/>
        <TextBlock x:Name="MouthStrengthLabel" Text="口の開き具合：1.0倍" Foreground="#9DA7C0"/><Slider x:Name="MouthStrength" ToolTipService.ToolTip="アバターの口の変形量を調整" Minimum="0.5" Maximum="3" Value="1" StepFrequency="0.1" ValueChanged="MouthStrength_Changed"/>
        <TextBlock x:Name="MouthSensitivityLabel" Text="口の感度：1.8倍" Foreground="#9DA7C0"/><Slider x:Name="MouthSensitivity" ToolTipService.ToolTip="小さな口の動きへの反応を調整" Minimum="0.5" Maximum="3" Value="1.8" StepFrequency="0.1" ValueChanged="MouthStrength_Changed"/>
        <TextBlock x:Name="SpringStrengthLabel" Text="揺れものの強さ：1.0倍" Foreground="#9DA7C0"/><Slider x:Name="SpringStrength" Minimum="0.3" Maximum="3" Value="1" StepFrequency="0.1" ToolTipService.ToolTip="1.0倍がモデル標準。大きくすると髪・服が揺れやすくなります" ValueChanged="SpringStrength_Changed"/>
-       <TextBlock Text="顔の動きの強さ" Foreground="#9DA7C0"/><Slider x:Name="Sensitivity" Minimum="0.3" Maximum="2" Value="1" StepFrequency="0.1" ValueChanged="Settings_Changed"/>
+       <TextBlock x:Name="SensitivityLabel" Text="顔の動きの強さ：1.0倍" Foreground="#9DA7C0"/><Slider x:Name="Sensitivity" Minimum="0.3" Maximum="2" Value="1" StepFrequency="0.1" ValueChanged="Settings_Changed"/>
       </StackPanel>
       </ScrollViewer>
      </TabViewItem>

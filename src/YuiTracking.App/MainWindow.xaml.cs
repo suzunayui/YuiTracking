@@ -90,6 +90,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        UpdateMotionLabels();
         var version = typeof(App).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0]
             ?? typeof(App).Assembly.GetName().Version?.ToString(3);
         Title = $"YuiTracking {version}";
@@ -416,7 +417,14 @@ public sealed partial class MainWindow : Window
         Send(new { type = tracking ? "stopTracking" : "startTracking", deviceId = camera?.Native == false ? camera.Id : "", cameraLabel = camera?.Native == true ? camera.Label : "" });
     }
     private void Calibrate_Click(object sender, RoutedEventArgs e) => Send(new { type = "calibrate" });
-    private void Settings_Changed(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e) => SendSettings();
+    private void UpdateMotionLabels()
+    {
+        // XAML ValueChanged can fire before all named controls are created.
+        if (SmoothnessLabel != null && Smoothness != null) SmoothnessLabel.Text = $"滑らかさ：{Smoothness.Value * 100:0}%";
+        if (SensitivityLabel != null && Sensitivity != null) SensitivityLabel.Text = $"顔の動きの強さ：{Sensitivity.Value:0.0}倍";
+    }
+    private void Settings_Changed(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+    { UpdateMotionLabels(); SendSettings(); }
     private void SpringStrength_Changed(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
     {
         if (!ready || closing) return;
