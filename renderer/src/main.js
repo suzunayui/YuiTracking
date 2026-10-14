@@ -356,18 +356,15 @@ function rigHand(side,landmarks,alpha,worldLandmarks=null,poseLandmarks=null,arm
  const lower=vrm?bone(side+'LowerArm'):arms[side].lower;
  const hand=vrm?bone(side+'Hand'):arms[side].hand;
  if(!upper||!lower||!hand)return;
- if(!landmarks){
-  // Pose shoulders/elbows/wrists still drive the arms when detailed hands are distant.
-  if(armPose?.sample&&armPose.blend>.01){
-   const idle=new THREE.Vector3(sign*.18,-1,0).normalize();
-   aimDirection(upper,lower,idle.lerp(armPose.sample.upper,armPose.blend).normalize(),alpha);upper.updateWorldMatrix(true,true);aimDirection(lower,hand,new THREE.Vector3(0,-1,0).lerp(armPose.sample.lower,armPose.blend).normalize(),alpha);
-  }else if(vrm){
+ const poseWrist=fullBody&&armPose?.sample&&armPose.blend>.25?poseLandmarks?.[side==='left'?16:15]:null;
+ if(!landmarks&&!poseWrist){
+  if(vrm){
    upper.updateWorldMatrix(true,false);
    aim(upper,lower,upper.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(sign*.18,-1,0)),alpha);
   }else upper.quaternion.slerp(new THREE.Quaternion().setFromEuler(new THREE.Euler(0,0,sign*.10)),alpha);
-  if(!armPose?.sample||armPose.blend<=.01)lower.quaternion.slerp(restQ,alpha);hand.quaternion.slerp(restQ,alpha);
+  lower.quaternion.slerp(restQ,alpha);hand.quaternion.slerp(restQ,alpha);
  }else{
-  const wrist=landmarks[0];
+  const wrist=landmarks?.[0]??poseWrist;
   let target=null;
   {
    const a=vrm?bone('leftUpperArm'):arms.left?.upper,b=vrm?bone('rightUpperArm'):arms.right?.upper;
@@ -382,11 +379,9 @@ function rigHand(side,landmarks,alpha,worldLandmarks=null,poseLandmarks=null,arm
   const shoulder=upper.getWorldPosition(new THREE.Vector3());
   const l1=shoulder.distanceTo(lower.getWorldPosition(new THREE.Vector3()));
   const l2=lower.getWorldPosition(new THREE.Vector3()).distanceTo(hand.getWorldPosition(new THREE.Vector3()));
-  target.sub(shoulder).multiplyScalar(1.12).add(shoulder);
   const dir=target.clone().sub(shoulder);const d=clamp(dir.length(),Math.abs(l1-l2)+.01,l1+l2-.01);dir.normalize();
   const along=(l1*l1-l2*l2+d*d)/(2*d);
-  let pole=armPose?.sample?.upper?.clone()??new THREE.Vector3(sign*.4,-1,-.2);pole.addScaledVector(dir,-pole.dot(dir));
-  if(pole.lengthSq()<.001){pole.set(sign*.4,-1,-.2);pole.addScaledVector(dir,-pole.dot(dir));}pole.normalize();
+  const pole=new THREE.Vector3(sign*.4,-1,-.2);pole.addScaledVector(dir,-pole.dot(dir)).normalize();
   const elbow=shoulder.clone().addScaledVector(dir,along).addScaledVector(pole,Math.sqrt(Math.max(0,l1*l1-along*along)));
   aim(upper,lower,elbow,alpha);upper.updateWorldMatrix(true,true);aim(lower,hand,shoulder.clone().addScaledVector(dir,d),alpha);
   if(vrm&&worldLandmarks&&handRest[side]){

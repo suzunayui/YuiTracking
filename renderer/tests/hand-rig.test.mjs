@@ -43,8 +43,8 @@ test('robot shoulder proportions put a raised wrist within reach of its face',()
  assert.ok(wrist.distanceTo(moved)<1e-10);
 });
 
-test('wrist depth follows forward reaches instead of a fixed plane',()=>{
- const pose=[];pose[11]={x:.3,y:.4,z:0,visibility:1};pose[12]={x:.7,y:.4,z:0,visibility:1};pose[15]={x:.6,y:.3,z:-.3,visibility:1};
- const target=shoulderWristTarget({x:.6,y:.3,z:0},pose,new Vector3(0,1.3,0),.4);
- assert.ok(target.z>.25);pose[15].z=.2;assert.ok(shoulderWristTarget({x:.6,y:.3,z:0},pose,new Vector3(0,1.3,0),.4).z<0);
+test('pose wrist depth cannot unexpectedly change the stable hand target plane',()=>{
+ const pose=[];pose[11]={x:.3,y:.4,z:0,visibility:1};pose[12]={x:.7,y:.4,z:0,visibility:1};pose[16]={x:.6,y:.3,z:-.4,visibility:1};
+ const before=shoulderWristTarget({x:.6,y:.3,z:0},pose,new Vector3(0,1.3,0),.4);
+ pose[16].z=.4;const after=shoulderWristTarget({x:.6,y:.3,z:0},pose,new Vector3(0,1.3,0),.4);assert.ok(before.distanceTo(after)<1e-10);
 });
