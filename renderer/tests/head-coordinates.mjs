@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {VRMLoaderPlugin,VRMUtils} from '@pixiv/three-vrm';
 import {avatarHeadRotation} from './head-rotation.js';
+import {avatarBodyRotation} from './body-pose.js';
 window.checkHead=async()=>{
  const loader=new GLTFLoader();loader.register(p=>new VRMLoaderPlugin(p));
  const gltf=await loader.loadAsync('/avatar.vrm'); const vrm=gltf.userData.vrm;VRMUtils.rotateVRM0(vrm);
@@ -15,7 +16,7 @@ window.checkHead=async()=>{
  vrm.humanoid.update();vrm.scene.updateMatrixWorld(true);
  const neutral=raw.getWorldQuaternion(new THREE.Quaternion());
  const basis=vrm.humanoid.normalizedHumanBonesRoot.getWorldQuaternion(new THREE.Quaternion());
- const result={version:vrm.meta.metaVersion,basis:basis.toArray(),axes:{}};
+ const result={version:vrm.meta.metaVersion,basis:basis.toArray(),axes:{},bodyAxes:{}};
  for(const axis of ['x','y','z']){
   const e=new THREE.Euler();e[axis]=.2;
   head.quaternion.copy(avatarHeadRotation(new THREE.Quaternion().setFromEuler(e),1,basis));
@@ -23,6 +24,19 @@ window.checkHead=async()=>{
   const delta=raw.getWorldQuaternion(new THREE.Quaternion()).multiply(neutral.clone().invert());
   const world=new THREE.Euler().setFromQuaternion(delta,'YXZ');
   result.axes[axis]=[world.x,world.y,world.z];
+ }
+ const torso=['spine','chest','upperChest'].map(name=>vrm.humanoid.getNormalizedBoneNode(name)).filter(Boolean);
+ const rawTorso=vrm.humanoid.getRawBoneNode(torso.at(-1)===vrm.humanoid.getNormalizedBoneNode('upperChest')?'upperChest':torso.at(-1)===vrm.humanoid.getNormalizedBoneNode('chest')?'chest':'spine');
+ const torsoNeutral=rawTorso.getWorldQuaternion(new THREE.Quaternion());
+ for(const axis of ['pitch','yaw','roll']){
+  const pose={pitch:0,yaw:0,roll:0};pose[axis]=.2;
+  const target=avatarBodyRotation(pose,basis);
+  for(const node of torso)node.quaternion.copy(new THREE.Quaternion().slerp(target,1/torso.length));
+  head.quaternion.copy(target.clone().invert());
+  vrm.humanoid.update();vrm.scene.updateMatrixWorld(true);
+  const world=new THREE.Euler().setFromQuaternion(rawTorso.getWorldQuaternion(new THREE.Quaternion()).multiply(torsoNeutral.clone().invert()),'YXZ');
+  result.bodyAxes[axis]=[world.x,world.y,world.z];
+  result.bodyAxes[axis].push(raw.getWorldQuaternion(new THREE.Quaternion()).angleTo(neutral));
  }
  VRMUtils.deepDispose(vrm.scene);return result;
 };`,resolveDir:path.resolve(import.meta.dirname,'../src')},bundle:true,format:'esm',write:false});
@@ -40,7 +54,11 @@ try {
   const result=await page.evaluate(()=>window.checkHead());
   for(const [axis,expected] of Object.entries({x:[.2,0,0],y:[0,-.2,0],z:[0,0,-.2]}))
    result.axes[axis].forEach((value,i)=>assert.ok(Math.abs(value-expected[i])<1e-5,modelPath+' '+axis+' must match the same scene-space direction'));
-  console.log('PASS',path.basename(modelPath),'VRM',result.version,'pitch, yaw and tilt agree in scene coordinates');
+  for(const [axis,expected] of Object.entries({pitch:[-.2,0,0],yaw:[0,.2,0],roll:[0,0,-.2]})){
+   result.bodyAxes[axis].slice(0,3).forEach((value,i)=>assert.ok(Math.abs(value-expected[i])<1e-5,modelPath+' body '+axis+' must agree'));
+   assert.ok(result.bodyAxes[axis][3]<1e-5,'torso motion must not rotate the tracked head twice');
+  }
+  console.log('PASS',path.basename(modelPath),'VRM',result.version,'head/body directions agree; head compensation stays neutral');
   await page.close();
  }
 }finally{await browser.close();}

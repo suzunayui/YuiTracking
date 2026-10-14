@@ -1,11 +1,25 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {bodyPose,relativeBodyPose} from '../src/body-pose.js';
+import {bodyPose,relativeBodyPose,avatarBodyRotation} from '../src/body-pose.js';
+import {Euler,Quaternion} from 'three';
 const fixture=()=>{
  const p=[];
  p[11]={x:-.2,y:-.5,z:0,visibility:1};p[12]={x:.2,y:-.5,z:0,visibility:1};
  p[23]={x:-.15,y:0,z:0,visibility:1};p[24]={x:.15,y:0,z:0,visibility:1};return p;
 };
+test('body leaning, bending and turning agree across rig coordinate systems',()=>{
+ const body={pitch:.2,yaw:.3,roll:-.15};
+ const expected=new Quaternion().setFromEuler(new Euler(-.2,.3,.15,'YXZ'));
+ for(const basis of [new Quaternion(),new Quaternion(0,1,0,0),new Quaternion().setFromEuler(new Euler(.1,.7,-.2))]){
+  const local=avatarBodyRotation(body,basis);
+  const world=basis.clone().multiply(local).multiply(basis.clone().invert());
+  assert.ok(world.angleTo(expected)<1e-7);
+  assert.ok(avatarBodyRotation({pitch:0,yaw:0,roll:0},basis).angleTo(new Quaternion())<1e-7);
+ }
+ const legacy=avatarBodyRotation(body);
+ const before=new Quaternion().setFromEuler(new Euler(body.pitch,body.yaw,body.roll,'YXZ'));
+ assert.ok(legacy.angleTo(before)<1e-7,'existing VRM 0 motion is preserved');
+});
 test('neutral torso and calibration do not add rotation',()=>{
  const p=fixture();const pose=bodyPose(p);
  assert.ok(Math.abs(pose.pitch)+Math.abs(pose.yaw)+Math.abs(pose.roll)<1e-10);

@@ -32,9 +32,15 @@
      <Grid ColumnSpacing="6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><ComboBox x:Name="Cameras" PlaceholderText="カメラを選択" HorizontalAlignment="Stretch" DisplayMemberPath="Label"/><Button x:Name="TrackButton" Grid.Column="1" Content="カメラを開始" Click="Track_Click" IsEnabled="False"/></Grid>
      <TextBlock x:Name="CameraInputStatus" Text="カメラ入力：720p / 最大30fps" Foreground="#9DA7C0" FontSize="12" TextWrapping="Wrap"/>
     </StackPanel>
-    <TabView Grid.Row="1" IsAddTabButtonVisible="False" CanDragTabs="False" CanReorderTabs="False" TabWidthMode="Equal">
-     <TabViewItem IsClosable="False"><TabViewItem.Header><TextBlock Text="アバター" FontSize="12"/></TabViewItem.Header>
-      <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,12,0,0">
+    <Grid Grid.Row="1" RowSpacing="12">
+     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+     <Grid ColumnSpacing="4">
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+      <ToggleButton x:Name="AvatarTab" Content="アバター" Tag="avatar" IsChecked="True" Click="SettingsTab_Click" HorizontalAlignment="Stretch" Padding="6,8" FontSize="12"/>
+      <ToggleButton x:Name="MotionTab" Grid.Column="1" Content="動きの調整" Tag="motion" Click="SettingsTab_Click" HorizontalAlignment="Stretch" Padding="6,8" FontSize="12"/>
+      <ToggleButton x:Name="OutputTab" Grid.Column="2" Content="配信出力" Tag="output" Click="SettingsTab_Click" HorizontalAlignment="Stretch" Padding="6,8" FontSize="12"/>
+     </Grid>
+      <ScrollViewer x:Name="AvatarSettings" Grid.Row="1" VerticalScrollBarVisibility="Auto">
       <StackPanel Spacing="6">
       <Button x:Name="ModelButton" Content="VRMを開く" HorizontalAlignment="Stretch" Click="OpenModel_Click" IsEnabled="False"/>
       <TextBlock x:Name="ModelLabel" Text="サンプルを準備中" Foreground="#9DA7C0" TextTrimming="CharacterEllipsis" FontSize="12"/>
@@ -47,9 +53,7 @@
        </Grid>
       </StackPanel>
       </ScrollViewer>
-     </TabViewItem>
-     <TabViewItem IsClosable="False"><TabViewItem.Header><TextBlock Text="動きの調整" FontSize="12"/></TabViewItem.Header>
-      <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,12,0,0">
+      <ScrollViewer x:Name="MotionSettings" Grid.Row="1" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
       <StackPanel Spacing="4">
        <TextBlock x:Name="SmoothnessLabel" Text="滑らかさ：65%" Foreground="#9DA7C0"/><Slider x:Name="Smoothness" Minimum="0" Maximum="0.95" Value="0.65" StepFrequency="0.05" ValueChanged="Settings_Changed"/>
        <TextBlock x:Name="MouthStrengthLabel" Text="口の開き具合：1.0倍" Foreground="#9DA7C0"/><Slider x:Name="MouthStrength" ToolTipService.ToolTip="アバターの口の変形量を調整" Minimum="0.5" Maximum="3" Value="1" StepFrequency="0.1" ValueChanged="MouthStrength_Changed"/>
@@ -58,9 +62,7 @@
        <TextBlock x:Name="SensitivityLabel" Text="顔の動きの強さ：1.0倍" Foreground="#9DA7C0"/><Slider x:Name="Sensitivity" Minimum="0.3" Maximum="2" Value="1" StepFrequency="0.1" ValueChanged="Settings_Changed"/>
       </StackPanel>
       </ScrollViewer>
-     </TabViewItem>
-     <TabViewItem IsClosable="False"><TabViewItem.Header><TextBlock Text="配信出力" FontSize="12"/></TabViewItem.Header>
-      <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,12,0,0">
+      <ScrollViewer x:Name="OutputSettings" Grid.Row="1" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
       <StackPanel Spacing="6">
       <TextBlock Text="背景" Foreground="#9DA7C0" FontSize="12"/>
       <Grid ColumnSpacing="6">
@@ -73,8 +75,7 @@
       <Button x:Name="RegisterButton" Content="仮想カメラを登録（初回）" Click="Register_Click" HorizontalAlignment="Stretch"/>
       </StackPanel>
       </ScrollViewer>
-     </TabViewItem>
-    </TabView>
+    </Grid>
    </Grid>
   </Grid>
  </Grid>

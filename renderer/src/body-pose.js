@@ -1,4 +1,10 @@
 import {clamp} from './rig-math.js';
+import {Euler,Quaternion} from 'three';
+
+export function avatarBodyRotation(pose,basis=new Quaternion(0,1,0,0)){
+ const world=new Quaternion().setFromEuler(new Euler(-pose.pitch,pose.yaw,-pose.roll,'YXZ'));
+ return basis.clone().invert().multiply(world).multiply(basis);
+}
 
 const valid=p=>p&&[p.x,p.y,p.z].every(Number.isFinite)&&(p.visibility??1)>=.6;
 export function bodyPose(points){

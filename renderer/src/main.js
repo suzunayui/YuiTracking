@@ -4,7 +4,7 @@ import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
 import { bend, clamp, smoothingAlpha, safeTracking, calibratedBlink } from './rig-math.js';
 import { placeAvatar } from './avatar-placement.js';
 import { avatarHeadRotation } from './head-rotation.js';
-import {bodyPose,relativeBodyPose} from './body-pose.js';
+import {bodyPose,relativeBodyPose,avatarBodyRotation} from './body-pose.js';
 import {fingerBones,palmBasis,fingerSegments,captureHandRest,shoulderWristTarget} from './hand-rig.js';
 import {HandTransition} from './hand-transition.js';
 import {LandmarkFilter} from './landmark-filter.js';
@@ -347,7 +347,8 @@ function animate(now,dt){
  const pose=safeTracking(latestPose,now)?bodyPose(latestPose.result.worldLandmarks?.[0]):null;
  if(pose&&!bodyNeutral)bodyNeutral={...pose};
  const body=bodyStabilizer.update(pose?relativeBodyPose(pose,bodyNeutral):null,latestPose?.time,now);
- const bodyTarget=new THREE.Quaternion().setFromEuler(new THREE.Euler(body.pitch,body.yaw,body.roll,'YXZ'));
+ const basis=vrm?vrm.humanoid.normalizedHumanBonesRoot.getWorldQuaternion(new THREE.Quaternion()):new THREE.Quaternion();
+ const bodyTarget=avatarBodyRotation(body,basis);
  const bodyActual=new THREE.Quaternion();
  if(vrm){
   const torso=['spine','chest','upperChest'].map(bone).filter(Boolean);
@@ -366,7 +367,6 @@ function animate(now,dt){
  if(mat){
   rawHead.setFromRotationMatrix(new THREE.Matrix4().fromArray(mat));
   const relative=calibration.clone().invert().multiply(rawHead);
-  const basis=vrm?vrm.humanoid.normalizedHumanBonesRoot.getWorldQuaternion(new THREE.Quaternion()):new THREE.Quaternion();
   target.copy(avatarHeadRotation(headStabilizer.update(relative,latestFace.time),sensitivity,basis));
  }
  if(vrm){

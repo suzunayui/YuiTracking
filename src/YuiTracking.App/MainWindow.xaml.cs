@@ -423,6 +423,14 @@ public sealed partial class MainWindow : Window
         if (SmoothnessLabel != null && Smoothness != null) SmoothnessLabel.Text = $"滑らかさ：{Smoothness.Value * 100:0}%";
         if (SensitivityLabel != null && Sensitivity != null) SensitivityLabel.Text = $"顔の動きの強さ：{Sensitivity.Value:0.0}倍";
     }
+    private void SettingsTab_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Microsoft.UI.Xaml.Controls.Primitives.ToggleButton button || button.Tag is not string tab) return;
+        AvatarTab.IsChecked = tab == "avatar"; MotionTab.IsChecked = tab == "motion"; OutputTab.IsChecked = tab == "output";
+        AvatarSettings.Visibility = tab == "avatar" ? Visibility.Visible : Visibility.Collapsed;
+        MotionSettings.Visibility = tab == "motion" ? Visibility.Visible : Visibility.Collapsed;
+        OutputSettings.Visibility = tab == "output" ? Visibility.Visible : Visibility.Collapsed;
+    }
     private void Settings_Changed(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
     { UpdateMotionLabels(); SendSettings(); }
     private void SpringStrength_Changed(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
