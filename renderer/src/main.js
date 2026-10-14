@@ -366,7 +366,8 @@ function animate(now,dt){
  if(mat){
   rawHead.setFromRotationMatrix(new THREE.Matrix4().fromArray(mat));
   const relative=calibration.clone().invert().multiply(rawHead);
-  target.copy(avatarHeadRotation(headStabilizer.update(relative,latestFace.time),sensitivity));
+  const basis=vrm?vrm.humanoid.normalizedHumanBonesRoot.getWorldQuaternion(new THREE.Quaternion()):new THREE.Quaternion();
+  target.copy(avatarHeadRotation(headStabilizer.update(relative,latestFace.time),sensitivity,basis));
  }
  if(vrm){
   // Face tracking is absolute: remove torso rotation to avoid turning twice.

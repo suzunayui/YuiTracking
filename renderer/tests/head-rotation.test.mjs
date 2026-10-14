@@ -23,3 +23,14 @@ test('calibrated neutral stays neutral and large turns remain bounded',()=>{
  assert.ok(Math.abs(result.y+.9)<1e-10);
  assert.ok(Math.abs(result.z-.5)<1e-10);
 });
+
+test('VRM 0, VRM 1 and rotated rig bases produce the same scene-space head motion',()=>{
+ const input=new Quaternion().setFromEuler(new Euler(.2,-.3,.15,'YXZ'));
+ const expected=new Quaternion().setFromEuler(new Euler(.2,.3,-.15,'YXZ'));
+ for(const basis of [new Quaternion(),new Quaternion(0,1,0,0),new Quaternion().setFromEuler(new Euler(.1,.7,-.2))]){
+  const local=avatarHeadRotation(input,1,basis);
+  const world=basis.clone().multiply(local).multiply(basis.clone().invert());
+  assert.ok(world.angleTo(expected)<1e-7,'pitch, yaw and tilt must agree in scene coordinates');
+  assert.ok(avatarHeadRotation(new Quaternion(),1,basis).angleTo(new Quaternion())<1e-7);
+ }
+});
