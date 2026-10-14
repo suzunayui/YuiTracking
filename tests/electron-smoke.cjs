@@ -54,7 +54,7 @@ const assert=require('node:assert/strict');
    if(process.platform==='darwin'){
     await page.locator('#syphon').click();await page.waitForFunction(()=>document.querySelector('#output-status').textContent.includes('送信中'));
     await app.evaluate(({app})=>{const {TextureReceiver}=process.mainModule.require(app.getAppPath()+'/node_modules/@napolab/texture-bridge-core');globalThis.syphonReceiver=new TextureReceiver('YuiTracking');});
-    try{let received=false;for(let attempt=0;attempt<100;attempt++){const size=await app.evaluate(()=>{const frame=globalThis.syphonReceiver.receiveFrame();return frame?[frame.width,frame.height]:null;});if(size&&size[0]===width&&size[1]===height){received=true;break;}await page.waitForTimeout(50);}assert.ok(received,'Syphon receiver dimensions '+width+'x'+height);}finally{await app.evaluate(()=>globalThis.syphonReceiver.stop());await page.locator('#syphon').click();}
+    try{let received=false;for(let attempt=0;attempt<100;attempt++){const size=await app.evaluate(()=>{const frame=globalThis.syphonReceiver.receiveFrame();return frame?[frame.width,frame.height]:null;});if(size&&size[0]===width&&size[1]===height){received=true;break;}await page.waitForTimeout(50);}assert.ok(received,'Syphon receiver dimensions '+width+'x'+height);}finally{await page.locator('#syphon').click();await app.evaluate(()=>globalThis.syphonReceiver.stop());}
    }
   }
   await page.locator('[data-sample=Z]').click();
@@ -78,5 +78,5 @@ const assert=require('node:assert/strict');
   assert.equal(await page.evaluate(()=>document.querySelector('#tracking').textContent),'カメラを開始');
   assert.equal(await page.locator('#full-body').getAttribute('aria-pressed'),'true');assert.equal(await page.locator('#output-resolution').inputValue(),'480');
   console.log('PASS Electron preview, synthetic camera/recognition, stop, settings restored, no camera auto-start');
- }finally{if(app)await app.close();await rm(profile,{recursive:true,force:true});}
+ }finally{if(app)await app.close();await rm(profile,{recursive:true,force:true,maxRetries:5,retryDelay:200});}
 })().catch(error=>{console.error(error);process.exitCode=1;});
