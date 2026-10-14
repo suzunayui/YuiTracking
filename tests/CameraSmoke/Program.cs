@@ -47,3 +47,19 @@ frame[0]=17;frame[(VirtualCamera.Height-1)*VirtualCamera.Width*4]=91;sender.Subm
 Check(view.ReadByte(32)==91&&view.ReadByte(32+(VirtualCamera.Height-1)*VirtualCamera.Width*4)==17,"top-down canvas becomes bottom-up DirectShow image");
 try { sender.Submit(new byte[3]);throw new Exception("Malformed frame accepted"); }catch(ArgumentException){Console.WriteLine("PASS malformed frame rejected");}
 sender.Submit(frame);Next();sender.Dispose();Check(view.ReadByte(32)==23,"shutdown overwrites the last frame");
+for (var resolutionIndex = 0; resolutionIndex < 2; resolutionIndex++)
+{
+    var width = resolutionIndex == 0 ? 1920 : 848; var height = resolutionIndex == 0 ? 1080 : 480;
+    var testChannel = "Resolution_" + Guid.NewGuid().ToString("N"); var bytes = width * height * 4;
+    using var testMutex = new Mutex(false, "UnityCapture_Mutx" + testChannel);
+    using var testSent = new EventWaitHandle(false, EventResetMode.AutoReset, "UnityCapture_Sent" + testChannel);
+    using var testMemory = MemoryMappedFile.CreateOrOpen("UnityCapture_Data" + testChannel, 32L + bytes);
+    using var testView = testMemory.CreateViewAccessor(); testView.Write(0, (uint)bytes);
+    using var testSender = new VirtualCamera(testChannel, width, height);
+    Check(testSent.WaitOne(2000), $"{height}p standby emitted");
+    Check(testView.ReadInt32(4) == width && testView.ReadInt32(8) == height, $"{height}p protocol dimensions");
+    var pixels = new byte[bytes]; pixels[0] = 17; pixels[(height - 1) * width * 4] = 91;
+    testSender.Submit(pixels); Thread.Sleep(100);
+    Check(testView.ReadByte(32) == 91 && testView.ReadByte(32 + (height - 1) * width * 4) == 17, $"{height}p frame orientation");
+    testSender.SetPrivacy(true); Thread.Sleep(100); Check(testView.ReadByte(32) == 23, $"{height}p privacy standby");
+}

@@ -21,7 +21,7 @@ import {avatarTextures} from './avatar-textures.js';
 import {limbPose,crouchRatio,LimbFollower} from './full-body.js';
 import {QuaternionDamping} from './quaternion-damping.js';
 
-const W=1280,H=720;
+let W=1280,H=720;
 const host=window.yuiHost ?? window.chrome?.webview ?? (window.parent!==window ? {
  postMessage:message=>window.parent.postMessage({yuiRenderer:message},location.origin),
  sendFrame:pixels=>window.parent.postMessage({yuiAvatarFrame:pixels.buffer},location.origin,[pixels.buffer]),
@@ -161,7 +161,7 @@ let framePending=false,loadVersion=0;
 let sharedFramePixels=null;
 let perfLast=0,perfFrames=0,perfSent=0,perfDetect=0,perfCapture=0,perfAck=0,perfPendingAt=0;
 const perfStats={renderFps:0,frameFps:0,detectMs:0,captureMs:0,ackMs:0};
-const capture=new FrameCapture(renderer,W,H);
+let capture=new FrameCapture(renderer,W,H);
 // Only this WebGL canvas is ever copied to the outbound frame buffer. The input
 // video is kept detached and is passed exclusively to the landmark detectors.
 const standby=new THREE.Scene(); standby.background=new THREE.Color('#171b2e');
@@ -434,6 +434,12 @@ function rigLegs(now,dt,alpha,screen){
   }else{upper?.quaternion.slerp(restQ,alpha);lower?.quaternion.slerp(restQ,alpha);foot?.quaternion.slerp(restQ,alpha);}
  }
 }
+function setOutputResolution(height){
+ const width=height===1080?1920:height===480?848:1280;height=[480,720,1080].includes(height)?height:720;
+ if(W===width&&H===height)return;
+ W=width;H=height;previewOutput.setOutputSize(W,H);capture=new FrameCapture(renderer,W,H);framePending=false;
+ if(sharedFramePixels){window.chrome?.webview?.releaseBuffer(sharedFramePixels.buffer);sharedFramePixels=null;}
+}
 function fitFullBody(){endPan();endOrbit();camera.zoom=1;camera.position.set(0,.9,4);cameraTarget.set(0,.9,0);camera.lookAt(cameraTarget);camera.updateProjectionMatrix();saveFraming();}
 function animate(now,dt){
  const alpha=smoothingAlpha(smoothing,dt);
@@ -536,6 +542,7 @@ function loop(now){
 }
 window.chrome?.webview?.addEventListener('sharedbufferreceived',e=>{
  if(e.additionalData?.type!=='avatarFrame')return;
+ if([480,720,1080].includes(e.additionalData.height))setOutputResolution(e.additionalData.height);
  const buffer=e.getBuffer();
  if(buffer.byteLength!==W*H*4){window.chrome.webview.releaseBuffer(buffer);return;}
  if(sharedFramePixels)window.chrome.webview.releaseBuffer(sharedFramePixels.buffer);
@@ -545,6 +552,7 @@ host?.addEventListener('message',async e=>{
  const m=e.data;
  try{
  switch(m.type){
+  case'outputResolution':setOutputResolution(m.height);break;
   case'frameAck':if(framePending){perfSent++;perfAck=Math.max(perfAck,performance.now()-perfPendingAt);}framePending=false;break;
   case'restoreFraming':
    if([m.zoom,m.x,m.y,m.z].every(Number.isFinite)){

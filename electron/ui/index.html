@@ -28,6 +28,7 @@
       <button data-background="transparent" aria-pressed="false" title="透明な背景でアバターを出力します。&#10;MacではOBSのSyphonクライアントで受信します。&#10;映像キャプチャデバイス向けの出力ではありません。">透過</button><button data-background="#00ff00" aria-pressed="true" title="背景をグリーンにします。OBSのクロマキーで背景を抜くときに使えます。">グリーン</button><button id="background-image" aria-pressed="false" title="PNG・JPEG・BMPの画像を選んで背景にします。&#10;比率を保って画面全体に配置します。">背景を選択</button>
       <button data-background="#ff0000" aria-pressed="false" title="背景をレッドにします。">レッド</button><button data-background="#0000ff" aria-pressed="false" title="背景をブルーにします。">ブルー</button><button data-background="#000000" aria-pressed="false" title="背景をブラックにします。">ブラック</button>
      </div>
+     <label title="出力を停止してから変更してください。&#10;480p：軽め／720p：標準／1080p：高精細">出力解像度<select id="output-resolution"><option value="480">480p（848×480）</option><option value="720" selected>720p（1280×720）</option><option value="1080">1080p（1920×1080）</option></select></label>
      <button id="syphon" class="wide output-button" disabled title="アバターと背景だけをSyphonへ送信します。&#10;OBS → Syphonクライアント → YuiTracking を選びます。">Syphon出力を開始</button>
     </div>
     <div id="motion-settings" role="tabpanel" hidden>

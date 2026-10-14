@@ -16,7 +16,9 @@ public sealed partial class MainWindow : Window
     private VirtualCamera? output;
     private CoreWebView2SharedBuffer? frameBuffer;
     private Stream? frameStream;
-    private readonly byte[] frameBytes = new byte[VirtualCamera.FrameBytes];
+    private byte[] frameBytes = new byte[VirtualCamera.FrameBytes];
+    private int outputHeight = 720;
+    private int OutputWidth => outputHeight == 1080 ? 1920 : outputHeight == 480 ? 848 : 1280;
     private string performanceStatus = "";
     private string backgroundColor = "#00ff00";
     private string? backgroundImagePath, pendingBackgroundPath;
@@ -116,7 +118,7 @@ public sealed partial class MainWindow : Window
             { TogglePreviewMaximized(); e.Handled = true; }
         }), true);
         UpdateMotionLabels();
-        try { FullBody.IsChecked = AppSettings.FullBodyEnabled; }
+        try { FullBody.IsChecked = AppSettings.FullBodyEnabled; outputHeight = AppSettings.OutputHeight; OutputResolution.SelectedIndex = outputHeight == 480 ? 0 : outputHeight == 1080 ? 2 : 1; }
         catch (Exception ex) { App.Log(ex.Message); }
         var version = typeof(App).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0]
             ?? typeof(App).Assembly.GetName().Version?.ToString(3);
@@ -267,7 +269,7 @@ public sealed partial class MainWindow : Window
         try
         {
             if (e.Request.Method != "POST" || e.Request.Content == null) throw new InvalidDataException("Invalid frame request.");
-            var bytes = new byte[VirtualCamera.FrameBytes];
+            var bytes = new byte[frameBytes.Length];
             using var body = e.Request.Content.AsStreamForRead();
             await body.ReadExactlyAsync(bytes);
             if (body.ReadByte() != -1) throw new InvalidDataException("Oversized frame.");
@@ -340,15 +342,7 @@ public sealed partial class MainWindow : Window
                 case "ready":
                     ready = true; ModelButton.IsEnabled = TrackButton.IsEnabled = OutputButton.IsEnabled = true;
                     if (nativeCamerasAvailable) TrackButton.IsEnabled = Cameras.Items.Count > 0;
-                    try
-                    {
-                        frameStream?.Dispose(); frameBuffer?.Dispose();
-                        frameBuffer = sender.Environment.CreateSharedBuffer((ulong)VirtualCamera.FrameBytes);
-                        frameStream = frameBuffer.OpenStream().AsStream();
-                        sender.PostSharedBufferToScript(frameBuffer, CoreWebView2SharedBufferAccess.ReadWrite, "{\"type\":\"avatarFrame\"}");
-                        App.Log("Shared-memory frame transport ready");
-                    }
-                    catch (Exception ex) { frameStream = null; App.Log("Frame transport fallback: " + ex.Message); }
+                    ConfigureFrameTransport(); OutputResolution.IsEnabled = true;
                     TrackingStatus.Text = "準備完了";
                     SendSettings(); App.Log("Renderer ready");
                     try
@@ -597,6 +591,26 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex) { Report(ex); }
     }
+    private void ConfigureFrameTransport()
+    {
+        var sender = Viewport.CoreWebView2;
+        Send(new { type = "outputResolution", height = outputHeight });
+        frameBytes = new byte[OutputWidth * outputHeight * 4];
+        try
+        {
+            frameStream?.Dispose(); frameBuffer?.Dispose(); frameBuffer = null; frameStream = null;
+            frameBuffer = sender.Environment.CreateSharedBuffer((ulong)frameBytes.Length);
+            frameStream = frameBuffer.OpenStream().AsStream();
+            sender.PostSharedBufferToScript(frameBuffer, CoreWebView2SharedBufferAccess.ReadWrite, JsonSerializer.Serialize(new { type = "avatarFrame", width = OutputWidth, height = outputHeight }));
+        }
+        catch (Exception ex) { frameStream = null; App.Log("Frame transport fallback: " + ex.Message); }
+    }
+    private void OutputResolution_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (!ready || closing || output != null || OutputResolution.SelectedItem is not ComboBoxItem item || !int.TryParse(item.Tag?.ToString(), out var height)) return;
+        try { outputHeight = height; AppSettings.SaveOutputHeight(height); ConfigureFrameTransport(); }
+        catch (Exception ex) { Report(ex); }
+    }
     private void FullBody_Click(object sender, RoutedEventArgs e)
     {
         if (!ready || closing) return;
@@ -646,9 +660,10 @@ public sealed partial class MainWindow : Window
             if (enabled && output == null)
             {
                 if (!VirtualCamera.IsRegistered()) VirtualCamera.Register(Path.Combine(AppContext.BaseDirectory,"Assets","VirtualCamera","UnityCaptureFilter64.dll"));
-                output = new VirtualCamera(); output.SetPrivacy(Privacy.IsChecked == true); Send(new { type = "output", value = true }); OutputButton.Content = "仮想カメラ出力を停止";
+                output = new VirtualCamera(width: OutputWidth, height: outputHeight); output.SetPrivacy(Privacy.IsChecked == true); Send(new { type = "output", value = true }); OutputButton.Content = "仮想カメラ出力を停止";
             }
             else if (!enabled && output != null) { Send(new { type = "output", value = false }); output.Dispose(); output = null; OutputButton.Content = "仮想カメラ出力を開始"; OutputStatus.Text = "仮想カメラ：停止中"; }
+            OutputResolution.IsEnabled = output == null;
             ToolTipService.SetToolTip(OutputButton, output != null
                 ? "仮想カメラへの映像出力を停止します。\nプレビューとカメラのトラッキングは続きます。"
                 : "アバター映像を仮想カメラへ出力します。\nOBSで「映像キャプチャデバイス」を追加し、\n「YuiTracking Camera」を選択してください。");

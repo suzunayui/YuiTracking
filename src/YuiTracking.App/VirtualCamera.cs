@@ -11,9 +11,12 @@ public sealed class VirtualCamera : IDisposable
     public const string Category = "{860BB310-5D01-11D0-BD3B-00A0C911CE86}";
     private readonly string suffix; // Production: ASCII '0' + slot 42 = 'Z'
     private readonly object gate = new();
-    private readonly byte[] standby = CreateStandby();
+    private readonly byte[] standby;
+    public int FrameWidth { get; }
+    public int FrameHeight { get; }
+    public int FrameSize => FrameWidth * FrameHeight * 4;
     private byte[]? latest;
-    private byte[] back = new byte[FrameBytes];
+    private byte[] back;
     private long lastFrame;
     private bool privacy, disposed;
     private readonly FramePump timer;
@@ -23,18 +26,21 @@ public sealed class VirtualCamera : IDisposable
     private EventWaitHandle? sent;
     private readonly EventWaitHandle want;
     public string Status { get; private set; } = "OBSの接続待ち";
-    public VirtualCamera(string channelSuffix = "Z")
-    { suffix = channelSuffix; want = new(false, EventResetMode.AutoReset, "UnityCapture_Want" + suffix); timer = new FramePump(() => Tick(null)); }
+    public VirtualCamera(string channelSuffix = "Z", int width = Width, int height = Height)
+    {
+        if ((width, height) is not ((848, 480) or (1280, 720) or (1920, 1080))) throw new ArgumentException("Unsupported output resolution.");
+        FrameWidth = width; FrameHeight = height; standby = CreateStandby(width, height); back = new byte[FrameSize];
+        suffix = channelSuffix; want = new(false, EventResetMode.AutoReset, "UnityCapture_Want" + suffix); timer = new FramePump(() => Tick(null)); }
     public void Submit(byte[] rgba)
     {
-        if (rgba.Length != FrameBytes) throw new ArgumentException("Unexpected render-frame size.");
+        if (rgba.Length != FrameSize) throw new ArgumentException("Unexpected render-frame size.");
         // DirectShow's RGB output is bottom-up; Canvas pixels arrive top-down.
-        const int stride = Width * 4;
+        var stride = FrameWidth * 4;
         lock (gate)
         {
             if (disposed || privacy) return;
-            for (var y = 0; y < Height; y++) Buffer.BlockCopy(rgba, y * stride, back, (Height - y - 1) * stride, stride);
-            var old = latest; latest = back; back = old ?? new byte[FrameBytes];
+            for (var y = 0; y < FrameHeight; y++) Buffer.BlockCopy(rgba, y * stride, back, (FrameHeight - y - 1) * stride, stride);
+            var old = latest; latest = back; back = old ?? new byte[FrameSize];
             lastFrame = Environment.TickCount64;
         }
     }
@@ -51,7 +57,7 @@ public sealed class VirtualCamera : IDisposable
                     mutex ??= Mutex.OpenExisting("UnityCapture_Mutx" + suffix);
                     sent ??= EventWaitHandle.OpenExisting("UnityCapture_Sent" + suffix);
                     memory ??= MemoryMappedFile.OpenExisting("UnityCapture_Data" + suffix);
-                    view = memory.CreateViewAccessor(0, 32L + FrameBytes);
+                    view = memory.CreateViewAccessor(0, 32L + FrameSize);
                 }
                 var frame = privacy || latest == null || Environment.TickCount64 - lastFrame > 700 ? standby : latest;
                 bool acquired;
@@ -59,8 +65,8 @@ public sealed class VirtualCamera : IDisposable
                 if (!acquired) return;
                 try
                 {
-                    if (view.ReadUInt32(0) < FrameBytes) throw new InvalidOperationException("Camera buffer too small.");
-                    view.Write(4, Width); view.Write(8, Height); view.Write(12, Width);
+                    if (view.ReadUInt32(0) < FrameSize) throw new InvalidOperationException("Camera buffer too small.");
+                    view.Write(4, FrameWidth); view.Write(8, FrameHeight); view.Write(12, FrameWidth);
                     view.Write(16, 0); view.Write(20, 1); view.Write(24, 0); view.Write(28, 700);
                     view.WriteArray(32, frame, 0, frame.Length);
                 }
@@ -73,14 +79,14 @@ public sealed class VirtualCamera : IDisposable
             catch (Exception ex) { Status = "出力エラー: " + ex.Message; ResetConnection(); }
         }
     }
-    public static byte[] CreateStandby()
+    public static byte[] CreateStandby(int width = Width, int height = Height)
     {
-        var data = new byte[FrameBytes];
-        for (var y = 0; y < Height; y++) for (var x = 0; x < Width; x++)
+        var data = new byte[width * height * 4];
+        for (var y = 0; y < height; y++) for (var x = 0; x < width; x++)
         {
-            var p = (y * Width + x) * 4;
-            var center = Math.Abs(x - Width / 2) < 48 && Math.Abs(y - Height / 2) < 48;
-            var bars = center && ((x > Width/2-30 && x < Width/2-10) || (x > Width/2+10 && x < Width/2+30));
+            var p = (y * width + x) * 4;
+            var center = Math.Abs(x - width / 2) < 48 && Math.Abs(y - height / 2) < 48;
+            var bars = center && ((x > width/2-30 && x < width/2-10) || (x > width/2+10 && x < width/2+30));
             data[p] = (byte)(bars ? 130 : 23); data[p+1] = (byte)(bars ? 226 : 27);
             data[p+2] = (byte)(bars ? 192 : 46); data[p+3] = 255;
         }

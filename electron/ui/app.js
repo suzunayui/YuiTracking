@@ -2,7 +2,7 @@ const $=id=>document.getElementById(id),host=window.yuiDesktop;
 const keys=['smoothing','sensitivity','mouthOpenStrength','mouthSensitivity','springStrength'];
 let active=false,timer,statusTimer,statusRevision=0,syphonActive=false,maximized=false,nativeLabels=[],browserLabels=false;
 window.yuiHost.addEventListener('message',event=>$('preview').contentWindow.postMessage({yuiCommand:event.data},location.origin));
-window.addEventListener('message',event=>{if(event.source!==$('preview').contentWindow||event.origin!==location.origin)return;if(event.data?.yuiRenderer)window.yuiHost.postMessage(event.data.yuiRenderer);if(event.data?.yuiAvatarFrame instanceof ArrayBuffer&&event.data.yuiAvatarFrame.byteLength===1280*720*4)host.sendAvatarFrame(event.data.yuiAvatarFrame).catch(showError).finally(()=>$('preview').contentWindow.postMessage({yuiCommand:{type:'frameAck'}},location.origin));});
+window.addEventListener('message',event=>{if(event.source!==$('preview').contentWindow||event.origin!==location.origin)return;if(event.data?.yuiRenderer)window.yuiHost.postMessage(event.data.yuiRenderer);if(event.data?.yuiAvatarFrame instanceof ArrayBuffer&&[848*480*4,1280*720*4,1920*1080*4].includes(event.data.yuiAvatarFrame.byteLength))host.sendAvatarFrame(event.data.yuiAvatarFrame).catch(showError).finally(()=>$('preview').contentWindow.postMessage({yuiCommand:{type:'frameAck'}},location.origin));});
 function setStatus(text,temporary=false){clearTimeout(statusTimer);const revision=++statusRevision;$('status').textContent=text;if(temporary)statusTimer=setTimeout(()=>{if(statusRevision===revision)$('status').textContent=active?'トラッキング中':'VRMを表示中';},3000);}
 function showError(error){setStatus(error.message||String(error));}
 function send(type,rest={}){host.command({type,...rest});}
@@ -26,11 +26,12 @@ $('privacy').onclick=()=>{const value=$('privacy').getAttribute('aria-pressed')!
 $('tracking').onclick=()=>{send(active?'stopTracking':'startTracking',{deviceId:$('cameras').value.startsWith('native:')?'':$('cameras').value,cameraLabel:$('cameras').value.startsWith('native:')?$('cameras').selectedOptions[0]?.textContent:undefined});$('tracking').disabled=true;};
 $('cameras').onpointerdown=()=>send('refreshCameras');
 host.syphonAvailable().then(available=>{$('syphon').disabled=!available;if(!available)$('output-status').textContent='Syphon出力はMac版で利用できます。';});
+$('output-resolution').onchange=()=>host.setOutputResolution(Number($('output-resolution').value)).catch(showError);
 $('syphon').onclick=async()=>{try{$('syphon').disabled=true;await host.setSyphon(!syphonActive);}catch(error){showError(error);}finally{$('syphon').disabled=false;}};
 host.onEvent(message=>{
  if(message.type==='ready'){$('open').disabled=false;$('tracking').disabled=false;}
  if(message.type==='safety')$('privacy').setAttribute('aria-pressed',true);
- if(message.type==='syphon'){syphonActive=message.active;$('syphon').textContent=syphonActive?'Syphon出力を停止':'Syphon出力を開始';$('output-status').textContent=message.error||(syphonActive?'送信中：YuiTracking / 1280 × 720':'Syphon：停止中');}
+ if(message.type==='syphon'){syphonActive=message.active;$('output-resolution').disabled=syphonActive;$('syphon').textContent=syphonActive?'Syphon出力を停止':'Syphon出力を開始';$('output-status').textContent=message.error||(syphonActive?'送信中：YuiTracking / '+(Number($('output-resolution').value)===1080?'1920 × 1080':Number($('output-resolution').value)===480?'848 × 480':'1280 × 720'):'Syphon：停止中');}
  if(['status','error'].includes(message.type))setStatus(message.text,message.temporary===true);
  if(message.type==='error')$('tracking').disabled=false;
  if(message.type==='tracking'){active=message.active;$('tracking').textContent=active?'カメラを停止':'カメラを開始';$('tracking').disabled=false;}
@@ -38,9 +39,10 @@ host.onEvent(message=>{
  if(message.type==='cameraInput')$('input').textContent=`カメラ入力：${message.width} × ${message.height} / ${Math.round(message.fps)}fps`;
  if(message.type==='avatar'){$('model').textContent=message.label;for(const button of document.querySelectorAll('[data-sample]'))button.setAttribute('aria-pressed',button.dataset.sample===message.sample);}
  if(message.type==='background'){for(const button of document.querySelectorAll('[data-background]'))button.setAttribute('aria-pressed',!message.image&&button.dataset.background===message.color);$('background-image').setAttribute('aria-pressed',message.image);}
+ if(message.type==='outputResolution')$('output-resolution').value=String(message.height);
  if(message.type==='togglePreviewMaximized')maximize(!maximized);if(message.type==='restorePreview')maximize(false);
 });
-host.getSettings().then(saved=>{for(const key of keys)if(Number.isFinite(saved[key]))$(key).value=saved[key];$('full-body').setAttribute('aria-pressed',saved.fullBody===true);labels();}).catch(showError);
+host.getSettings().then(saved=>{for(const key of keys)if(Number.isFinite(saved[key]))$(key).value=saved[key];$('full-body').setAttribute('aria-pressed',saved.fullBody===true);$('output-resolution').value=String(saved.outputHeight||720);labels();}).catch(showError);
 host.info().then(info=>document.title='YuiTracking '+info.version).catch(showError);
 async function memory(){try{const result=await host.memory();$('memory').textContent='メモリ：'+Math.round(result.mb)+' MB';$('memory').title='YuiTrackingと描画・認識プロセスの使用量合計\n'+result.processes.map(item=>item.type+'：'+Math.round(item.mb)+' MB').join('\n');}catch{} }
 memory();setInterval(memory,5000);

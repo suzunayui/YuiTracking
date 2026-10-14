@@ -42,6 +42,7 @@ ipcMain.handle('syphon-capability',event=>trusted(event,'ui')&&process.platform=
 ipcMain.handle('syphon-output',async(event,enabled)=>{if(!trusted(event,'ui')||typeof enabled!=='boolean')return;restoreOutput=false;await setOutput(enabled);});
 ipcMain.handle('avatar-frame',(event,data)=>trusted(event,'ui')&&syphon.accept(data));
 ipcMain.handle('save-settings',async(event,value)=>{if(!trusted(event,'ui'))return;Object.assign(settings,safeSettings(value));await persist();});
+ipcMain.handle('output-resolution',async(event,height)=>{if(!trusted(event,'ui')||![480,720,1080].includes(height))return;if(syphon.sender)throw new Error('出力を停止してから解像度を変更してください。');syphon.setSize(height===1080?1920:height===480?848:1280,height);settings.outputHeight=height;command({type:'outputResolution',height});notify({type:'outputResolution',height,width:syphon.width});await persist();});
 ipcMain.handle('sample',(event,sample)=>{if(trusted(event,'ui')&&['Y','Z','robot'].includes(sample))return selectModel(sample==='robot'?null:samplePath(sample),sample);});
 ipcMain.handle('background',async(event,color)=>{if(!trusted(event,'ui'))return;if(colors.includes(color)){selectBackground(color,null);return;}if(color!=='image')return;
  const result=await dialog.showOpenDialog(window,{filters:[{name:'背景画像',extensions:['png','jpg','jpeg','bmp']}],properties:['openFile']});if(result.canceled)return;
@@ -58,7 +59,7 @@ ipcMain.on('renderer-event',async(event,message)=>{
  if(!trusted(event,'ui')||!message||typeof message.type!=='string')return;
  try{
  if(message.type==='ready'){
-  rendererReady=true;command({type:'settings',smoothing:.65,sensitivity:1,mouthOpenStrength:1,mouthSensitivity:1.8,springStrength:1,...safeSettings(settings)});
+  rendererReady=true;command({type:'outputResolution',height:syphon.height});command({type:'settings',smoothing:.65,sensitivity:1,mouthOpenStrength:1,mouthSensitivity:1.8,springStrength:1,...safeSettings(settings)});
   if(settings.framing)command({type:'restoreFraming',...settings.framing});
   selectBackground(colors.includes(settings.background)?settings.background:'#00ff00',settings.backgroundImagePath);
   if(settings.defaultSample||!settings.defaultVrmPath)selectModel(samplePath(settings.defaultSample==='Z'?'Z':'Y'),settings.defaultSample||'Y');else selectModel(settings.defaultVrmPath,null);
@@ -79,6 +80,7 @@ ipcMain.on('renderer-event',async(event,message)=>{
 async function recover(){if(recoveryOpen||!window)return;rendererReady=false;syphon.setPrivacy(true);recoveryOpen=true;try{const result=await dialog.showMessageBox(window,{type:'error',title:'YuiTracking',message:'描画が停止しました。再起動しますか？',buttons:['再起動','閉じる'],defaultId:0,cancelId:1});if(result.response===0){await persist();app.relaunch();app.exit();}}finally{recoveryOpen=false;}}
 app.whenReady().then(async()=>{
  try{settings=JSON.parse(await fs.readFile(settingsPath(),'utf8'));}catch{settings={};}
+ const height=[480,1080].includes(settings.outputHeight)?settings.outputHeight:720;syphon.setSize(height===1080?1920:height===480?848:1280,height);
  restoreOutput=process.platform==='darwin'&&settings.syphonEnabled===true;
  protocol.handle('https',async request=>{
   const url=new URL(request.url);if(url.origin!==origin)return new Response('Blocked',{status:403});let file;

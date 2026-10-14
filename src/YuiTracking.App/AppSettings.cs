@@ -35,6 +35,12 @@ internal static class AppSettings
         if (!double.IsFinite(value)) return;
         var settings = Read(); settings["springStrength"] = Math.Clamp(value, .3, 3); Save(settings);
     }
+    public static int OutputHeight => Read()["outputHeight"]?.GetValue<int>() is 480 or 1080 ? Read()["outputHeight"]!.GetValue<int>() : 720;
+    public static void SaveOutputHeight(int height)
+    {
+        if (height is not (480 or 720 or 1080)) throw new ArgumentException("Unsupported output resolution.");
+        var settings = Read(); settings["outputHeight"] = height; Save(settings);
+    }
     public static bool FullBodyEnabled => Read()["fullBody"]?.GetValue<bool>() ?? false;
     public static void SaveFullBody(bool enabled)
     {
