@@ -18,6 +18,7 @@ public sealed partial class MainWindow : Window
     private Stream? frameStream;
     private readonly byte[] frameBytes = new byte[VirtualCamera.FrameBytes];
     private string performanceStatus = "";
+    private string backgroundColor = "#00ff00";
     private string? powerPolicyStatus;
     private byte[]? modelBytes;
     private int modelRequestId;
@@ -429,11 +430,19 @@ public sealed partial class MainWindow : Window
         MouthSensitivityLabel.Text = $"口の感度：{MouthSensitivity.Value:0.0}倍";
         pendingMouthSettings = true; mouthTimer.Stop(); mouthTimer.Start(); SendSettings();
     }
-    private void Background_Changed(object sender, SelectionChangedEventArgs e) => SendSettings();
+    private void Background_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Microsoft.UI.Xaml.Controls.Primitives.ToggleButton button || button.Tag is not string color) return;
+        backgroundColor = color;
+        BackgroundGreen.IsChecked = color == "#00ff00";
+        BackgroundBlue.IsChecked = color == "#0000ff";
+        BackgroundDark.IsChecked = color == "#171b2e";
+        SendSettings();
+    }
     private void SendSettings()
     {
         if (!ready) return;
-        Send(new { type = "settings", smoothing = Smoothness.Value, sensitivity = Sensitivity.Value, mouthOpenStrength = MouthStrength.Value, mouthSensitivity = MouthSensitivity.Value, springStrength = SpringStrength.Value, background = (Background.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "#00ff00" });
+        Send(new { type = "settings", smoothing = Smoothness.Value, sensitivity = Sensitivity.Value, mouthOpenStrength = MouthStrength.Value, mouthSensitivity = MouthSensitivity.Value, springStrength = SpringStrength.Value, background = backgroundColor });
     }
     private void Privacy_Toggled(object sender, RoutedEventArgs e) { if (!ready) return; output?.SetPrivacy(Privacy.IsOn); Send(new { type = "privacy", value = Privacy.IsOn }); }
     private void Register_Click(object sender, RoutedEventArgs e)

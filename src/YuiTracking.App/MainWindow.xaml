@@ -32,14 +32,13 @@
       <StackPanel Spacing="6">
       <Button x:Name="ModelButton" Content="VRMを開く" HorizontalAlignment="Stretch" Click="OpenModel_Click" IsEnabled="False"/>
       <TextBlock x:Name="ModelLabel" Text="サンプルを準備中" Foreground="#9DA7C0" TextTrimming="CharacterEllipsis" FontSize="12"/>
-      <Expander Header="サンプル" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+      <TextBlock Text="サンプル" Foreground="#9DA7C0" FontSize="12"/>
        <Grid ColumnSpacing="6">
        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
        <Button Content="女の子" Tag="Y" Click="Sample_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
        <Button Grid.Column="1" Content="男の子" Tag="Z" Click="Sample_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
        <Button Grid.Column="2" Content="ロボット" Click="Demo_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
        </Grid>
-      </Expander>
       </StackPanel>
      </Expander>
      <Expander Header="トラッキング" IsExpanded="True" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
@@ -59,7 +58,13 @@
      </Expander>
      <Expander Header="配信出力" IsExpanded="True" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
       <StackPanel Spacing="6">
-      <ComboBox x:Name="Background" SelectedIndex="0" HorizontalAlignment="Stretch" SelectionChanged="Background_Changed"><ComboBoxItem Content="背景：グリーン" Tag="#00ff00"/><ComboBoxItem Content="背景：ブルー" Tag="#0000ff"/><ComboBoxItem Content="背景：ミッドナイト" Tag="#171b2e"/></ComboBox>
+      <TextBlock Text="背景" Foreground="#9DA7C0" FontSize="12"/>
+      <Grid ColumnSpacing="6">
+       <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+       <ToggleButton x:Name="BackgroundGreen" Content="グリーン" Tag="#00ff00" IsChecked="True" Click="Background_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
+       <ToggleButton x:Name="BackgroundBlue" Grid.Column="1" Content="ブルー" Tag="#0000ff" Click="Background_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
+       <ToggleButton x:Name="BackgroundDark" Grid.Column="2" Content="暗色" Tag="#171b2e" Click="Background_Click" HorizontalAlignment="Stretch" Padding="6,4" ToolTipService.ToolTip="ミッドナイト"/>
+      </Grid>
       <Button x:Name="OutputButton" Content="仮想カメラ出力を開始" Click="Output_Click" HorizontalAlignment="Stretch" IsEnabled="False" ToolTipService.ToolTip="OBSの映像キャプチャデバイスでYuiTracking Cameraを選択してください"/>
       <Button x:Name="RegisterButton" Content="仮想カメラを登録（初回）" Click="Register_Click" HorizontalAlignment="Stretch"/>
       </StackPanel>
