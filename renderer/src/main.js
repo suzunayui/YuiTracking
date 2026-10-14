@@ -13,6 +13,7 @@ import {mouthShapes} from './mouth-shapes.js';
 import {AutoCalibration} from './auto-calibration.js';
 import {SpringStrength} from './spring-strength.js';
 import {RotationStabilizer} from './rotation-stabilizer.js';
+import {browserCameraId} from './camera-selection.js';
 
 const W=1280,H=720;
 const host=window.yuiHost ?? window.chrome?.webview ?? (window.parent!==window ? {
@@ -210,14 +211,15 @@ async function ensureTasks(){
  });
  return workerReady;
 }
-async function listCameras(){
- const devices=await navigator.mediaDevices.enumerateDevices();
- post('cameras',{items:devices.filter(d=>d.kind==='videoinput'&&!/YuiTracking Camera|HoloTrack Avatar Camera|Unity Video Capture|OBS Virtual Camera|WarudoCam/i.test(d.label)).map((d,i)=>({deviceId:d.deviceId,label:d.label||`カメラ ${i+1}`}))});
+async function listCameras(devices){
+ devices??=await navigator.mediaDevices.enumerateDevices();
+ post('cameras',{labelsAvailable:devices.filter(d=>d.kind==='videoinput').every(d=>!!d.label),items:devices.filter(d=>d.kind==='videoinput'&&!/YuiTracking Camera|HoloTrack Avatar Camera|Unity Video Capture|OBS Virtual Camera|WarudoCam/i.test(d.label)).map((d,i)=>({deviceId:d.deviceId,label:d.label||`カメラ ${i+1}`}))});
 }
-async function startTracking(deviceId){
+async function startTracking(deviceId,cameraLabel){
  if(initializing||tracking)return;initializing=true;
  try{
   await ensureTasks();
+  deviceId=await browserCameraId(navigator.mediaDevices,deviceId,cameraLabel,listCameras);
   // No audio capture, no display capture, and no automatic start on launch.
   stream=await navigator.mediaDevices.getUserMedia({video:{...(deviceId?{deviceId:{exact:deviceId}}:{}),width:{ideal:1280},height:{ideal:720},aspectRatio:{ideal:16/9},frameRate:{ideal:30,max:30}},audio:false});
   const track=stream.getVideoTracks()[0];
@@ -225,7 +227,7 @@ async function startTracking(deviceId){
   if(/YuiTracking Camera|HoloTrack Avatar Camera|Unity Video Capture|OBS Virtual Camera|WarudoCam/i.test(track.label))throw new Error('入力に実際のWebカメラを選択してください。');
   video=document.createElement('video');video.muted=true;video.playsInline=true;video.srcObject=stream;
   await video.play(); await listCameras();
-  const input=track.getSettings();post('cameraInput',{width:input.width??video.videoWidth,height:input.height??video.videoHeight,fps:input.frameRate??0});
+  const input=track.getSettings();post('cameraInput',{deviceId:input.deviceId,width:input.width??video.videoWidth,height:input.height??video.videoHeight,fps:input.frameRate??0});
   track.onended=()=>{stopTracking();status('カメラが切断されました。待機ポーズに戻ります。');};
   lastTrackingReceived=0;trackingGapMs=trackingLatencyMs=trackingResults=0;tracking=true;restartRenderLoop();lastVideoTime=-1;lastPoseDetect=0;bodyNeutral=null;calibration.identity();blinkBaseline={left:0,right:0};autoCalibration.start(performance.now());post('tracking',{active:true});status('正面を向いて目を開けてください。顔の検出が安定すると一度だけ自動でキャリブレーションします。');
  }catch(e){stopTracking();post('error',{text:'カメラを開始できません：'+e.message});}
@@ -453,7 +455,8 @@ host?.addEventListener('message',async e=>{
    break;
   case'loadModel':await loadModel(m.requestId);break;
   case'demo':loadVersion++;makeDemo();break;
-  case'startTracking':await startTracking(m.deviceId);break;
+  case'startTracking':await startTracking(m.deviceId,m.cameraLabel);break;
+  case'refreshCameras':await listCameras();break;
   case'stopTracking':stopTracking();break;
   case'calibrate':calibrateFace();break;
   case'settings':smoothing=clamp(m.smoothing,0,.95);sensitivity=clamp(m.sensitivity,.3,2);mouthOpenStrength=clamp(m.mouthOpenStrength??1,.5,3);mouthSensitivity=clamp(m.mouthSensitivity??1.8,.5,3);springStrength=clamp(m.springStrength??1,.3,3);springPhysics?.setStrength(springStrength);scene.background.set(m.background);break;

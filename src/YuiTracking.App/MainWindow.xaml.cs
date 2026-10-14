@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
 using Windows.Storage.Pickers;
+using Windows.Devices.Enumeration;
 
 namespace YuiTracking;
 public sealed partial class MainWindow : Window
@@ -49,11 +50,44 @@ public sealed partial class MainWindow : Window
         catch (Exception ex) { App.Log(ex.Message); }
     }
     private readonly string assets = Path.Combine(AppContext.BaseDirectory, "Assets", "Renderer");
-    public record CameraItem(string Id, string Label);
+    public record CameraItem(string Id, string Label, bool Native = false);
+    private bool nativeCamerasAvailable;
+    private bool browserCamerasAvailable, cameraStarting;
+    private int cameraRefreshVersion;
+    private DeviceWatcher? cameraWatcher;
+    private async Task RefreshNativeCameras()
+    {
+        if (closing || tracking || cameraStarting) return;
+        if (browserCamerasAvailable) { Send(new { type = "refreshCameras" }); return; }
+        var version = ++cameraRefreshVersion;
+        try
+        {
+            var devices = await NativeCameraCatalog.EnumerateAsync();
+            if (closing || tracking || cameraStarting || browserCamerasAvailable || version != cameraRefreshVersion) return;
+            var previous = Cameras.SelectedItem as CameraItem;
+            var list = devices.Select(d => new CameraItem(d.Id, d.Label, true)).ToList();
+            nativeCamerasAvailable = true;
+            Cameras.ItemsSource = list;
+            Cameras.SelectedItem = list.FirstOrDefault(c => c.Id == previous?.Id)
+                ?? list.FirstOrDefault(c => c.Label == previous?.Label) ?? list.FirstOrDefault();
+            Cameras.PlaceholderText = list.Count == 0 ? "カメラが見つかりません" : "カメラを選択";
+            TrackButton.IsEnabled = ready && list.Count > 0;
+        }
+        catch (Exception ex) { App.Log("Native camera enumeration failed: " + ex.Message); }
+    }
+    private void WatchNativeCameras()
+    {
+        cameraWatcher = DeviceInformation.CreateWatcher(DeviceClass.VideoCapture);
+        void Changed() => DispatcherQueue.TryEnqueue(async () => await RefreshNativeCameras());
+        cameraWatcher.Added += (_, _) => Changed();
+        cameraWatcher.Removed += (_, _) => Changed();
+        cameraWatcher.Updated += (_, _) => Changed();
+        cameraWatcher.Start();
+    }
     public MainWindow()
     {
         InitializeComponent();
-        Title = $"YuiTracking {typeof(App).Assembly.GetName().Version?.ToString(3) ?? "0.1.5"}";
+        Title = $"YuiTracking {typeof(App).Assembly.GetName().Version?.ToString(3) ?? "0.1.6"}";
         framingTimer = DispatcherQueue.CreateTimer(); framingTimer.Interval = TimeSpan.FromMilliseconds(250);
         framingTimer.Tick += (_, _) => SaveFraming();
         mouthTimer = DispatcherQueue.CreateTimer(); mouthTimer.Interval = TimeSpan.FromMilliseconds(250);
@@ -82,6 +116,19 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex) { App.Log("Calibration shortcuts unavailable: " + ex.Message); }
         Root.Loaded += async (_, _) => await InitializeRenderer();
+        Root.Loaded += async (_, _) =>
+        {
+            await RefreshNativeCameras();
+            try { if (!closing) WatchNativeCameras(); }
+            catch (Exception ex) { App.Log("Camera watcher unavailable: " + ex.Message); }
+        };
+        Cameras.DropDownOpened += async (_, _) => await RefreshNativeCameras();
+        Closed += (_, _) =>
+        {
+            cameraRefreshVersion++;
+            if (cameraWatcher?.Status is DeviceWatcherStatus.Started or DeviceWatcherStatus.EnumerationCompleted)
+                cameraWatcher.Stop();
+        };
         Closed += (_, _) => { closing = true; calibrationShortcut?.Dispose(); SaveFraming(); SaveMouthStrength(); SaveSpringStrength(); output?.Dispose(); statusTimer.Stop(); Viewport.Close(); frameStream?.Dispose(); frameBuffer?.Dispose(); };
     }
     private async Task InitializeRenderer()
@@ -224,6 +271,7 @@ public sealed partial class MainWindow : Window
             {
                 case "ready":
                     ready = true; ModelButton.IsEnabled = TrackButton.IsEnabled = OutputButton.IsEnabled = true;
+                    if (nativeCamerasAvailable) TrackButton.IsEnabled = Cameras.Items.Count > 0;
                     try
                     {
                         frameStream?.Dispose(); frameBuffer?.Dispose();
@@ -277,15 +325,25 @@ public sealed partial class MainWindow : Window
                 case "togglePreviewMaximized": TogglePreviewMaximized(); break;
                 case "status": TrackingStatus.Text = root.GetProperty("text").GetString(); break;
                 case "error": TrackingStatus.Text = root.GetProperty("text").GetString(); App.Log(TrackingStatus.Text ?? "Renderer error"); break;
-                case "tracking": tracking = root.GetProperty("active").GetBoolean(); UpdateTrackingPowerPolicy(); TrackButton.Content = tracking ? "カメラを停止" : "カメラを開始"; TrackButton.IsEnabled = true; break;
+                case "tracking": cameraStarting = false; tracking = root.GetProperty("active").GetBoolean(); UpdateTrackingPowerPolicy(); TrackButton.Content = tracking ? "カメラを停止" : "カメラを開始"; TrackButton.IsEnabled = ready && (tracking || Cameras.Items.Count > 0); break;
                 case "cameraInput":
+                    if (root.TryGetProperty("deviceId", out var activeDevice))
+                        Cameras.SelectedItem = Cameras.Items.OfType<CameraItem>().FirstOrDefault(c => c.Id == activeDevice.GetString()) ?? Cameras.SelectedItem;
                     CameraInputStatus.Text = $"カメラ入力：{root.GetProperty("width").GetInt32()} × {root.GetProperty("height").GetInt32()} / {root.GetProperty("fps").GetDouble():0.#}fps";
                     App.Log("Camera input: " + root.GetRawText());
                     break;
                 case "cameras":
-                    var selected = (Cameras.SelectedItem as CameraItem)?.Id;
+                    var selected = Cameras.SelectedItem as CameraItem;
                     var list = root.GetProperty("items").EnumerateArray().Select(c => new CameraItem(c.GetProperty("deviceId").GetString()!, c.GetProperty("label").GetString()!)).ToList();
-                    Cameras.ItemsSource = list; Cameras.SelectedItem = list.FirstOrDefault(c => c.Id == selected) ?? list.FirstOrDefault(); break;
+                    // A permission-limited browser list must not overwrite native names.
+                    var labelsAvailable = root.TryGetProperty("labelsAvailable", out var labels) && labels.GetBoolean();
+                    if (nativeCamerasAvailable && !labelsAvailable) break;
+                    browserCamerasAvailable = labelsAvailable;
+                    Cameras.ItemsSource = list;
+                    Cameras.SelectedItem = list.FirstOrDefault(c => c.Id == selected?.Id)
+                        ?? list.FirstOrDefault(c => c.Label == selected?.Label) ?? list.FirstOrDefault();
+                    if (!cameraStarting) TrackButton.IsEnabled = ready && (tracking || list.Count > 0);
+                    break;
             }
         }
         catch (Exception ex) { Report(ex); }
@@ -327,8 +385,12 @@ public sealed partial class MainWindow : Window
     { modelRequestId++; pendingModelPath = null; ModelButton.IsEnabled = ready; ModelLabel.Text = "内蔵サンプル・ロボット"; Send(new { type = "demo" }); RestoreOutput(); }
     private void Track_Click(object sender, RoutedEventArgs e)
     {
+        if (!ready || closing) return;
+        var camera = Cameras.SelectedItem as CameraItem;
+        if (!tracking && camera == null) { TrackingStatus.Text = "接続済みのカメラを選択してください。"; return; }
         TrackButton.IsEnabled = false;
-        Send(new { type = tracking ? "stopTracking" : "startTracking", deviceId = (Cameras.SelectedItem as CameraItem)?.Id ?? "" });
+        cameraStarting = !tracking;
+        Send(new { type = tracking ? "stopTracking" : "startTracking", deviceId = camera?.Native == false ? camera.Id : "", cameraLabel = camera?.Native == true ? camera.Label : "" });
     }
     private void Calibrate_Click(object sender, RoutedEventArgs e) => Send(new { type = "calibrate" });
     private void Settings_Changed(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e) => SendSettings();
