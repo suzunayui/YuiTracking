@@ -24,25 +24,27 @@
    </Grid>
    <ScrollViewer x:Name="SettingsPanel" Grid.Column="1" VerticalScrollBarVisibility="Auto">
     <StackPanel Spacing="12">
-     <StackPanel Spacing="6">
-      <TextBlock Text="アバター" FontSize="14" FontWeight="SemiBold"/>
+     <Expander Header="アバター" IsExpanded="True" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+      <StackPanel Spacing="6">
       <Button x:Name="ModelButton" Content="VRMを開く" HorizontalAlignment="Stretch" Click="OpenModel_Click" IsEnabled="False"/>
       <TextBlock x:Name="ModelLabel" Text="サンプルを準備中" Foreground="#9DA7C0" TextTrimming="CharacterEllipsis" FontSize="12"/>
       <Expander Header="サンプル" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
        <Grid ColumnSpacing="6">
        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-       <Button Content="女の子" Tag="Y" Click="Sample_Click" HorizontalAlignment="Stretch"/>
-       <Button Grid.Column="1" Content="男の子" Tag="Z" Click="Sample_Click" HorizontalAlignment="Stretch"/>
-       <Button Grid.Column="2" Content="ロボット" Click="Demo_Click" HorizontalAlignment="Stretch"/>
+       <Button Content="女の子" Tag="Y" Click="Sample_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
+       <Button Grid.Column="1" Content="男の子" Tag="Z" Click="Sample_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
+       <Button Grid.Column="2" Content="ロボット" Click="Demo_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
        </Grid>
       </Expander>
-     </StackPanel>
-     <StackPanel Spacing="6">
-      <TextBlock Text="トラッキング" FontSize="14" FontWeight="SemiBold"/>
+      </StackPanel>
+     </Expander>
+     <Expander Header="トラッキング" IsExpanded="True" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+      <StackPanel Spacing="6">
       <Grid ColumnSpacing="6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><ComboBox x:Name="Cameras" PlaceholderText="カメラを選択" HorizontalAlignment="Stretch" DisplayMemberPath="Label"/><Button x:Name="TrackButton" Grid.Column="1" Content="カメラを開始" Click="Track_Click" IsEnabled="False"/></Grid>
       <TextBlock x:Name="CameraInputStatus" Text="カメラ入力：720p / 最大30fps" Foreground="#9DA7C0" FontSize="12" TextWrapping="Wrap"/>
       <Button Content="正面をキャリブレーション" HorizontalAlignment="Stretch" ToolTipService.ToolTip="右Ctrlまたは右Shiftを単独で押して離しても実行できます" Click="Calibrate_Click"/>
-     </StackPanel>
+      </StackPanel>
+     </Expander>
      <Expander Header="動き・表情の調整" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
       <StackPanel Spacing="4">
        <TextBlock Text="滑らかさ" Foreground="#9DA7C0"/><Slider x:Name="Smoothness" Minimum="0" Maximum="0.95" Value="0.65" StepFrequency="0.05" ValueChanged="Settings_Changed"/>
@@ -52,12 +54,13 @@
        <TextBlock Text="顔の動きの強さ" Foreground="#9DA7C0"/><Slider x:Name="Sensitivity" Minimum="0.3" Maximum="2" Value="1" StepFrequency="0.1" ValueChanged="Settings_Changed"/>
       </StackPanel>
      </Expander>
-     <StackPanel Spacing="6">
-      <TextBlock Text="配信出力" FontSize="14" FontWeight="SemiBold"/>
+     <Expander Header="配信出力" IsExpanded="True" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+      <StackPanel Spacing="6">
       <ComboBox x:Name="Background" SelectedIndex="0" HorizontalAlignment="Stretch" SelectionChanged="Background_Changed"><ComboBoxItem Content="背景：グリーン" Tag="#00ff00"/><ComboBoxItem Content="背景：ブルー" Tag="#0000ff"/><ComboBoxItem Content="背景：ミッドナイト" Tag="#171b2e"/></ComboBox>
       <Button x:Name="OutputButton" Content="仮想カメラ出力を開始" Click="Output_Click" HorizontalAlignment="Stretch" IsEnabled="False" ToolTipService.ToolTip="OBSの映像キャプチャデバイスでYuiTracking Cameraを選択してください"/>
       <Button x:Name="RegisterButton" Content="仮想カメラを登録（初回）" Click="Register_Click" HorizontalAlignment="Stretch"/>
-     </StackPanel>
+      </StackPanel>
+     </Expander>
     </StackPanel>
    </ScrollViewer>
   </Grid>

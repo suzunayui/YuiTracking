@@ -17,7 +17,7 @@ try {
     }
     & $compiler installer/YuiTracking.iss
     if ($LASTEXITCODE) { throw 'Installer build failed' }
-    Get-FileHash dist/installer/YuiTracking-Setup-0.1.9-x64.exe -Algorithm SHA256 |
-        ForEach-Object { "$($_.Hash)  YuiTracking-Setup-0.1.9-x64.exe" } |
+    Get-FileHash dist/installer/YuiTracking-Setup-0.1.10-x64.exe -Algorithm SHA256 |
+        ForEach-Object { "$($_.Hash)  YuiTracking-Setup-0.1.10-x64.exe" } |
         Set-Content dist/installer/SHA256SUMS.txt
 } finally { Pop-Location }
