@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace HoloTrack;
+namespace YuiTracking;
 
 internal static class AppSettings
 {

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 import {build} from 'esbuild';
 
-const assets=path.resolve(import.meta.dirname,'../../src/HoloTrack.App/Assets/Renderer');
+const assets=path.resolve(import.meta.dirname,'../../src/YuiTracking.App/Assets/Renderer');
 const model=await fs.readFile(process.argv[2]);
 let bodyTestScript;
 if(process.argv.includes('--check-body')||process.argv.includes('--check-hands')||process.argv.includes('--check-mouth')||process.argv.includes('--check-springs')){
@@ -34,13 +34,13 @@ try{
   window.chrome.webview={postMessage:m=>window.hostMessages.push(m),addEventListener:(type,f)=>{if(type==='message')window.hostListener=f;else if(type==='sharedbufferreceived')window.sharedListener=f;}};
  });
  // Mirror the native host origin without external network requests.
- await page.route('https://holotrack.local/**',route=>{
+ await page.route('https://yuitracking.local/**',route=>{
   if(bodyTestScript&&new URL(route.request().url()).pathname==='/main.js')return route.fulfill({body:bodyTestScript,contentType:'text/javascript'});
   if(new URL(route.request().url()).pathname==='/avatar.vrm')return route.fulfill({body:model,contentType:'model/gltf-binary'});
   const filename=(process.argv.includes('--baseline')&&new URL(route.request().url()).pathname==='/main.js')?path.resolve(import.meta.dirname,'../../artifacts/hair-before.js'):path.join(assets,new URL(route.request().url()).pathname.slice(1));
   return fs.readFile(filename).then(body=>route.fulfill({body,contentType:filename.endsWith('.js')?'text/javascript':filename.endsWith('.wasm')?'application/wasm':filename.endsWith('.html')?'text/html':'application/octet-stream'}));
  });
- await page.goto('https://holotrack.local/index.html');
+ await page.goto('https://yuitracking.local/index.html');
  console.log('Renderer loaded');
  await page.waitForFunction(()=>window.hostMessages.some(m=>m.type==='ready'),null,{polling:100});
  if(!process.argv.includes('--check-pan')){

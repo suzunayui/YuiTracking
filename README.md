@@ -6,11 +6,13 @@ Apple Silicon向けのElectron版を `electron/` に追加しました。VRM描�
 
 ## インストーラー
 
-`dist/installer/YuiTracking-Setup-0.1.3-x64.exe` を実行します。現在のユーザーのアプリフォルダへインストールし、スタートメニューとOBS用仮想カメラを登録します。デスクトップのショートカットは任意です。更新前にアプリを終了してください。
+`dist/installer/YuiTracking-Setup-0.1.4-x64.exe` を実行します。現在のユーザーのアプリフォルダへインストールし、スタートメニューとOBS用仮想カメラを登録します。デスクトップのショートカットは任意です。更新前にアプリを終了してください。
 
 保存済みVRM設定はそのまま引き継ぎます。VRM本体や個人用設定は配布ファイルに含まれず、アンインストールでも削除しません。WebView2 RuntimeがないPCではMicrosoftのブートストラッパーを実行するためインターネット接続が必要です。未導入環境でのダウンロード経路は実機未検証です。インストーラーとアプリにはコード署名を付けていません。
 
-再作成: `scripts/build-installer.ps1`（Inno Setup 6のISCCがPATHまたは `.tools/InnoSetup` に必要）。生成アイコンの原本・各サイズを含むICOは `src/HoloTrack.App/Assets/Branding` にあります。
+再作成: `scripts/build-installer.ps1`（Inno Setup 6のISCCがPATHまたは `.tools/InnoSetup` に必要）。生成アイコンの原本・各サイズを含むICOは `src/YuiTracking.App/Assets/Branding` にあります。
+
+0.1.4では、描画エンジンがクラッシュ・応答停止したときに、プレビュー内の「YuiTrackingを再起動する」ボタンから復帰できます。保存済みのVRM・表示位置・仮想カメラ出力設定を引き継ぎます。実カメラ認識は再起動後に手動で開始してください。タイトルバーにバージョンを表示し、内部のコード名・ソースフォルダ・保存先もYuiTrackingに統一しました。
 
 0.1.3では、プレビューのダブルクリック最大化・復元、他のアプリが前面でも使える右Ctrl・右Shiftのキャリブレーションを追加しました。IME状態をキーの同時押しと誤判定する問題も修正しています。頭と体には、静止中の小さな認識ノイズを抑える補正を追加・調整しました。実機での揺れ抑制の効果は継続確認中です。
 
@@ -82,14 +84,14 @@ powershell -ExecutionPolicy Bypass -File scripts/build.ps1
 
 ソース構成:
 
-- `src/HoloTrack.App/`: WinUI 3 GUI、ローカルリソース配信、仮想カメラ送信
+- `src/YuiTracking.App/`: WinUI 3 GUI、ローカルリソース配信、仮想カメラ送信
 - `renderer/src/`: VRM描画・認識・簡易リグ制御
 - `tests/CameraSmoke/`: フレーム転送、停止・待機・上下方向などのテスト
 - `renderer/tests/`: 関節角度・データ期限・平滑化のテスト
 
 実施済み検証: Windows Releaseビルド、ネイティブGUI起動、VRM読み込み、DirectShowデバイス列挙と1280×720画像受信、認識エンジン初期化、仮想入力の拒否、送信停止時の待機処理。実Webカメラによる顔・手の追従品質と長時間配信は未検証です。
 
-仮想カメラの登録解除: `scripts/unregister-camera.ps1`。YuiTracking専用のユーザー登録のみ解除します。ログは `%LOCALAPPDATA%/HoloTrack/app.log` にあります。
+仮想カメラの登録解除: `scripts/unregister-camera.ps1`。YuiTracking専用のユーザー登録のみ解除します。ログは `%LOCALAPPDATA%/YuiTracking/app.log` にあります。
 
 ## 使用ライブラリ
 
@@ -100,4 +102,4 @@ powershell -ExecutionPolicy Bypass -File scripts/build.ps1
 
 ネイティブフィルターはUnity Captureの既存バイナリです。独自のドライバーとして偽装せず、その共有メモリプロトコルをC#から利用しています。専用スロット42を利用し、既存の別登録は上書きしません。ライセンスは `THIRD-PARTY-NOTICES.txt` を参照してください。
 
-旧版との互換性のため、内部のソースフォルダ名と保存先 `%LOCALAPPDATA%/HoloTrack` は維持しています。仮想カメラは同じデバイスIDを利用し、表示名を YuiTracking Camera に更新しています。
+旧版の `%LOCALAPPDATA%/HoloTrack/app.log` は新しい保存先へ初回にコピーします。旧WebView2キャッシュは残し、新しいキャッシュをYuiTracking配下に作成します。既存の仮想カメラ登録は同じデバイスIDを保ったままDLLの保存先を移行します。旧名の参照は移行・旧版との同時起動防止・旧仮想入力の除外だけに残しています。

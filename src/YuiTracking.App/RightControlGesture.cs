@@ -1,4 +1,4 @@
-namespace HoloTrack;
+namespace YuiTracking;
 
 // Right Ctrl alone calibrates on release. A chord or auto-repeat must not
 // accidentally calibrate while the user is using another application's shortcut.

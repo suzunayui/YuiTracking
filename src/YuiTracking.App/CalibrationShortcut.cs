@@ -1,5 +1,5 @@
 using System.Runtime.InteropServices;
-namespace HoloTrack;
+namespace YuiTracking;
 
 internal sealed class CalibrationShortcut : IDisposable
 {

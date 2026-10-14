@@ -160,11 +160,11 @@ async function loadModel(requestId){
  try{
   const manager=new THREE.LoadingManager();
   manager.setURLModifier(url=>{
-   if(url.startsWith('blob:')||url.startsWith('data:')||url.startsWith('https://holotrack.local/avatar.vrm'))return url;
+   if(url.startsWith('blob:')||url.startsWith('data:')||url.startsWith('https://yuitracking.local/avatar.vrm'))return url;
    throw new Error('外部ファイル参照のあるモデルには対応していません。');
   });
   const loader=new GLTFLoader(manager);loader.register(parser=>new VRMLoaderPlugin(parser));
-  const gltf=await loader.loadAsync(`https://holotrack.local/avatar.vrm?v=${version}`);
+  const gltf=await loader.loadAsync(`https://yuitracking.local/avatar.vrm?v=${version}`);
   const next=gltf.userData.vrm;if(!next)throw new Error('VRM 0.x / 1.0のモデルを選択してください。');
   if(version!==loadVersion){VRMUtils.deepDispose(next.scene);return;}
   removeAvatar();vrm=next;VRMUtils.rotateVRM0(vrm);scene.add(vrm.scene);

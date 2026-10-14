@@ -1,6 +1,6 @@
 using System.IO.MemoryMappedFiles;
 using Microsoft.Win32;
-namespace HoloTrack;
+namespace YuiTracking;
 
 // Unity Capture's documented shared-memory protocol (Source/shared.inl).
 // Dedicated slot 42; no desktop or physical-camera capture APIs in this component.
@@ -89,23 +89,27 @@ public sealed class VirtualCamera : IDisposable
     public static bool IsRegistered()
     {
         using var key = Registry.CurrentUser.OpenSubKey($@"Software\Classes\CLSID\{ClassId}\InprocServer32");
-        return key?.GetValue("") is string path && File.Exists(path);
+        var expected = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "YuiTracking", "VirtualCamera", "UnityCaptureFilter64.dll");
+        return key?.GetValue("") is string path && string.Equals(path, expected, StringComparison.OrdinalIgnoreCase) && File.Exists(path);
     }
     public static void Register(string dll)
     {
         if (!File.Exists(dll)) throw new FileNotFoundException("仮想カメラDLLが見つかりません。", dll);
-        var destDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HoloTrack", "VirtualCamera");
+        var destDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "YuiTracking", "VirtualCamera");
         Directory.CreateDirectory(destDir);
         var dest = Path.Combine(destDir, "UnityCaptureFilter64.dll");
+        var legacy = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HoloTrack", "VirtualCamera", "UnityCaptureFilter64.dll");
         using (var existing = Registry.ClassesRoot.OpenSubKey($@"CLSID\{ClassId}\InprocServer32"))
-            if (existing?.GetValue("") is string path && !string.Equals(path, dest, StringComparison.OrdinalIgnoreCase))
+            if (existing?.GetValue("") is string path && !string.Equals(path, dest, StringComparison.OrdinalIgnoreCase) && !string.Equals(path, legacy, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("この仮想カメラスロットは別のアプリで使用中です。");
         if (!File.Exists(dest)) File.Copy(dll, dest);
         using var server = Registry.CurrentUser.CreateSubKey($@"Software\Classes\CLSID\{ClassId}\InprocServer32");
         server.SetValue("", dest); server.SetValue("ThreadingModel", "Both");
         using var device = Registry.CurrentUser.CreateSubKey($@"Software\Classes\CLSID\{Category}\Instance\{ClassId}");
         device.SetValue("CLSID", ClassId); device.SetValue("FriendlyName", "YuiTracking Camera");
-        device.SetValue("DevicePath", "holotrack:avatar:42");
+        // Preserve existing OBS device selection when upgrading an older install.
+        if (device.GetValue("DevicePath") is not string)
+            device.SetValue("DevicePath", "yuitracking:avatar:42");
     }
     private void ResetConnection()
     {

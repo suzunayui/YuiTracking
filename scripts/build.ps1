@@ -17,7 +17,7 @@ try {
     if ($LASTEXITCODE) { throw 'Calibration shortcut tests failed' }
     & $dotnetPath run --project tests/CameraSmoke/CameraSmoke.csproj
     if ($LASTEXITCODE) { throw 'Virtual-camera tests failed' }
-    & $dotnetPath publish src/HoloTrack.App/HoloTrack.App.csproj -c Release -p:OutputPath=bin/Package/ -o dist/YuiTracking
+    & $dotnetPath publish src/YuiTracking.App/YuiTracking.App.csproj -c Release -p:OutputPath=bin/Package/ -o dist/YuiTracking
     if ($LASTEXITCODE) { throw 'App publish failed' }
     Copy-Item README.md dist/YuiTracking/README.md
     Copy-Item THIRD-PARTY-NOTICES.txt dist/YuiTracking/THIRD-PARTY-NOTICES.txt

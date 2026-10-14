@@ -2,7 +2,7 @@
 **/bin/
 **/obj/
 **/node_modules/
-src/HoloTrack.App/Assets/Renderer/
+src/YuiTracking.App/Assets/Renderer/
 dist/
 artifacts/
 electron/renderer/

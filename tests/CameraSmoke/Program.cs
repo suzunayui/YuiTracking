@@ -1,5 +1,5 @@
 using System.IO.MemoryMappedFiles;
-using HoloTrack;
+using YuiTracking;
 if(args.Contains("--cadence"))
 {
     var slot="Perf_"+Guid.NewGuid().ToString("N");
@@ -15,7 +15,7 @@ if(args.Contains("--cadence"))
 }
 if (args.Contains("--register"))
 {
-    VirtualCamera.Register(Path.GetFullPath("src/HoloTrack.App/Assets/VirtualCamera/UnityCaptureFilter64.dll"));
+    VirtualCamera.Register(Path.GetFullPath("src/YuiTracking.App/Assets/VirtualCamera/UnityCaptureFilter64.dll"));
     Console.WriteLine("Registered YuiTracking Camera for the current user."); return;
 }
 if (args.Contains("--send"))

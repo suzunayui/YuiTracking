@@ -1,4 +1,4 @@
-using HoloTrack;
+using YuiTracking;
 static void Check(bool condition, string name) { if (!condition) throw new Exception(name); Console.WriteLine("PASS " + name); }
 var gesture = new RightControlGesture();
 Check(!gesture.Update(true, true), "key down does not trigger");

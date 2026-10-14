@@ -33,7 +33,7 @@
     ],
     "extraResources": [
       {
-        "from": "../src/HoloTrack.App/Assets/Branding/YuiTracking.png",
+        "from": "../src/YuiTracking.App/Assets/Branding/YuiTracking.png",
         "to": "icon.png"
       },
       {
@@ -43,7 +43,7 @@
     ],
     "mac": {
       "extraFiles": [{"from":"node_modules/@napolab/texture-bridge-darwin-arm64/Syphon.framework","to":"Frameworks/Syphon.framework"}],
-      "icon": "../src/HoloTrack.App/Assets/Branding/YuiTracking.png",
+      "icon": "../src/YuiTracking.App/Assets/Branding/YuiTracking.png",
       "target": [
         {
           "target": "dmg",
@@ -68,7 +68,7 @@
     },
     "win": {
       "target": "nsis",
-      "icon": "../src/HoloTrack.App/Assets/Branding/YuiTracking.ico"
+      "icon": "../src/YuiTracking.App/Assets/Branding/YuiTracking.ico"
     }
   },
   "dependencies": {

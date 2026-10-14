@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
-namespace HoloTrack;
+namespace YuiTracking;
 internal sealed class FramePump : IDisposable
 {
     private readonly ManualResetEvent stop = new(false);

@@ -11,7 +11,7 @@ if(process.argv.includes('--prepare')){
  console.log('Prepared isolated native performance test');
 }else{
  const browser=await chromium.connectOverCDP('http://127.0.0.1:9229');
- const page=browser.contexts().flatMap(c=>c.pages()).find(p=>p.url().includes('holotrack.local'));
+ const page=browser.contexts().flatMap(c=>c.pages()).find(p=>p.url().includes('yuitracking.local'));
  if(!page)throw new Error('Native WebView2 test page not found');
  await page.waitForFunction(()=>window.yuiPerf,null,{polling:100});
  await page.waitForTimeout(3000);

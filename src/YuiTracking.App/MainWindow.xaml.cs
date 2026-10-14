@@ -5,7 +5,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
 using Windows.Storage.Pickers;
 
-namespace HoloTrack;
+namespace YuiTracking;
 public sealed partial class MainWindow : Window
 {
     private bool ready, tracking, closing;
@@ -53,6 +53,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        Title = $"YuiTracking {typeof(App).Assembly.GetName().Version?.ToString(3) ?? "0.1.4"}";
         framingTimer = DispatcherQueue.CreateTimer(); framingTimer.Interval = TimeSpan.FromMilliseconds(250);
         framingTimer.Tick += (_, _) => SaveFraming();
         mouthTimer = DispatcherQueue.CreateTimer(); mouthTimer.Interval = TimeSpan.FromMilliseconds(250);
@@ -86,7 +87,7 @@ public sealed partial class MainWindow : Window
     {
         try
         {
-            var profile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HoloTrack", "WebView");
+            var profile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "YuiTracking", "WebView");
             var options = new CoreWebView2EnvironmentOptions { AdditionalBrowserArguments = "--disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows --disable-features=CalculateNativeWinOcclusion" };
             var env = await CoreWebView2Environment.CreateWithOptionsAsync(null, profile, options);
             await Viewport.EnsureCoreWebView2Async(env);
@@ -99,23 +100,59 @@ public sealed partial class MainWindow : Window
             core.WebResourceRequested += ResourceRequested;
             core.PermissionRequested += (_, e) =>
             {
-                e.State = e.Uri.StartsWith("https://holotrack.local/", StringComparison.Ordinal) && e.PermissionKind == CoreWebView2PermissionKind.Camera
+                e.State = e.Uri.StartsWith("https://yuitracking.local/", StringComparison.Ordinal) && e.PermissionKind == CoreWebView2PermissionKind.Camera
                     ? CoreWebView2PermissionState.Allow : CoreWebView2PermissionState.Deny;
                 e.SavesInProfile = false;
             };
-            core.NavigationStarting += (_, e) => { if (e.Uri != "https://holotrack.local/index.html") e.Cancel = true; };
+            core.NavigationStarting += (_, e) => { if (e.Uri != "https://yuitracking.local/index.html") e.Cancel = true; };
             core.NewWindowRequested += (_, e) => e.Handled = true;
             core.WebMessageReceived += MessageReceived;
-            core.ProcessFailed += (_, e) => { ready = false; output?.SetPrivacy(true); TrackingStatus.Text = "描画が停止しました。再起動してください。"; App.Log(e.ProcessFailedKind.ToString()); };
-            core.Navigate("https://holotrack.local/index.html");
+            core.ProcessFailed += (_, e) =>
+            {
+                App.Log($"WebView2 process failed: kind={e.ProcessFailedKind}, reason={e.Reason}, exitCode=0x{e.ExitCode:X8}, description={e.ProcessDescription}");
+                if (e.ProcessFailedKind is CoreWebView2ProcessFailedKind.BrowserProcessExited
+                    or CoreWebView2ProcessFailedKind.RenderProcessExited
+                    or CoreWebView2ProcessFailedKind.RenderProcessUnresponsive)
+                    ShowRendererFailure();
+            };
+            core.Navigate("https://yuitracking.local/index.html");
         }
-        catch (Exception ex) { Report(ex); }
+        catch (Exception ex) { App.Log(ex.ToString()); ShowRendererFailure(); }
+    }
+    private void ShowRendererFailure()
+    {
+        if (closing) return;
+        ready = false;
+        tracking = false;
+        performanceStatus = "";
+        output?.SetPrivacy(true);
+        ModelButton.IsEnabled = TrackButton.IsEnabled = OutputButton.IsEnabled = false;
+        TrackingStatus.Text = "描画が停止しました。再起動できます。";
+        Viewport.Visibility = Visibility.Collapsed;
+        RendererFailurePanel.Visibility = Visibility.Visible;
+    }
+    private void Restart_Click(object sender, RoutedEventArgs e)
+    {
+        if (closing || !RestartButton.IsEnabled) return;
+        RestartButton.IsEnabled = false;
+        try
+        {
+            // Restart terminates this process without raising Window.Closed.
+            SaveFraming(); SaveMouthStrength(); SaveSpringStrength();
+            output?.SetPrivacy(true);
+            App.Log("User requested restart after renderer failure");
+            var failure = Microsoft.Windows.AppLifecycle.AppInstance.Restart("");
+            App.Log($"App restart failed: {failure}");
+        }
+        catch (Exception ex) { App.Log($"App restart failed: {ex}"); }
+        RendererFailureMessage.Text = "再起動できませんでした。もう一度ボタンを押すか、アプリを閉じて開き直してください。保存したVRMと設定は引き継がれます。";
+        RestartButton.IsEnabled = true;
     }
     private async void ResourceRequested(CoreWebView2 sender, CoreWebView2WebResourceRequestedEventArgs e)
     {
         var uri = new Uri(e.Request.Uri);
         if (uri.Scheme == "blob" || uri.Scheme == "data") return;
-        if (uri.Host != "holotrack.local") { e.Response = sender.Environment.CreateWebResourceResponse(null,403,"Forbidden",""); return; }
+        if (uri.Host != "yuitracking.local") { e.Response = sender.Environment.CreateWebResourceResponse(null,403,"Forbidden",""); return; }
         if (uri.AbsolutePath == "/avatar.vrm")
         {
             e.Response = sender.Environment.CreateWebResourceResponse(modelBytes == null ? null : new MemoryStream(modelBytes).AsRandomAccessStream(), modelBytes == null ? 404 : 200, "OK", "Content-Type: model/gltf-binary\r\nCache-Control: no-store"); return;
@@ -180,7 +217,7 @@ public sealed partial class MainWindow : Window
     }
     private async void MessageReceived(CoreWebView2 sender, CoreWebView2WebMessageReceivedEventArgs e)
     {
-        if (!e.Source.StartsWith("https://holotrack.local/", StringComparison.Ordinal)) return;
+        if (!e.Source.StartsWith("https://yuitracking.local/", StringComparison.Ordinal)) return;
         try
         {
             using var doc = JsonDocument.Parse(e.WebMessageAsJson); var root = doc.RootElement;

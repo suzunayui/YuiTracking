@@ -16,7 +16,7 @@ function setOutput(enabled,save=true){
  command({type:'frameAck'});command({type:'output',value:enabled});notify({type:'syphon',active:enabled});
  if(save){settings.syphonEnabled=enabled;return persist();}
 }
-const origin='https://holotrack.local';
+const origin='https://yuitracking.local';
 const settingsPath=()=>path.join(app.getPath('userData'),'settings.json');
 async function save(){await fs.mkdir(path.dirname(settingsPath()),{recursive:true});await fs.writeFile(settingsPath()+'.tmp',JSON.stringify(settings,null,2));await fs.rename(settingsPath()+'.tmp',settingsPath());}
 let saveQueue=Promise.resolve();
@@ -81,7 +81,7 @@ app.whenReady().then(async()=>{
  });
  session.defaultSession.setPermissionRequestHandler((contents,permission,callback,details)=>callback(contents===window?.webContents&&permission==='media'&&details.requestingUrl?.startsWith(origin+'/renderer/')&&details.mediaTypes?.every(type=>type==='video')));
  session.defaultSession.setPermissionCheckHandler((contents,permission,requestingOrigin,details)=>contents===window?.webContents&&requestingOrigin===origin&&permission==='media'&&details.mediaType==='video');
- window=new BrowserWindow({width:1480,height:980,minWidth:1000,minHeight:700,title:'YuiTracking',backgroundColor:'#11131c',icon:app.isPackaged?path.join(process.resourcesPath,'icon.png'):path.join(__dirname,'../src/HoloTrack.App/Assets/Branding/YuiTracking.png'),webPreferences:{preload:path.join(__dirname,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,backgroundThrottling:false}});
+ window=new BrowserWindow({width:1480,height:980,minWidth:1000,minHeight:700,title:'YuiTracking',backgroundColor:'#11131c',icon:app.isPackaged?path.join(process.resourcesPath,'icon.png'):path.join(__dirname,'../src/YuiTracking.App/Assets/Branding/YuiTracking.png'),webPreferences:{preload:path.join(__dirname,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,backgroundThrottling:false}});
  window.webContents.setWindowOpenHandler(()=>({action:'deny'}));
  window.webContents.on('render-process-gone',()=>syphon.setPrivacy(true));
  window.webContents.on('will-navigate',(event,url)=>{if(url!==origin+'/ui/index.html')event.preventDefault();});

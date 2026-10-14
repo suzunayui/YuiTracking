@@ -1,7 +1,7 @@
 using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
 
-namespace HoloTrack;
+namespace YuiTracking;
 
 // Camera inference is a latency-sensitive workload even when the UI is behind
 // another window. Opt its renderer out of Windows execution-speed throttling.
