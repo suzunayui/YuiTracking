@@ -1,5 +1,5 @@
 export function normalizedCameraLabel(label) {
- return label.trim().replace(/\s*\([0-9a-f]{4}:[0-9a-f]{4}\)\s*$/i,'').toLowerCase();
+ return label.trim().replace(/\s*\([0-9a-f]{4}:[0-9a-f]{4}\)\s*$/i,'').replace(/\s*\(built-in\)\s*$/i,'').toLowerCase();
 }
 
 export function resolveNamedCamera(devices,label) {

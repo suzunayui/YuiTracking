@@ -41,7 +41,7 @@ renderer.domElement.title='マウスホイール：拡大・縮小\nホイール
 // Handle this inside WebView2; its native surface does not reliably bubble
 // pointer gestures to the surrounding XAML controls. Keep the same WebView
 // alive so expanding the preview cannot restart tracking or virtual output.
-if(window.chrome?.webview){
+if(host){
  renderer.domElement.title+='\nダブルクリック：最大化・元に戻す\nEsc：最大化から元に戻す';
  document.addEventListener('keydown',event=>{
   if(event.key!=='Escape')return;
@@ -53,6 +53,13 @@ if(window.chrome?.webview){
   event.preventDefault();
   post('togglePreviewMaximized');
  });
+}
+// Electron uses a parent frame; Windows handles these keys in its native host.
+if(window.parent!==window&&!window.chrome?.webview){
+ const held=new Set();let candidate=null;
+ document.addEventListener('keydown',event=>{held.add(event.code);if(!event.repeat&&held.size===1&&['ControlRight','ShiftRight'].includes(event.code))candidate=event.code;else if(event.code!==candidate)candidate=null;});
+ document.addEventListener('keyup',event=>{if(candidate===event.code&&held.size===1)post('calibrateRequest');held.delete(event.code);candidate=null;});
+ window.addEventListener('blur',()=>{held.clear();candidate=null;});
 }
 let panPointer=null,panX=0,panY=0,orbitPointer=null,orbitX=0,orbitY=0;
 const panDepth=Math.hypot(3.1,.25);

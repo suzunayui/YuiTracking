@@ -1,7 +1,7 @@
 {
   "name": "yuitracking-desktop",
   "productName": "YuiTracking",
-  "version": "0.2.1",
+  "version": "2026.1015.8",
   "private": true,
   "author": "suzunayui",
   "description": "YuiTracking Electron desktop",
@@ -18,7 +18,9 @@
     "electron-builder": "26.15.3"
   },
   "build": {
-    "asarUnpack": ["node_modules/@napolab/texture-bridge*/**"],
+    "asarUnpack": [
+      "node_modules/@napolab/texture-bridge*/**"
+    ],
     "afterPack": "after-pack.cjs",
     "appId": "io.github.suzunayui.yuitracking",
     "directories": {
@@ -39,10 +41,19 @@
       {
         "from": "../THIRD-PARTY-NOTICES.txt",
         "to": "THIRD-PARTY-NOTICES.txt"
+      },
+      {
+        "from": "../src/YuiTracking.App/Assets/Samples",
+        "to": "Samples"
       }
     ],
     "mac": {
-      "extraFiles": [{"from":"node_modules/@napolab/texture-bridge-darwin-arm64/Syphon.framework","to":"Frameworks/Syphon.framework"}],
+      "extraFiles": [
+        {
+          "from": "node_modules/@napolab/texture-bridge-darwin-arm64/Syphon.framework",
+          "to": "Frameworks/Syphon.framework"
+        }
+      ],
       "icon": "../src/YuiTracking.App/Assets/Branding/YuiTracking.png",
       "target": [
         {

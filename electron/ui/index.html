@@ -1,16 +1,43 @@
 <!doctype html><html lang="ja"><head><meta charset="utf-8"><title>YuiTracking</title>
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; frame-src 'self'; connect-src 'self';">
 <link rel="stylesheet" href="style.css"></head><body>
-<header><h1>YuiTracking</h1><p>顔と手で、アバターに命を。</p></header>
-<main><section><p>PROGRAM / 配信プレビュー　1280 × 720・最大60fps</p><iframe id="preview" src="/renderer/index.html" allow="camera"></iframe><p id="status">描画エンジンの準備中…</p><label><input id="privacy" type="checkbox"> 緊急待機画面</label><p class="note">映像は端末内で認識します。実写カメラ映像は表示しません。</p></section>
-<aside><h2>01 アバター</h2><button id="open">VRMファイルを開く</button><p id="model"></p><button id="demo">サンプルに戻す</button>
-<h2>02 トラッキング</h2><select id="cameras"><option value="">既定のカメラ</option></select><button id="tracking">カメラを開始</button><p id="input"></p><button id="calibrate">正面をキャリブレーション</button>
-<label>滑らかさ <output id="smoothing-value"></output><input id="smoothing" type="range" min="0" max="0.95" step="0.01" value="0.65"></label>
-<label>顔の動きの強さ <output id="sensitivity-value"></output><input id="sensitivity" type="range" min="0.3" max="2" step="0.05" value="1"></label>
-<label>口の開き具合 <output id="mouthOpenStrength-value"></output><input id="mouthOpenStrength" type="range" min="0.5" max="3" step="0.05" value="1"></label>
-<label>口の感度 <output id="mouthSensitivity-value"></output><input id="mouthSensitivity" type="range" min="0.5" max="3" step="0.05" value="1.8"></label>
-<label>揺れものの強さ <output id="springStrength-value"></output><input id="springStrength" type="range" min="0.3" max="3" step="0.05" value="1"></label>
-<h2>03 背景</h2><select id="background"><option value="#00ff00">クロマキー・グリーン</option><option value="#0000ff">クロマキー・ブルー</option><option value="#171b2e">ダーク</option></select>
-<p class="note">Ctrl＋ホイールで拡大縮小。ホイールドラッグで位置を調整。前回のモデル・位置・調整値を復元します。</p>
-<h2>04 配信出力</h2><button id="syphon" disabled>Syphon出力を開始</button><p id="output-status">Syphon：停止中</p><p class="note">OBS → Syphonクライアント → YuiTracking。アバターと背景だけを送信します。映像キャプチャデバイスへの出力ではありません。</p></aside></main>
-<script src="app.js"></script></body></html>
+<main id="main">
+ <section class="preview-panel">
+  <iframe id="preview" src="/renderer/index.html" allow="camera" title="アバターのプレビュー"></iframe>
+  <div class="preview-status">
+   <div class="preview-actions">
+    <button id="calibrate" title="今の顔の向きを正面として合わせます。&#10;Macの共通ショートカット：⌘⇧C&#10;アプリが前面なら右Control／右Shift単独でも実行します。">キャリブレーション</button>
+    <button id="reset" title="拡大率・移動位置・カメラの回転を最初の状態に戻します。">初期位置に戻す</button>
+    <button id="maximize" title="プレビューを最大化します。&#10;Escで元に戻します。ダブルクリックでも切り替えられます。">最大化</button>
+    <button id="privacy" aria-pressed="false" title="オンの間はアバターの代わりに待機画面を出力します。">待機画面</button>
+   </div>
+   <div class="status-line"><span id="status">描画エンジンの準備中…</span><span id="output-status">Syphon：停止中</span><span id="memory">メモリ：計測中</span></div>
+  </div>
+ </section>
+ <aside>
+  <div class="camera-section"><div class="camera-row"><select id="cameras" title="トラッキングに使うカメラを選びます。"></select><button id="tracking" disabled title="選択したカメラで顔・手・体の認識を開始します。">カメラを開始</button></div><p id="input">カメラ入力：720p / 最大30fps</p></div>
+  <div class="settings">
+   <div class="tabs" role="tablist"><button id="avatar-tab" role="tab" aria-selected="true" aria-controls="avatar-settings" title="アバター・背景と、OBS向けの出力を設定します。">アバター・出力</button><button id="motion-tab" role="tab" aria-selected="false" aria-controls="motion-settings" title="動きの滑らかさや顔・口・揺れものの反応を調整します。">動きの調整</button></div>
+   <div class="tab-content">
+    <div id="avatar-settings" role="tabpanel">
+     <button id="open" class="wide" disabled title="PCに保存したVRMファイルを開きます。">VRMを開く</button><p id="model">サンプルを準備中</p>
+     <p class="label" title="同梱のアバターに切り替えます。青色が現在の選択です。">サンプル</p>
+     <div class="three-buttons"><button data-sample="Y" aria-pressed="false" title="女の子のサンプル（Y）に切り替えます。">女の子</button><button data-sample="Z" aria-pressed="false" title="男の子のサンプル（Z）に切り替えます。">男の子</button><button id="demo" data-sample="robot" aria-pressed="false" title="内蔵ロボットに切り替えます。">ロボット</button></div>
+     <p class="label background-label" title="アバターの背景を選びます。次回起動時も復元します。">背景</p>
+     <div class="three-buttons backgrounds">
+      <button data-background="transparent" aria-pressed="false" title="透明な背景でアバターを出力します。&#10;MacではOBSのSyphonクライアントで受信します。&#10;映像キャプチャデバイス向けの出力ではありません。">透過</button><button data-background="#00ff00" aria-pressed="true" title="背景をグリーンにします。OBSのクロマキーで背景を抜くときに使えます。">グリーン</button><button id="background-image" aria-pressed="false" title="PNG・JPEG・BMPの画像を選んで背景にします。&#10;比率を保って画面全体に配置します。">背景を選択</button>
+      <button data-background="#ff0000" aria-pressed="false" title="背景をレッドにします。">レッド</button><button data-background="#0000ff" aria-pressed="false" title="背景をブルーにします。">ブルー</button><button data-background="#000000" aria-pressed="false" title="背景をブラックにします。">ブラック</button>
+     </div>
+     <button id="syphon" class="wide output-button" disabled title="アバターと背景だけをSyphonへ送信します。&#10;OBS → Syphonクライアント → YuiTracking を選びます。">Syphon出力を開始</button>
+    </div>
+    <div id="motion-settings" role="tabpanel" hidden>
+     <label title="大きく：滑らかになる／反応はゆっくり&#10;小さく：素早く反応する／細かな揺れが出やすい">滑らかさ：<output id="smoothing-value"></output><input id="smoothing" type="range" min="0" max="0.95" step="0.05" value="0.65"></label>
+     <label title="口の変形量を調整します。&#10;大きく：口が大きく開く／小さく：控えめに開く">口の開き具合：<output id="mouthOpenStrength-value"></output><input id="mouthOpenStrength" type="range" min="0.5" max="3" step="0.1" value="1"></label>
+     <label title="小さな口の開きを読み取る敏感さです。&#10;大きく：小さな開きにも反応／小さく：大きな開きに反応">口の感度：<output id="mouthSensitivity-value"></output><input id="mouthSensitivity" type="range" min="0.5" max="3" step="0.1" value="1.8"></label>
+     <label title="髪・服などの揺れやすさです。&#10;1.0倍：モデル標準&#10;大きく：揺れやすい／小さく：揺れが控えめ">揺れものの強さ：<output id="springStrength-value"></output><input id="springStrength" type="range" min="0.3" max="3" step="0.1" value="1"></label>
+     <label title="顔の向きや傾きを反映する強さです。&#10;大きく：動きが大きい／小さく：動きが控えめ">顔の動きの強さ：<output id="sensitivity-value"></output><input id="sensitivity" type="range" min="0.3" max="2" step="0.1" value="1"></label>
+    </div>
+   </div>
+  </div>
+ </aside>
+</main><script src="app.js"></script></body></html>

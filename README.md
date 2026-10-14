@@ -2,7 +2,7 @@
 
 ## Mac / Electron版
 
-Apple Silicon向けのElectron版を `electron/` に追加しました。VRM描画とトラッキング処理をWindows版と共有し、OBSへはSyphonでアバター専用映像を送信します。起動・Mac用パッケージの作成方法は [Electron版の説明](electron/README.md) を参照してください。Mac版の仮想カメラは未対応です。以下はWindowsのWinUI版の説明です。
+Apple Silicon向けのElectron版を `electron/` に用意しています。2026.1015.8ではWindows最新版と共通の描画・トラッキング処理、サンプル、背景、プレビュー操作、コンパクトな設定画面にそろえています。VRM描画とトラッキング処理をWindows版と共有し、OBSへはSyphonでアバター専用映像を送信します。起動・Mac用パッケージの作成方法は [Electron版の説明](electron/README.md) を参照してください。Mac版の仮想カメラは未対応です。以下はWindowsのWinUI版の説明です。
 
 ## インストーラー
 

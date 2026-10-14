@@ -1,15 +1,5 @@
 const {contextBridge,ipcRenderer}=require('electron');
-contextBridge.exposeInMainWorld('yuiHost',{
- postMessage:message=>ipcRenderer.send('renderer-event',message),
- addEventListener:(type,callback)=>{if(type==='message')ipcRenderer.on('command',(_event,data)=>callback({data}));}
-});
+contextBridge.exposeInMainWorld('yuiHost',{postMessage:message=>ipcRenderer.send('renderer-event',message),addEventListener:(type,callback)=>{if(type==='message')ipcRenderer.on('command',(_event,data)=>callback({data}));}});
 contextBridge.exposeInMainWorld('yuiDesktop',{
- openModel:()=>ipcRenderer.invoke('open-model'),
- getSettings:()=>ipcRenderer.invoke('settings'),
- saveSettings:value=>ipcRenderer.invoke('save-settings',value),
- syphonAvailable:()=>ipcRenderer.invoke('syphon-capability'),
- setSyphon:enabled=>ipcRenderer.invoke('syphon-output',enabled),
- sendAvatarFrame:pixels=>ipcRenderer.invoke('avatar-frame',pixels),
- command:value=>ipcRenderer.send('ui-command',value),
- onEvent:callback=>ipcRenderer.on('renderer-event',(_event,data)=>callback(data))
+ nativeCameras:()=>ipcRenderer.invoke('native-cameras'),openModel:()=>ipcRenderer.invoke('open-model'),selectSample:sample=>ipcRenderer.invoke('sample',sample),selectBackground:color=>ipcRenderer.invoke('background',color),info:()=>ipcRenderer.invoke('info'),memory:()=>ipcRenderer.invoke('memory'),getSettings:()=>ipcRenderer.invoke('settings'),saveSettings:value=>ipcRenderer.invoke('save-settings',value),syphonAvailable:()=>ipcRenderer.invoke('syphon-capability'),setSyphon:enabled=>ipcRenderer.invoke('syphon-output',enabled),sendAvatarFrame:pixels=>ipcRenderer.invoke('avatar-frame',pixels),command:value=>ipcRenderer.send('ui-command',value),onEvent:callback=>ipcRenderer.on('renderer-event',(_event,data)=>callback(data))
 });

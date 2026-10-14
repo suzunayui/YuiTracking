@@ -22,6 +22,7 @@ jobs:
         run: |
           [[ "$BUILD_RUN_ID" =~ ^[0-9]+$ ]]
           gh run view "$BUILD_RUN_ID" --json conclusion,headSha,workflowName > build.json
+          test "$(jq -r .headSha build.json)" = "$(git rev-parse HEAD)"
           jq -e '.conclusion == "success" and .workflowName == "Build Electron for Apple Silicon"' build.json
       - name: Download and publish
         run: |
@@ -29,4 +30,5 @@ jobs:
           cp electron/mac-release-notes.md release-notes.md
           cd release
           sha256sum *.dmg *.zip > SHA256SUMS.txt
-          gh release create v0.2.1-mac-syphon *.dmg *.zip SHA256SUMS.txt --prerelease --latest=false --target "$(jq -r .headSha ../build.json)" --title "YuiTracking Mac v0.2.1 — Syphon試用版" --notes-file ../release-notes.md
+          VERSION=$(node -p "require('../electron/package.json').version")
+          gh release create "v${VERSION}-mac-syphon" *.dmg *.zip SHA256SUMS.txt --prerelease --latest=false --target "$(jq -r .headSha ../build.json)" --title "YuiTracking Mac ${VERSION} — Syphon試用版" --notes-file ../release-notes.md

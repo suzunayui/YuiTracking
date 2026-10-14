@@ -16,7 +16,7 @@ class SyphonOutput {
   if(this.privacy||this.loading)return false;
   const buffer=Buffer.from(data);
   // Canvas RGBA -> native BGRA, top-down. Swap once, without a vertical flip.
-  for(let i=0;i<BYTES;i+=4){const red=buffer[i];buffer[i]=buffer[i+2];buffer[i+2]=red;buffer[i+3]=255;}
+  for(let i=0;i<BYTES;i+=4){const red=buffer[i];buffer[i]=buffer[i+2];buffer[i+2]=red;}
   this.last=buffer;this.receivedAt=this.now();return true;
  }
  setPrivacy(value){this.privacy=!!value;this.last=null;this.tick();}

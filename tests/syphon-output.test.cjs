@@ -6,7 +6,7 @@ test('avatar frames convert RGBA to BGRA; privacy, loading and stale frames repl
  const output=new SyphonOutput(()=>({sendRgbaBuffer:frame=>latest=frame,stop:()=>{stopped=true;}}),error=>{throw error;},()=>time);
  try{
   output.start();assert.equal(latest,output.standby);
-  const data=new ArrayBuffer(BYTES);new Uint8Array(data).set([12,34,56,255]);output.accept(data);output.tick();assert.deepEqual([...latest.subarray(0,4)],[56,34,12,255]);
+  const data=new ArrayBuffer(BYTES);new Uint8Array(data).set([12,34,56,128]);output.accept(data);output.tick();assert.deepEqual([...latest.subarray(0,4)],[56,34,12,128]);
   time+=701;output.tick();assert.equal(latest,output.standby);
   output.setPrivacy(true);assert.equal(output.accept(new ArrayBuffer(BYTES)),false);assert.equal(latest,output.standby);
   output.setPrivacy(false);output.tick();assert.equal(latest,output.standby);
