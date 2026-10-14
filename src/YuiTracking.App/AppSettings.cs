@@ -58,7 +58,7 @@ internal static class AppSettings
         if (!double.IsFinite(opening) || !double.IsFinite(sensitivity)) return;
         var settings = Read(); settings["mouthOpenStrength"] = Math.Clamp(opening, .5, 3); settings["mouthSensitivity"] = Math.Clamp(sensitivity, .5, 3); Save(settings);
     }
-    public record Framing(double Zoom, double X, double Y, double Z);
+    public record Framing(double Zoom, double X, double Y, double Z, double? TargetX = null, double? TargetY = null, double? TargetZ = null);
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     public static Framing? SavedFraming => Read()["framing"]?.Deserialize<Framing>(JsonOptions);
     public static void SaveFraming(Framing framing)

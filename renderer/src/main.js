@@ -26,14 +26,15 @@ const post=(type,rest={})=>host?.postMessage({type,...rest});
 const status=text=>post('status',{text});
 const scene=new THREE.Scene(); scene.background=new THREE.Color('#00ff00');
 const avatarBackground=new AvatarBackground(scene);
-const camera=new THREE.PerspectiveCamera(32,W/H,0.01,100); camera.position.set(0,1.35,3.1); camera.lookAt(0,1.1,0);
+const cameraTarget=new THREE.Vector3(0,1.1,0);
+const camera=new THREE.PerspectiveCamera(32,W/H,0.01,100); camera.position.set(0,1.35,3.1); camera.lookAt(cameraTarget);
 const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true,alpha:true,premultipliedAlpha:false});
 renderer.setClearColor(0x000000,0);
 renderer.setSize(W,H,false); renderer.setPixelRatio(1); renderer.outputColorSpace=THREE.SRGBColorSpace;
 // Keep the VRM's authored colors without filmic highlight compression.
 renderer.toneMapping=THREE.NoToneMapping;renderer.toneMappingExposure=1;
 document.body.appendChild(renderer.domElement);
-renderer.domElement.title='Ctrl＋マウスホイール：拡大・縮小\nホイールドラッグ：上下左右に移動';
+renderer.domElement.title='マウスホイール：拡大・縮小\nホイールドラッグ：上下左右に移動\n右ドラッグ：カメラを回転';
 // Handle this inside WebView2; its native surface does not reliably bubble
 // pointer gestures to the surrounding XAML controls. Keep the same WebView
 // alive so expanding the preview cannot restart tracking or virtual output.
@@ -50,20 +51,33 @@ if(window.chrome?.webview){
   post('togglePreviewMaximized');
  });
 }
-let panPointer=null,panX=0,panY=0;
+let panPointer=null,panX=0,panY=0,orbitPointer=null,orbitX=0,orbitY=0;
 const panDepth=Math.hypot(3.1,.25);
-function saveFraming(){post('framingChanged',{zoom:camera.zoom,x:camera.position.x,y:camera.position.y,z:camera.position.z});}
+function saveFraming(){post('framingChanged',{zoom:camera.zoom,x:camera.position.x,y:camera.position.y,z:camera.position.z,targetX:cameraTarget.x,targetY:cameraTarget.y,targetZ:cameraTarget.z});}
 function endPan(){
  const pointer=panPointer;panPointer=null;renderer.domElement.style.cursor='';
  if(pointer!==null&&renderer.domElement.hasPointerCapture(pointer))renderer.domElement.releasePointerCapture(pointer);
 }
 renderer.domElement.addEventListener('pointerdown',event=>{
- if(event.button!==1||panPointer!==null)return;
+ if(event.button===2&&panPointer===null&&orbitPointer===null){
+  event.preventDefault();orbitPointer=event.pointerId;orbitX=event.clientX;orbitY=event.clientY;
+  renderer.domElement.setPointerCapture(event.pointerId);renderer.domElement.style.cursor='grabbing';return;
+ }
+ if(event.button!==1||panPointer!==null||orbitPointer!==null)return;
  event.preventDefault();
  panPointer=event.pointerId;panX=event.clientX;panY=event.clientY;
  renderer.domElement.setPointerCapture(event.pointerId);renderer.domElement.style.cursor='grabbing';
 });
 renderer.domElement.addEventListener('pointermove',event=>{
+ if(event.pointerId===orbitPointer){
+  if(!(event.buttons&2)){endOrbit();return;}
+  event.preventDefault();
+  const spherical=new THREE.Spherical().setFromVector3(camera.position.clone().sub(cameraTarget));
+  spherical.theta-=(event.clientX-orbitX)*.006;
+  spherical.phi=clamp(spherical.phi-(event.clientY-orbitY)*.006,.05,Math.PI-.05);
+  camera.position.copy(cameraTarget).add(new THREE.Vector3().setFromSpherical(spherical));camera.lookAt(cameraTarget);
+  orbitX=event.clientX;orbitY=event.clientY;saveFraming();return;
+ }
  if(event.pointerId!==panPointer)return;
  if(!(event.buttons&4)){endPan();return;}
  event.preventDefault();
@@ -72,18 +86,21 @@ renderer.domElement.addEventListener('pointermove',event=>{
  if(height>0){
   const units=2*panDepth*Math.tan(THREE.MathUtils.degToRad(camera.fov/2))/(camera.zoom*height);
   // Move perpendicular to the view so the avatar follows the pointer at any zoom.
-  camera.position.add(new THREE.Vector3(-(event.clientX-panX)*units,(event.clientY-panY)*units,0).applyQuaternion(camera.quaternion));
+  const movement=new THREE.Vector3(-(event.clientX-panX)*units,(event.clientY-panY)*units,0).applyQuaternion(camera.quaternion);
+  camera.position.add(movement);cameraTarget.add(movement);
   saveFraming();
  }
  panX=event.clientX;panY=event.clientY;
 });
+function endOrbit(){const pointer=orbitPointer;orbitPointer=null;renderer.domElement.style.cursor='';if(pointer!==null&&renderer.domElement.hasPointerCapture(pointer))renderer.domElement.releasePointerCapture(pointer);}
 for(const type of ['pointerup','pointercancel','lostpointercapture'])renderer.domElement.addEventListener(type,event=>{
  if(event.pointerId===panPointer)endPan();
+ if(event.pointerId===orbitPointer)endOrbit();
 });
-window.addEventListener('blur',endPan);
+window.addEventListener('blur',()=>{endPan();endOrbit();});
+renderer.domElement.addEventListener('contextmenu',event=>event.preventDefault());
 renderer.domElement.addEventListener('auxclick',event=>{if(event.button===1)event.preventDefault();});
 renderer.domElement.addEventListener('wheel',event=>{
- if(!event.ctrlKey)return;
  event.preventDefault();
  const delta=event.deltaY*(event.deltaMode===1?16:event.deltaMode===2?H:1);
  camera.zoom=clamp(camera.zoom*Math.exp(-clamp(delta,-720,720)*.0015),.5,4);
@@ -460,9 +477,13 @@ host?.addEventListener('message',async e=>{
   case'frameAck':if(framePending){perfSent++;perfAck=Math.max(perfAck,performance.now()-perfPendingAt);}framePending=false;break;
   case'restoreFraming':
    if([m.zoom,m.x,m.y,m.z].every(Number.isFinite)){
-    camera.zoom=clamp(m.zoom,.5,4);camera.position.set(m.x,m.y,m.z);camera.updateProjectionMatrix();
+    camera.zoom=clamp(m.zoom,.5,4);camera.position.set(m.x,m.y,m.z);
+    cameraTarget.set(...([m.targetX,m.targetY,m.targetZ].every(Number.isFinite)?[m.targetX,m.targetY,m.targetZ]:[m.x,m.y-.25,m.z-3.1]));
+    camera.lookAt(cameraTarget);camera.updateProjectionMatrix();
    }
    break;
+  case'resetFraming':
+   endPan();endOrbit();camera.zoom=1;camera.position.set(0,1.35,3.1);cameraTarget.set(0,1.1,0);camera.lookAt(cameraTarget);camera.updateProjectionMatrix();saveFraming();break;
   case'loadModel':await loadModel(m.requestId);break;
   case'demo':loadVersion++;makeDemo();break;
   case'startTracking':await startTracking(m.deviceId,m.cameraLabel);break;

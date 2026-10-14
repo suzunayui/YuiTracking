@@ -329,7 +329,7 @@ public sealed partial class MainWindow : Window
                     catch (Exception ex) { Report(ex); }
                     restoreOutputPending = AppSettings.VirtualCameraEnabled;
                     var framing = AppSettings.SavedFraming;
-                    if (framing != null) Send(new { type = "restoreFraming", zoom = framing.Zoom, x = framing.X, y = framing.Y, z = framing.Z });
+                    if (framing != null) Send(new { type = "restoreFraming", zoom = framing.Zoom, x = framing.X, y = framing.Y, z = framing.Z, targetX = framing.TargetX, targetY = framing.TargetY, targetZ = framing.TargetZ });
                     var defaultModel = AppSettings.DefaultVrmPath;
                     var defaultSample = AppSettings.DefaultSample;
                     if (defaultSample is "Y" or "Z") await LoadSampleAsync(defaultSample);
@@ -353,7 +353,8 @@ public sealed partial class MainWindow : Window
                     var zoom = root.GetProperty("zoom").GetDouble();
                     var x = root.GetProperty("x").GetDouble(); var y = root.GetProperty("y").GetDouble(); var z = root.GetProperty("z").GetDouble();
                     if (!double.IsFinite(zoom) || zoom < .5 || zoom > 4 || !double.IsFinite(x) || !double.IsFinite(y) || !double.IsFinite(z)) break;
-                    pendingFraming = new(zoom, x, y, z);
+                    double? Coordinate(string name) => root.TryGetProperty(name, out var item) && item.TryGetDouble(out var value) && double.IsFinite(value) ? value : null;
+                    pendingFraming = new(zoom, x, y, z, Coordinate("targetX"), Coordinate("targetY"), Coordinate("targetZ"));
                     framingTimer.Stop(); framingTimer.Start();
                     break;
                 case "modelLoaded":
@@ -475,6 +476,7 @@ public sealed partial class MainWindow : Window
         Send(new { type = tracking ? "stopTracking" : "startTracking", deviceId = camera?.Native == false ? camera.Id : "", cameraLabel = camera?.Native == true ? camera.Label : "" });
     }
     private void Calibrate_Click(object sender, RoutedEventArgs e) => Send(new { type = "calibrate" });
+    private void ResetFraming_Click(object sender, RoutedEventArgs e) => Send(new { type = "resetFraming" });
     private void UpdateMotionLabels()
     {
         // XAML ValueChanged can fire before all named controls are created.
