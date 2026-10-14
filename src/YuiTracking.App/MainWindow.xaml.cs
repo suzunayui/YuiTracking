@@ -88,7 +88,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        Title = $"YuiTracking {typeof(App).Assembly.GetName().Version?.ToString(3) ?? "0.1.7"}";
+        Title = $"YuiTracking {typeof(App).Assembly.GetName().Version?.ToString(3) ?? "0.1.8"}";
         framingTimer = DispatcherQueue.CreateTimer(); framingTimer.Interval = TimeSpan.FromMilliseconds(250);
         framingTimer.Tick += (_, _) => SaveFraming();
         mouthTimer = DispatcherQueue.CreateTimer(); mouthTimer.Interval = TimeSpan.FromMilliseconds(250);
@@ -399,7 +399,7 @@ public sealed partial class MainWindow : Window
         Path.Combine(AppContext.BaseDirectory, "Assets", "Samples", $"AvatarSample_{sample}.vrm"), sample);
     private async void Sample_Click(object sender, RoutedEventArgs e)
     {
-        if (!ready || closing || sender is not MenuFlyoutItem item || item.Tag is not string sample || sample is not ("Y" or "Z")) return;
+        if (!ready || closing || sender is not Button item || item.Tag is not string sample || sample is not ("Y" or "Z")) return;
         try { await LoadSampleAsync(sample); } catch (Exception ex) { Report(ex); }
     }
     private void Track_Click(object sender, RoutedEventArgs e)
