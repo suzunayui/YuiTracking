@@ -490,7 +490,16 @@ public sealed partial class MainWindow : Window
         if (!ready) return;
         Send(new { type = "settings", smoothing = Smoothness.Value, sensitivity = Sensitivity.Value, mouthOpenStrength = MouthStrength.Value, mouthSensitivity = MouthSensitivity.Value, springStrength = SpringStrength.Value, background = backgroundColor });
     }
-    private void Privacy_Toggled(object sender, RoutedEventArgs e) { if (!ready) return; output?.SetPrivacy(Privacy.IsOn); Send(new { type = "privacy", value = Privacy.IsOn }); }
+    private void Privacy_Click(object sender, RoutedEventArgs e)
+    {
+        if (!ready) { Privacy.IsChecked = false; return; }
+        var standby = Privacy.IsChecked == true;
+        output?.SetPrivacy(standby);
+        Send(new { type = "privacy", value = standby });
+        ToolTipService.SetToolTip(Privacy, standby
+            ? "待機画面を表示中です。\nもう一度押すとアバターの表示・出力に戻ります。"
+            : "待機画面に切り替えます。\nオンの間はアバターの代わりに待機画面を出力します。");
+    }
     private void Register_Click(object sender, RoutedEventArgs e)
     {
         try { VirtualCamera.Register(Path.Combine(AppContext.BaseDirectory,"Assets","VirtualCamera","UnityCaptureFilter64.dll")); OutputStatus.Text = "登録完了。OBSのデバイス一覧を開き直してください。"; RegisterButton.Visibility = Visibility.Collapsed; }
@@ -515,7 +524,7 @@ public sealed partial class MainWindow : Window
             if (enabled && output == null)
             {
                 if (!VirtualCamera.IsRegistered()) VirtualCamera.Register(Path.Combine(AppContext.BaseDirectory,"Assets","VirtualCamera","UnityCaptureFilter64.dll"));
-                output = new VirtualCamera(); output.SetPrivacy(Privacy.IsOn); Send(new { type = "output", value = true }); OutputButton.Content = "仮想カメラ出力を停止";
+                output = new VirtualCamera(); output.SetPrivacy(Privacy.IsChecked == true); Send(new { type = "output", value = true }); OutputButton.Content = "仮想カメラ出力を停止";
             }
             else if (!enabled && output != null) { Send(new { type = "output", value = false }); output.Dispose(); output = null; OutputButton.Content = "仮想カメラ出力を開始"; OutputStatus.Text = "仮想カメラ：停止中"; }
             ToolTipService.SetToolTip(OutputButton, output != null
