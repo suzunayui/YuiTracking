@@ -20,8 +20,8 @@
       <StackPanel Spacing="6" VerticalAlignment="Center">
        <Grid ColumnSpacing="6">
         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-        <Button Content="正面をキャリブレーション" HorizontalAlignment="Stretch" ToolTipService.ToolTip="右Ctrlまたは右Shiftを単独で押して離しても実行できます" Click="Calibrate_Click"/>
-        <Button Grid.Column="1" Content="最大化" Click="MaximizePreview_Click" ToolTipService.ToolTip="プレビューを最大化。Escで元に戻します"/>
+        <Button Content="正面をキャリブレーション" HorizontalAlignment="Stretch" ToolTipService.ToolTip="正面を向いて実行してください。&#10;ショートカット：右Ctrl／右Shift&#10;どちらかを単独で押して離すと実行します。" Click="Calibrate_Click"/>
+        <Button Grid.Column="1" Content="最大化" Click="MaximizePreview_Click" ToolTipService.ToolTip="プレビューを最大化します。&#10;Esc：元に戻す&#10;ダブルクリックでも切り替えられます。"/>
        </Grid>
        <TextBlock x:Name="TrackingStatus" Text="描画エンジンを準備しています…" TextWrapping="Wrap" FontSize="12"/>
        <TextBlock x:Name="OutputStatus" Text="仮想カメラ：停止中" Foreground="#9DA7C0" TextWrapping="Wrap" FontSize="12"/>
@@ -61,7 +61,7 @@
         <ToggleButton x:Name="BackgroundBlue" Grid.Column="1" Content="ブルー" Tag="#0000ff" Click="Background_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
         <ToggleButton x:Name="BackgroundDark" Grid.Column="2" Content="暗色" Tag="#171b2e" Click="Background_Click" HorizontalAlignment="Stretch" Padding="6,4" ToolTipService.ToolTip="ミッドナイト"/>
        </Grid>
-       <Button x:Name="OutputButton" Content="仮想カメラ出力を開始" Click="Output_Click" HorizontalAlignment="Stretch" IsEnabled="False" ToolTipService.ToolTip="OBSの映像キャプチャデバイスでYuiTracking Cameraを選択してください"/>
+       <Button x:Name="OutputButton" Content="仮想カメラ出力を開始" Click="Output_Click" HorizontalAlignment="Stretch" IsEnabled="False" ToolTipService.ToolTip="OBSで「映像キャプチャデバイス」を追加し、&#10;「YuiTracking Camera」を選択してください。"/>
        <Button x:Name="RegisterButton" Content="仮想カメラを登録（初回）" Click="Register_Click" HorizontalAlignment="Stretch"/>
       </StackPanel>
       </ScrollViewer>
@@ -70,7 +70,7 @@
        <TextBlock x:Name="SmoothnessLabel" Text="滑らかさ：65%" Foreground="#9DA7C0"/><Slider x:Name="Smoothness" Minimum="0" Maximum="0.95" Value="0.65" StepFrequency="0.05" ValueChanged="Settings_Changed"/>
        <TextBlock x:Name="MouthStrengthLabel" Text="口の開き具合：1.0倍" Foreground="#9DA7C0"/><Slider x:Name="MouthStrength" ToolTipService.ToolTip="アバターの口の変形量を調整" Minimum="0.5" Maximum="3" Value="1" StepFrequency="0.1" ValueChanged="MouthStrength_Changed"/>
        <TextBlock x:Name="MouthSensitivityLabel" Text="口の感度：1.8倍" Foreground="#9DA7C0"/><Slider x:Name="MouthSensitivity" ToolTipService.ToolTip="小さな口の動きへの反応を調整" Minimum="0.5" Maximum="3" Value="1.8" StepFrequency="0.1" ValueChanged="MouthStrength_Changed"/>
-       <TextBlock x:Name="SpringStrengthLabel" Text="揺れものの強さ：1.0倍" Foreground="#9DA7C0"/><Slider x:Name="SpringStrength" Minimum="0.3" Maximum="3" Value="1" StepFrequency="0.1" ToolTipService.ToolTip="1.0倍がモデル標準。大きくすると髪・服が揺れやすくなります" ValueChanged="SpringStrength_Changed"/>
+       <TextBlock x:Name="SpringStrengthLabel" Text="揺れものの強さ：1.0倍" Foreground="#9DA7C0"/><Slider x:Name="SpringStrength" Minimum="0.3" Maximum="3" Value="1" StepFrequency="0.1" ToolTipService.ToolTip="1.0倍：モデル標準&#10;値を大きくすると、髪・服が揺れやすくなります。" ValueChanged="SpringStrength_Changed"/>
        <TextBlock x:Name="SensitivityLabel" Text="顔の動きの強さ：1.0倍" Foreground="#9DA7C0"/><Slider x:Name="Sensitivity" Minimum="0.3" Maximum="2" Value="1" StepFrequency="0.1" ValueChanged="Settings_Changed"/>
       </StackPanel>
       </ScrollViewer>

@@ -30,12 +30,12 @@ renderer.setSize(W,H,false); renderer.setPixelRatio(1); renderer.outputColorSpac
 // Keep the VRM's authored colors without filmic highlight compression.
 renderer.toneMapping=THREE.NoToneMapping;renderer.toneMappingExposure=1;
 document.body.appendChild(renderer.domElement);
-renderer.domElement.title='Ctrl＋マウスホイール：拡大・縮小／ホイールドラッグ：上下左右に移動';
+renderer.domElement.title='Ctrl＋マウスホイール：拡大・縮小\nホイールドラッグ：上下左右に移動';
 // Handle this inside WebView2; its native surface does not reliably bubble
 // pointer gestures to the surrounding XAML controls. Keep the same WebView
 // alive so expanding the preview cannot restart tracking or virtual output.
 if(window.chrome?.webview){
- renderer.domElement.title+='／ダブルクリック：プレビュー最大化・元に戻す／Esc：元に戻す';
+ renderer.domElement.title+='\nダブルクリック：最大化・元に戻す\nEsc：最大化から元に戻す';
  document.addEventListener('keydown',event=>{
   if(event.key!=='Escape')return;
   event.preventDefault();
