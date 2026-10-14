@@ -50,9 +50,9 @@
       <TextBlock Text="サンプル" Foreground="#9DA7C0" FontSize="12"/>
        <Grid ColumnSpacing="6">
        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-       <Button Content="女の子" Tag="Y" Click="Sample_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
-       <Button Grid.Column="1" Content="男の子" Tag="Z" Click="Sample_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
-       <Button Grid.Column="2" Content="ロボット" Click="Demo_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
+       <ToggleButton x:Name="SampleGirl" Content="女の子" Tag="Y" Click="Sample_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
+       <ToggleButton x:Name="SampleBoy" Grid.Column="1" Content="男の子" Tag="Z" Click="Sample_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
+       <ToggleButton x:Name="SampleRobot" Grid.Column="2" Content="ロボット" Click="Demo_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
        </Grid>
        <TextBlock Text="背景" Foreground="#9DA7C0" FontSize="12" Margin="0,12,0,0"/>
        <Grid ColumnSpacing="6">

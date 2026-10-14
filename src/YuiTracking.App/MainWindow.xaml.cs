@@ -24,6 +24,14 @@ public sealed partial class MainWindow : Window
     private int modelRequestId;
     private string? pendingModelPath;
     private string? pendingSample;
+    private string? selectedSample;
+    private void SelectSample(string? sample)
+    {
+        selectedSample = sample;
+        SampleGirl.IsChecked = sample == "Y";
+        SampleBoy.IsChecked = sample == "Z";
+        SampleRobot.IsChecked = sample == "robot";
+    }
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer statusTimer;
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer framingTimer;
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer mouthTimer;
@@ -305,7 +313,7 @@ public sealed partial class MainWindow : Window
                     var defaultModel = AppSettings.DefaultVrmPath;
                     var defaultSample = AppSettings.DefaultSample;
                     if (defaultSample is "Y" or "Z") await LoadSampleAsync(defaultSample);
-                    else if (defaultSample == "robot") { ModelLabel.Text = "内蔵ロボット"; RestoreOutput(); }
+                    else if (defaultSample == "robot") { ModelLabel.Text = "内蔵ロボット"; SelectSample("robot"); RestoreOutput(); }
                     else if (!string.IsNullOrWhiteSpace(defaultModel)) await LoadModelAsync(defaultModel);
                     else await LoadSampleAsync("Y");
                     break;
@@ -333,6 +341,7 @@ public sealed partial class MainWindow : Window
                     ModelLabel.Text = pendingSample == "Y" ? "女の子（Y）" : pendingSample == "Z" ? "男の子（Z）" : Path.GetFileName(pendingModelPath);
                     App.Log("VRM loaded: " + pendingModelPath);
                     ModelButton.IsEnabled = true;
+                    SelectSample(pendingSample);
                     if (pendingSample != null) AppSettings.SaveDefaultSample(pendingSample);
                     else AppSettings.SaveDefaultVrm(pendingModelPath);
                     pendingModelPath = null;
@@ -406,16 +415,18 @@ public sealed partial class MainWindow : Window
     }
     private void Demo_Click(object sender, RoutedEventArgs e)
     {
+        SelectSample(selectedSample);
         if (!ready || closing) return;
         modelRequestId++; pendingModelPath = pendingSample = null; ModelButton.IsEnabled = true;
-        ModelLabel.Text = "内蔵ロボット"; Send(new { type = "demo" }); RestoreOutput();
+        ModelLabel.Text = "内蔵ロボット"; Send(new { type = "demo" }); SelectSample("robot"); RestoreOutput();
         try { AppSettings.SaveDefaultSample("robot"); } catch (Exception ex) { Report(ex); }
     }
     private Task LoadSampleAsync(string sample) => LoadModelAsync(
         Path.Combine(AppContext.BaseDirectory, "Assets", "Samples", $"AvatarSample_{sample}.vrm"), sample);
     private async void Sample_Click(object sender, RoutedEventArgs e)
     {
-        if (!ready || closing || sender is not Button item || item.Tag is not string sample || sample is not ("Y" or "Z")) return;
+        SelectSample(selectedSample);
+        if (!ready || closing || sender is not Microsoft.UI.Xaml.Controls.Primitives.ToggleButton item || item.Tag is not string sample || sample is not ("Y" or "Z")) return;
         try { await LoadSampleAsync(sample); } catch (Exception ex) { Report(ex); }
     }
     private void Track_Click(object sender, RoutedEventArgs e)
