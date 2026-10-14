@@ -2,18 +2,25 @@
 // A small dead zone holds still poses; faster movement raises the cutoff.
 export class LandmarkFilter {
  constructor(deadZone){this.deadZone=deadZone;this.points=null;this.time=0;}
- reset(){this.points=null;this.time=0;}
+ reset(){this.points=null;this.candidates=[];this.time=0;}
  update(points,time){
   if(!points?.length){this.reset();return points;}
   if(!this.points||this.points.length!==points.length||time-this.time>500){
-   this.points=points.map(p=>({...p}));this.time=time;return this.points;
+   this.points=points.map(p=>({...p}));this.candidates=[];this.time=time;return this.points;
   }
+  if(time-this.time>150)this.candidates=[];
   const dt=Math.max(.001,Math.min(.2,(time-this.time)/1000));this.time=time;
   this.points=points.map((point,i)=>{
    const old=this.points[i];
    const distance=Math.hypot(point.x-old.x,point.y-old.y,point.z-old.z);
-   if(!Number.isFinite(distance)){return {...old};}
-   if(distance<=this.deadZone)return {...point,x:old.x,y:old.y,z:old.z};
+   if(!Number.isFinite(distance)){this.candidates[i]=null;return {...old};}
+   if(distance<=this.deadZone){this.candidates[i]=null;return {...point,x:old.x,y:old.y,z:old.z};}
+   const candidate=this.candidates[i];
+   if(distance<=this.deadZone*3&&(!candidate||Math.hypot(point.x-candidate.x,point.y-candidate.y,point.z-candidate.z)>this.deadZone)){
+    this.candidates[i]={x:point.x,y:point.y,z:point.z};
+    return {...point,x:old.x,y:old.y,z:old.z};
+   }
+   this.candidates[i]=null;
    const alpha=1-Math.exp(-2*Math.PI*(3+45*distance/dt)*dt);
    return {...point,x:old.x+(point.x-old.x)*alpha,y:old.y+(point.y-old.y)*alpha,z:old.z+(point.z-old.z)*alpha};
   });

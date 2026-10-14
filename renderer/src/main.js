@@ -15,6 +15,9 @@ import {SpringStrength} from './spring-strength.js';
 import {RotationStabilizer} from './rotation-stabilizer.js';
 import {browserCameraId} from './camera-selection.js';
 import {AvatarBackground} from './background.js';
+import {FrameCapture} from './frame-capture.js';
+import {avatarTextures} from './avatar-textures.js';
+import {QuaternionDamping} from './quaternion-damping.js';
 
 const W=1280,H=720;
 const host=window.yuiHost ?? window.chrome?.webview ?? (window.parent!==window ? {
@@ -23,7 +26,7 @@ const host=window.yuiHost ?? window.chrome?.webview ?? (window.parent!==window ?
  addEventListener:(type,callback)=>{if(type==='message')window.addEventListener('message',event=>{if(event.source===window.parent&&event.origin===location.origin&&event.data?.yuiCommand)callback({data:event.data.yuiCommand});});}
 }:null);
 const post=(type,rest={})=>host?.postMessage({type,...rest});
-const status=text=>post('status',{text});
+const status=(text,temporary=false)=>post('status',{text,temporary});
 const scene=new THREE.Scene(); scene.background=new THREE.Color('#00ff00');
 const avatarBackground=new AvatarBackground(scene);
 const cameraTarget=new THREE.Vector3(0,1.1,0);
@@ -122,6 +125,13 @@ let handRest={};
 let mouthMorphBinds=[];
 let springStrength=1,springPhysics=null;
 const handTransitions={left:new HandTransition(250),right:new HandTransition(250)};
+let rotationDampers=new WeakMap();
+function dampRotation(node,target,dt){
+ if(!node)return;
+ let damper=rotationDampers.get(node);
+ if(!damper){damper=new QuaternionDamping();rotationDampers.set(node,damper);}
+ damper.update(node.quaternion,target,dt,smoothing);
+}
 const handFilters=Object.fromEntries(['Left','Right'].map(side=>[side,{screen:new LandmarkFilter(.004),world:new LandmarkFilter(.0015)}]));
 function stabilizeHands(result,time){
  const seen=new Set();
@@ -138,8 +148,7 @@ let framePending=false,loadVersion=0;
 let sharedFramePixels=null;
 let perfLast=0,perfFrames=0,perfSent=0,perfDetect=0,perfCapture=0,perfAck=0,perfPendingAt=0;
 const perfStats={renderFps:0,frameFps:0,detectMs:0,captureMs:0,ackMs:0};
-const captureCanvas=document.createElement('canvas'); captureCanvas.width=W;captureCanvas.height=H;
-const capture=captureCanvas.getContext('2d',{willReadFrequently:true});
+const capture=new FrameCapture(renderer,W,H);
 // Only this WebGL canvas is ever copied to the outbound frame buffer. The input
 // video is kept detached and is passed exclusively to the landmark detectors.
 const standby=new THREE.Scene(); standby.background=new THREE.Color('#171b2e');
@@ -148,11 +157,18 @@ for (const x of [-20,20]) {const b=new THREE.Mesh(new THREE.PlaneGeometry(20,96)
 function mesh(geometry,color,parent,x=0,y=0,z=0) {
  const o=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({color,roughness:.55})); o.position.set(x,y,z);parent.add(o);return o;
 }
+function disposeAvatarScene(avatarScene){
+ const images=new Set([...avatarTextures(avatarScene)].map(texture=>texture.image));
+ VRMUtils.deepDispose(avatarScene);
+ for(const image of images)image?.close?.();
+}
 function removeAvatar() {
+ rotationDampers=new WeakMap();
  springPhysics=null;
  mouthMorphBinds=[];
- if(vrm){scene.remove(vrm.scene);VRMUtils.deepDispose(vrm.scene);vrm=null;}
+ if(vrm){scene.remove(vrm.scene);disposeAvatarScene(vrm.scene);vrm=null;}
  if(demo){scene.remove(demo);demo.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});demo=null;}
+ head=null;eyes=[];arms={};handRest={};renderer.renderLists.dispose();
 }
 function makeDemo(){
  removeAvatar(); demo=new THREE.Group(); scene.add(demo);
@@ -192,7 +208,7 @@ async function loadModel(requestId){
   const loader=new GLTFLoader(manager);loader.register(parser=>new VRMLoaderPlugin(parser));
   const gltf=await loader.loadAsync(`https://yuitracking.local/avatar.vrm?v=${version}`);
   const next=gltf.userData.vrm;if(!next)throw new Error('VRM 0.x / 1.0のモデルを選択してください。');
-  if(version!==loadVersion){VRMUtils.deepDispose(next.scene);return;}
+  if(version!==loadVersion){disposeAvatarScene(next.scene);return;}
   removeAvatar();vrm=next;VRMUtils.rotateVRM0(vrm);scene.add(vrm.scene);
   mouthMorphBinds=['aa','ih','ou','ee','oh'].flatMap(name=>(vrm.expressionManager?.getExpression(name)?.binds??[]).filter(bind=>bind.primitives&&Number.isInteger(bind.index)).map(bind=>({bind,baseWeight:bind.weight})));
   placeAvatar(vrm);
@@ -209,6 +225,12 @@ async function loadModel(requestId){
  finally{if(version===loadVersion)loading=false;}
 }
 let trackingWorker,workerReady,workerBusy=false,trackingGeneration=0;
+let detectionTimer=null;
+function scheduleDetection(){
+ if(detectionTimer!==null)clearTimeout(detectionTimer);
+ detectionTimer=null;
+ if(tracking)detectionTimer=setTimeout(()=>{detectionTimer=null;detect(performance.now());scheduleDetection();},48);
+}
 let lastTrackingReceived=0,trackingGapMs=0,trackingLatencyMs=0,trackingResults=0;
 async function ensureTasks(){
  if(workerReady)return workerReady;
@@ -225,8 +247,8 @@ async function ensureTasks(){
    const receivedAt=performance.now();
    if(lastTrackingReceived)trackingGapMs=Math.max(trackingGapMs,receivedAt-lastTrackingReceived);
    lastTrackingReceived=receivedAt;trackingLatencyMs=Math.max(trackingLatencyMs,receivedAt-data.time);trackingResults++;
-   latestFace={result:data.face,time:data.time};latestHands={result:stabilizeHands(data.hands,data.time),time:data.time,receivedAt:performance.now()};
-   if(data.pose)latestPose={result:data.pose,time:data.time};
+   latestFace={result:data.face,time:data.time,receivedAt};latestHands={result:stabilizeHands(data.hands,data.time),time:data.time,receivedAt};
+   if(data.pose)latestPose={result:data.pose,time:data.time,receivedAt};
    const matrix=data.face.facialTransformationMatrixes?.[0]?.data;
    const weights=Object.fromEntries((data.face.faceBlendshapes?.[0]?.categories??[]).map(c=>[c.categoryName,c.score]));
    const sample=matrix?{time:data.time,rotation:new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().fromArray(matrix)).toArray(),eyesOpen:Math.max(weights.eyeBlinkLeft??0,weights.eyeBlinkRight??0)<.7}:null;
@@ -254,15 +276,18 @@ async function startTracking(deviceId,cameraLabel){
   await video.play(); await listCameras();
   const input=track.getSettings();post('cameraInput',{deviceId:input.deviceId,width:input.width??video.videoWidth,height:input.height??video.videoHeight,fps:input.frameRate??0});
   track.onended=()=>{stopTracking();status('カメラが切断されました。待機ポーズに戻ります。');};
-  lastTrackingReceived=0;trackingGapMs=trackingLatencyMs=trackingResults=0;tracking=true;restartRenderLoop();lastVideoTime=-1;lastPoseDetect=0;bodyNeutral=null;calibration.identity();blinkBaseline={left:0,right:0};autoCalibration.start(performance.now());post('tracking',{active:true});status('正面を向いて目を開けてください。顔の検出が安定すると一度だけ自動でキャリブレーションします。');
+  lastTrackingReceived=0;trackingGapMs=trackingLatencyMs=trackingResults=0;tracking=true;restartRenderLoop();scheduleDetection();lastVideoTime=-1;lastPoseDetect=0;bodyNeutral=null;calibration.identity();blinkBaseline={left:0,right:0};autoCalibration.start(performance.now());post('tracking',{active:true});status('正面を向いて目を開けてください。顔の検出が安定すると一度だけ自動でキャリブレーションします。');
  }catch(e){stopTracking();post('error',{text:'カメラを開始できません：'+e.message});}
  finally{initializing=false;}
 }
 function stopTracking(){
+ rotationDampers=new WeakMap();
  autoCalibration.stop();
  bodyStabilizer.reset();headStabilizer.reset();
  for(const filter of Object.values(handFilters)){filter.screen.reset();filter.world.reset();}
- trackingGeneration++;tracking=false;restartRenderLoop();stream?.getTracks().forEach(t=>{t.onended=null;t.stop();});stream=null;
+ trackingGeneration++;tracking=false;scheduleDetection();restartRenderLoop();stream?.getTracks().forEach(t=>{t.onended=null;t.stop();});stream=null;
+ // Stopped tracking should release all three WASM recognition engines.
+ trackingWorker?.terminate();trackingWorker=null;workerReady=null;workerBusy=false;
  if(video){video.pause();video.srcObject=null;video=null;}
  latestFace=latestHands=latestPose=null;bodyNeutral=null;haveFace=false;post('tracking',{active:false});status('カメラ停止中。待機ポーズを表示しています。');
 }
@@ -271,9 +296,9 @@ function detect(now){
  lastVideoTime=video.currentTime;lastDetect=now;workerBusy=true;
  const generation=trackingGeneration;
  createImageBitmap(video).then(bitmap=>{
-  if(!tracking||generation!==trackingGeneration||!trackingWorker){bitmap.close();workerBusy=false;return;}
+  if(!tracking||generation!==trackingGeneration||!trackingWorker){bitmap.close();if(generation===trackingGeneration)workerBusy=false;return;}
   trackingWorker.postMessage({type:'frame',bitmap,time:now,generation},[bitmap]);
- }).catch(e=>{workerBusy=false;stopTracking();post('error',{text:'認識を停止しました：'+e.message});});
+ }).catch(e=>{if(generation!==trackingGeneration)return;workerBusy=false;stopTracking();post('error',{text:'認識を停止しました：'+e.message});});
 }
 function calibrateFace(automatic=false){
  const matrix=latestFace?.result.facialTransformationMatrixes?.[0]?.data;
@@ -282,12 +307,12 @@ function calibrateFace(automatic=false){
     autoCalibration.stop();
     const pose=safeTracking(latestPose,performance.now())?bodyPose(latestPose.result.worldLandmarks?.[0]):null;
     bodyNeutral=pose?{...pose}:null;
-    bodyStabilizer.reset();headStabilizer.reset();
+    bodyStabilizer.reset();headStabilizer.reset();rotationDampers=new WeakMap();
     const weights=Object.fromEntries((latestFace.result.faceBlendshapes?.[0]?.categories??[]).map(c=>[c.categoryName,c.score]));
     blinkBaseline={left:clamp(weights.eyeBlinkLeft??0,0,.95),right:clamp(weights.eyeBlinkRight??0,0,.95)};
     if(vrm){vrm.expressionManager?.setValue('blinkLeft',0);vrm.expressionManager?.setValue('blinkRight',0);}
     else eyes.forEach(eye=>eye.scale.y=1);
-    status((automatic?'自動キャリブレーション完了。':'')+'正面位置・目の開き具合・上半身の基準を調整しました。');
+    status((automatic?'自動キャリブレーション完了。':'')+'正面位置・目の開き具合・上半身の基準を調整しました。',true);
     return true;
  }
  if(!automatic)status('顔が検出されてからキャリブレーションしてください。');
@@ -378,10 +403,10 @@ function animate(now,dt){
  if(vrm){
   const torso=['spine','chest','upperChest'].map(bone).filter(Boolean);
   for(const node of torso){
-   node.quaternion.slerp(new THREE.Quaternion().slerp(bodyTarget,1/torso.length),alpha);
+   dampRotation(node,new THREE.Quaternion().slerp(bodyTarget,1/torso.length),dt);
    bodyActual.multiply(node.quaternion);
   }
- }else if(demo){demo.quaternion.slerp(bodyTarget,alpha);bodyActual.copy(demo.quaternion);}
+ }else if(demo){dampRotation(demo,bodyTarget,dt);bodyActual.copy(demo.quaternion);}
  const face=safeTracking(latestFace,now)?latestFace.result:null;
  const categories=face?.faceBlendshapes?.[0]?.categories??[];
  const weights=Object.fromEntries(categories.map(c=>[c.categoryName,c.score]));
@@ -396,7 +421,7 @@ function animate(now,dt){
  }
  if(vrm){
   // Face tracking is absolute: remove torso rotation to avoid turning twice.
-  rotateBone('head',bodyActual.clone().invert().multiply(target),alpha);
+  dampRotation(bone('head'),bodyActual.clone().invert().multiply(target),dt);
   const expr=vrm.expressionManager;
   const vowels=mouthShapes(weights,mouthSensitivity,face?.faceLandmarks?.[0],video?.videoWidth&&video?.videoHeight?video.videoWidth/video.videoHeight:16/9);
   for(const [name,value]of Object.entries({blinkLeft,blinkRight,...vowels,happy:((weights.mouthSmileLeft??0)+(weights.mouthSmileRight??0))*.5})){
@@ -406,7 +431,7 @@ function animate(now,dt){
    }
   }
  }else if(head){
-  head.quaternion.slerp(bodyActual.clone().invert().multiply(target),alpha);eyes.forEach((eye,i)=>eye.scale.y=1-clamp(i?blinkRight:blinkLeft,0,.93));
+  dampRotation(head,bodyActual.clone().invert().multiply(target),dt);eyes.forEach((eye,i)=>eye.scale.y=1-clamp(i?blinkRight:blinkLeft,0,.93));
   const amount=Object.values(mouthShapes(weights,mouthSensitivity)).reduce((sum,value)=>sum+value,0);
   head.getObjectByName('mouth').scale.y=1+(8/1.4)*mouthOpenStrength*amount;
  }
@@ -430,11 +455,10 @@ async function sendFrame(){
  let sharedPosted=false;
  try{
   const started=performance.now();
-  capture.clearRect(0,0,W,H);
-  capture.drawImage(renderer.domElement,0,0,W,H);
-  const pixels=capture.getImageData(0,0,W,H).data;
+  const pixels=capture.read();
   perfCapture=Math.max(perfCapture,performance.now()-started);perfPendingAt=performance.now();
-  if(host?.sendFrame){host.sendFrame(pixels);sharedPosted=true;return;}
+  // The iframe host transfers/detaches its buffer; give that path an owned copy.
+  if(host?.sendFrame){host.sendFrame(pixels.slice());sharedPosted=true;return;}
   if(sharedFramePixels){sharedFramePixels.set(pixels);post('frameReady');sharedPosted=true;return;}
   const response=await fetch('/frame',{method:'POST',body:pixels,signal:AbortSignal.timeout(1500)});
   if(!response.ok)throw new Error('Frame receiver rejected frame.');
@@ -443,16 +467,17 @@ async function sendFrame(){
  finally{if(!sharedPosted)framePending=false;}
 }
 let loopHandle,loopTimer=false;
+function renderInterval(){return 1000/60;}
 function scheduleLoop(){
  // Tracking must also run when the preview is occluded or output is disabled.
  loopTimer=output||tracking;
- loopHandle=loopTimer?setTimeout(()=>loop(performance.now()),Math.max(1,16.667-(performance.now()-lastRender))):requestAnimationFrame(loop);
+ loopHandle=loopTimer?setTimeout(()=>loop(performance.now()),Math.max(1,renderInterval()-(performance.now()-lastRender))):requestAnimationFrame(loop);
 }
 function restartRenderLoop(){if(loopTimer)clearTimeout(loopHandle);else cancelAnimationFrame(loopHandle);scheduleLoop();}
 function loop(now){
- if(now-lastRender<15){scheduleLoop();return;}
+ if(now-lastRender<renderInterval()-1.5){scheduleLoop();return;}
  const dt=Math.min((now-lastRender)/1000,.1);lastRender=now;scheduleLoop();
- detect(now);animate(now,dt);
+ animate(now,dt);
  if(privacy||loading)renderer.render(standby,standbyCam);else renderer.render(scene,camera);
  sendFrame();frameNumber++;
  perfFrames++;

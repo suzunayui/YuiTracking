@@ -2,6 +2,18 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {LandmarkFilter} from '../src/landmark-filter.js';
 const points=x=>[{x,y:0,z:0}];
+test('hand and finger spikes just outside the hold threshold do not cause twitching',()=>{
+ const filter=new LandmarkFilter(.004);filter.update(points(.5),0);
+ for(let i=1;i<30;i++)assert.equal(filter.update(points(.5+(i%3===0?0:i%2?.006:-.006)),i*50)[0].x,.5);
+});
+test('sustained and gradual hand movement remains detectable',()=>{
+ const filter=new LandmarkFilter(.004);filter.update(points(.5),0);
+ assert.equal(filter.update(points(.506),50)[0].x,.5);
+ assert.ok(filter.update(points(.506),100)[0].x>.503);
+ filter.reset();filter.update(points(.5),0);
+ for(let i=1;i<=60;i++)filter.update(points(.5+i*.0005),i*50);
+ assert.ok(filter.points[0].x>.52);
+});
 test('stationary noise holds a stable position without accumulating drift',()=>{
  const filter=new LandmarkFilter(.004);filter.update(points(.5),0);
  for(let i=1;i<30;i++)assert.equal(filter.update(points(.5+(i%2?.003:-.003)),i*50)[0].x,.5);

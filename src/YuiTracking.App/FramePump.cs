@@ -29,9 +29,10 @@ internal sealed class FramePump : IDisposable
         while (!stop.WaitOne(0))
         {
             tick();
-            next += 1000.0 / 60;
+            var interval = 1000.0 / 60;
+            next += interval;
             var now = clock.Elapsed.TotalMilliseconds;
-            if (next <= now) next = now + 1000.0 / 60;
+            if (next <= now) next = now + interval;
             var due = -(long)Math.Max(1, (next - now) * 10000);
             if (handle.IsInvalid || !SetWaitableTimer(handle, ref due, 0, IntPtr.Zero, IntPtr.Zero, false))
             { if (stop.WaitOne((int)Math.Max(1, next - now))) break; }

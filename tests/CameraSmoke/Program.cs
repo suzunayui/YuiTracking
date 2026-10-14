@@ -10,7 +10,9 @@ if(args.Contains("--cadence"))
     using var camera=new VirtualCamera(slot);
     var clock=System.Diagnostics.Stopwatch.StartNew();var intervals=new List<double>();double previous=0;
     while(clock.Elapsed.TotalSeconds<5){if(!perfSent.WaitOne(1000))throw new Exception("Output stalled");var now=clock.Elapsed.TotalMilliseconds;if(previous>0)intervals.Add(now-previous);previous=now;}
-    intervals.Sort();Console.WriteLine($"Output {intervals.Count/(clock.Elapsed.TotalSeconds):F1} fps; median {intervals[intervals.Count/2]:F1} ms; p95 {intervals[(int)(intervals.Count*.95)]:F1} ms; max {intervals[^1]:F1} ms");
+    var rate=intervals.Count/clock.Elapsed.TotalSeconds;
+    if(rate>62||rate<45)throw new Exception($"Unexpected cadence: {rate:F1}fps");
+    intervals.Sort();Console.WriteLine($"Output {rate:F1} fps; median {intervals[intervals.Count/2]:F1} ms; p95 {intervals[(int)(intervals.Count*.95)]:F1} ms; max {intervals[^1]:F1} ms");
     return;
 }
 if (args.Contains("--register"))

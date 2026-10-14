@@ -77,6 +77,7 @@ internal static class AppSettings
     }
     private static void Save(JsonObject settings)
     {
+        settings.Remove("lightweightMode");
         Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
         var temporary = FilePath + ".tmp";
         File.WriteAllText(temporary, settings.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));

@@ -30,6 +30,10 @@ public sealed partial class MainWindow : Window
     private string? pendingModelPath;
     private string? pendingSample;
     private string? selectedSample;
+    private int statusTicks;
+    private string? temporaryStatus;
+    private long temporaryStatusExpires;
+    private bool measuringMemory;
     private void SelectSample(string? sample)
     {
         selectedSample = sample;
@@ -132,7 +136,18 @@ public sealed partial class MainWindow : Window
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1320, 900));
         if (VirtualCamera.IsRegistered()) RegisterButton.Visibility = Visibility.Collapsed;
         statusTimer = DispatcherQueue.CreateTimer(); statusTimer.Interval = TimeSpan.FromSeconds(1);
-        statusTimer.Tick += (_, _) => { if (tracking) UpdateTrackingPowerPolicy(); if (output != null) OutputStatus.Text = "仮想カメラ：" + output.Status + performanceStatus; };
+        statusTimer.Tick += (_, _) =>
+        {
+            if (tracking) UpdateTrackingPowerPolicy();
+            if (output != null) OutputStatus.Text = "仮想カメラ：" + output.Status + performanceStatus;
+            if (statusTicks++ % 5 == 0) _ = UpdateMemoryUsageAsync();
+            if (temporaryStatus != null && Environment.TickCount64 >= temporaryStatusExpires)
+            {
+                // A later error or other status must never be overwritten by expiry.
+                if (TrackingStatus.Text == temporaryStatus) TrackingStatus.Text = tracking ? "トラッキング中" : "VRMを表示中";
+                temporaryStatus = null;
+            }
+        };
         statusTimer.Start();
         try
         {
@@ -277,6 +292,21 @@ public sealed partial class MainWindow : Window
         PreviewBorder.CornerRadius = new CornerRadius(previewMaximized ? 0 : 10);
         PreviewBorder.BorderThickness = new Thickness(previewMaximized ? 0 : 1);
     }
+    private async Task UpdateMemoryUsageAsync()
+    {
+        if (closing || measuringMemory) return;
+        measuringMemory = true;
+        try
+        {
+            var ids = Viewport.CoreWebView2?.Environment.GetProcessInfos().Select(p => checked((int)p.ProcessId)).ToArray() ?? Array.Empty<int>();
+            var memory = await Task.Run(() => MemoryUsage.Measure(ids));
+            if (closing) return;
+            MemoryStatus.Text = $"メモリ：{memory.TotalMb:N0}MB";
+            ToolTipService.SetToolTip(MemoryStatus, $"本体：{memory.AppBytes / 1048576d:N0}MB\nWebView2：{memory.WebViewBytes / 1048576d:N0}MB\n約5秒ごとに更新します。共有領域を含むため、\nタスクマネージャーの表示と一致しない場合があります。\nGPU専用メモリは含みません。" + (memory.Unavailable > 0 ? "\n終了・取得不可のプロセスを除いた概算です。" : ""));
+        }
+        catch (Exception ex) { if (!closing) { MemoryStatus.Text = "メモリ：取得できません"; ToolTipService.SetToolTip(MemoryStatus, ex.Message); } }
+        finally { measuringMemory = false; }
+    }
     private void UpdateTrackingPowerPolicy()
     {
         if (closing || Viewport.CoreWebView2 == null) return;
@@ -385,7 +415,11 @@ public sealed partial class MainWindow : Window
                 case "backgroundFailed":
                     if (root.GetProperty("requestId").GetInt32() != backgroundRequestId) break;
                     UpdateBackgroundSelection(); TrackingStatus.Text = root.GetProperty("text").GetString(); break;
-                case "status": TrackingStatus.Text = root.GetProperty("text").GetString(); break;
+                case "status":
+                    TrackingStatus.Text = root.GetProperty("text").GetString();
+                    temporaryStatus = root.TryGetProperty("temporary", out var temporary) && temporary.ValueKind == JsonValueKind.True ? TrackingStatus.Text : null;
+                    temporaryStatusExpires = Environment.TickCount64 + 3000;
+                    break;
                 case "error": TrackingStatus.Text = root.GetProperty("text").GetString(); App.Log(TrackingStatus.Text ?? "Renderer error"); break;
                 case "tracking":
                     cameraStarting = false; tracking = root.GetProperty("active").GetBoolean(); UpdateTrackingPowerPolicy();
