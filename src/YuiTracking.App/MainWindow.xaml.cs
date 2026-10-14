@@ -53,7 +53,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        Title = $"YuiTracking {typeof(App).Assembly.GetName().Version?.ToString(3) ?? "0.1.4"}";
+        Title = $"YuiTracking {typeof(App).Assembly.GetName().Version?.ToString(3) ?? "0.1.5"}";
         framingTimer = DispatcherQueue.CreateTimer(); framingTimer.Interval = TimeSpan.FromMilliseconds(250);
         framingTimer.Tick += (_, _) => SaveFraming();
         mouthTimer = DispatcherQueue.CreateTimer(); mouthTimer.Interval = TimeSpan.FromMilliseconds(250);
@@ -68,7 +68,8 @@ public sealed partial class MainWindow : Window
         MouthStrengthLabel.Text = $"口の開き具合：{MouthStrength.Value:0.0}倍";
         MouthSensitivityLabel.Text = $"口の感度：{MouthSensitivity.Value:0.0}倍";
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "Branding", "YuiTracking.ico"));
-        AppWindow.Resize(new Windows.Graphics.SizeInt32(1500, 1040));
+        AppWindow.Resize(new Windows.Graphics.SizeInt32(1320, 900));
+        if (VirtualCamera.IsRegistered()) RegisterButton.Visibility = Visibility.Collapsed;
         statusTimer = DispatcherQueue.CreateTimer(); statusTimer.Interval = TimeSpan.FromSeconds(1);
         statusTimer.Tick += (_, _) => { if (tracking) UpdateTrackingPowerPolicy(); if (output != null) OutputStatus.Text = "仮想カメラ：" + output.Status + performanceStatus; };
         statusTimer.Start();
@@ -185,14 +186,12 @@ public sealed partial class MainWindow : Window
     {
         previewMaximized = !previewMaximized;
         var visibility = previewMaximized ? Visibility.Collapsed : Visibility.Visible;
-        AppHeader.Visibility = PreviewHeader.Visibility = PreviewStatus.Visibility =
-            SettingsPanel.Visibility = AppFooter.Visibility = visibility;
-        Root.Padding = new Thickness(previewMaximized ? 0 : 28);
-        Root.RowSpacing = previewMaximized ? 0 : 20;
-        MainContent.ColumnSpacing = previewMaximized ? 0 : 22;
-        SettingsColumn.Width = new GridLength(previewMaximized ? 0 : 330);
-        PreviewPanel.RowSpacing = previewMaximized ? 0 : 12;
-        PreviewBorder.CornerRadius = new CornerRadius(previewMaximized ? 0 : 12);
+        PreviewStatus.Visibility = SettingsPanel.Visibility = visibility;
+        Root.Padding = new Thickness(previewMaximized ? 0 : 16);
+        MainContent.ColumnSpacing = previewMaximized ? 0 : 16;
+        SettingsColumn.Width = new GridLength(previewMaximized ? 0 : 300);
+        PreviewPanel.RowSpacing = previewMaximized ? 0 : 8;
+        PreviewBorder.CornerRadius = new CornerRadius(previewMaximized ? 0 : 10);
         PreviewBorder.BorderThickness = new Thickness(previewMaximized ? 0 : 1);
     }
     private void UpdateTrackingPowerPolicy()
@@ -234,7 +233,7 @@ public sealed partial class MainWindow : Window
                         App.Log("Shared-memory frame transport ready");
                     }
                     catch (Exception ex) { frameStream = null; App.Log("Frame transport fallback: " + ex.Message); }
-                    TrackingStatus.Text = "準備完了。VRMを開くか、サンプルで動作確認できます。";
+                    TrackingStatus.Text = "準備完了";
                     SendSettings(); App.Log("Renderer ready");
                     restoreOutputPending = AppSettings.VirtualCameraEnabled;
                     var framing = AppSettings.SavedFraming;
@@ -252,7 +251,7 @@ public sealed partial class MainWindow : Window
                     finally { Send(new { type = "frameAck" }); }
                     break;
                 case "performance":
-                    performanceStatus = $"\n描画 {root.GetProperty("renderFps").GetDouble():F1}fps / 新規画像 {root.GetProperty("frameFps").GetDouble():F1}fps";
+                    performanceStatus = $" · 描画 {root.GetProperty("renderFps").GetDouble():F0} / 出力 {root.GetProperty("frameFps").GetDouble():F0}fps";
                     App.Log("Frame performance: " + root.GetRawText());
                     break;
                 case "framingChanged":
@@ -355,7 +354,7 @@ public sealed partial class MainWindow : Window
     private void Privacy_Toggled(object sender, RoutedEventArgs e) { if (!ready) return; output?.SetPrivacy(Privacy.IsOn); Send(new { type = "privacy", value = Privacy.IsOn }); }
     private void Register_Click(object sender, RoutedEventArgs e)
     {
-        try { VirtualCamera.Register(Path.Combine(AppContext.BaseDirectory,"Assets","VirtualCamera","UnityCaptureFilter64.dll")); OutputStatus.Text = "登録完了。OBSのデバイス一覧を開き直してください。"; RegisterButton.Content = "仮想カメラ登録済み"; }
+        try { VirtualCamera.Register(Path.Combine(AppContext.BaseDirectory,"Assets","VirtualCamera","UnityCaptureFilter64.dll")); OutputStatus.Text = "登録完了。OBSのデバイス一覧を開き直してください。"; RegisterButton.Visibility = Visibility.Collapsed; }
         catch (Exception ex) { Report(ex); }
     }
     private void Output_Click(object sender, RoutedEventArgs e)

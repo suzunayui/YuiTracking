@@ -153,7 +153,7 @@ function makeDemo(){
   arms[side]={upper,lower,hand,fingers};
   mesh(new THREE.CapsuleGeometry(.073,.24,6,12),'#b9b8ea',demo,sign*.1,.40,0);
  }
- loading=false;status('内蔵サンプルを表示中。カメラ開始で顔・手を動かせます。');
+ loading=false;status('内蔵サンプルを表示中');
 }
 async function loadModel(requestId){
  const version=++loadVersion;loading=true;status('VRMを読み込み中…');
@@ -177,7 +177,7 @@ async function loadModel(requestId){
    const nodes=Object.fromEntries(fingerBones.flat().map(name=>[name,bone(side+name)]));
    handRest[side]=captureHandRest(hand,nodes,side==='left'?1:-1);
   }
-  status('VRMを読み込みました。正面を向いてキャリブレーションしてください。');
+  status('VRMを表示中');
   post('modelLoaded',{requestId});
  }catch(e){if(version===loadVersion){post('modelFailed',{requestId});post('error',{text:'VRM読み込み失敗：'+e.message});}}
  finally{if(version===loadVersion)loading=false;}
