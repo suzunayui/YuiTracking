@@ -31,6 +31,9 @@ public sealed partial class MainWindow : Window
         SampleGirl.IsChecked = sample == "Y";
         SampleBoy.IsChecked = sample == "Z";
         SampleRobot.IsChecked = sample == "robot";
+        ToolTipService.SetToolTip(SampleGirl, sample == "Y" ? "女の子のサンプル（Y）を表示中です。" : "女の子のサンプル（Y）に切り替えます。");
+        ToolTipService.SetToolTip(SampleBoy, sample == "Z" ? "男の子のサンプル（Z）を表示中です。" : "男の子のサンプル（Z）に切り替えます。");
+        ToolTipService.SetToolTip(SampleRobot, sample == "robot" ? "内蔵ロボットを表示中です。" : "内蔵ロボットに切り替えます。");
     }
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer statusTimer;
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer framingTimer;
@@ -356,7 +359,13 @@ public sealed partial class MainWindow : Window
                 case "restorePreview": if (previewMaximized) TogglePreviewMaximized(); break;
                 case "status": TrackingStatus.Text = root.GetProperty("text").GetString(); break;
                 case "error": TrackingStatus.Text = root.GetProperty("text").GetString(); App.Log(TrackingStatus.Text ?? "Renderer error"); break;
-                case "tracking": cameraStarting = false; tracking = root.GetProperty("active").GetBoolean(); UpdateTrackingPowerPolicy(); TrackButton.Content = tracking ? "カメラを停止" : "カメラを開始"; TrackButton.IsEnabled = ready && (tracking || Cameras.Items.Count > 0); break;
+                case "tracking":
+                    cameraStarting = false; tracking = root.GetProperty("active").GetBoolean(); UpdateTrackingPowerPolicy();
+                    TrackButton.Content = tracking ? "カメラを停止" : "カメラを開始";
+                    ToolTipService.SetToolTip(TrackButton, tracking
+                        ? "カメラでの顔・手・体の認識を停止します。\nアバターの動きへの反映も止まります。"
+                        : "選択したカメラで顔・手・体の認識を開始します。\n認識した動きをアバターに反映します。");
+                    TrackButton.IsEnabled = ready && (tracking || Cameras.Items.Count > 0); break;
                 case "cameraInput":
                     if (root.TryGetProperty("deviceId", out var activeDevice))
                         Cameras.SelectedItem = Cameras.Items.OfType<CameraItem>().FirstOrDefault(c => c.Id == activeDevice.GetString()) ?? Cameras.SelectedItem;
@@ -509,6 +518,9 @@ public sealed partial class MainWindow : Window
                 output = new VirtualCamera(); output.SetPrivacy(Privacy.IsOn); Send(new { type = "output", value = true }); OutputButton.Content = "仮想カメラ出力を停止";
             }
             else if (!enabled && output != null) { Send(new { type = "output", value = false }); output.Dispose(); output = null; OutputButton.Content = "仮想カメラ出力を開始"; OutputStatus.Text = "仮想カメラ：停止中"; }
+            ToolTipService.SetToolTip(OutputButton, output != null
+                ? "仮想カメラへの映像出力を停止します。\nプレビューとカメラのトラッキングは続きます。"
+                : "アバター映像を仮想カメラへ出力します。\nOBSで「映像キャプチャデバイス」を追加し、\n「YuiTracking Camera」を選択してください。");
             if (savePreference) AppSettings.SaveVirtualCameraEnabled(enabled);
             App.Log("Virtual-camera output: " + (enabled ? "enabled" : "disabled") + (savePreference ? " (saved)" : " (restored)"));
         }

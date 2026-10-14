@@ -10,7 +10,7 @@
       <StackPanel x:Name="RendererFailurePanel" Visibility="Collapsed" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="24" Spacing="16" MaxWidth="480">
        <TextBlock Text="描画が停止しました" FontSize="22" FontWeight="SemiBold" TextWrapping="Wrap"/>
        <TextBlock x:Name="RendererFailureMessage" Text="アプリを再起動しますか？保存したVRMと設定は引き継がれます。" TextWrapping="Wrap" Foreground="#ADB6CD"/>
-       <Button x:Name="RestartButton" Content="YuiTrackingを再起動する" Click="Restart_Click"/>
+       <Button x:Name="RestartButton" ToolTipService.ToolTip="アプリを再起動して、描画の復帰を試みます。&#10;保存済みのアバターと設定を引き継ぎます。" Content="YuiTrackingを再起動する" Click="Restart_Click"/>
       </StackPanel>
      </Grid>
     </Border>
@@ -20,7 +20,7 @@
       <StackPanel Spacing="6" VerticalAlignment="Center">
        <Grid ColumnSpacing="6">
         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-        <Button Content="正面をキャリブレーション" HorizontalAlignment="Stretch" ToolTipService.ToolTip="正面を向いて実行してください。&#10;ショートカット：右Ctrl／右Shift&#10;どちらかを単独で押して離すと実行します。" Click="Calibrate_Click"/>
+        <Button Content="正面をキャリブレーション" HorizontalAlignment="Stretch" ToolTipService.ToolTip="今の顔の向きを正面として合わせます。&#10;正面を向いて実行してください。&#10;ショートカット：右Ctrl／右Shift&#10;どちらかを単独で押して離すと実行します。" Click="Calibrate_Click"/>
         <Button Grid.Column="1" Content="最大化" Click="MaximizePreview_Click" ToolTipService.ToolTip="プレビューを最大化します。&#10;Esc：元に戻す&#10;ダブルクリックでも切り替えられます。"/>
        </Grid>
        <TextBlock x:Name="TrackingStatus" Text="描画エンジンを準備しています…" TextWrapping="Wrap" FontSize="12"/>
@@ -33,45 +33,45 @@
    <Grid x:Name="SettingsPanel" Grid.Column="1" RowSpacing="12">
     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
     <StackPanel Spacing="6">
-     <Grid ColumnSpacing="6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><ComboBox x:Name="Cameras" PlaceholderText="カメラを選択" HorizontalAlignment="Stretch" DisplayMemberPath="Label"/><Button x:Name="TrackButton" Grid.Column="1" Content="カメラを開始" Click="Track_Click" IsEnabled="False"/></Grid>
+     <Grid ColumnSpacing="6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><ComboBox x:Name="Cameras" ToolTipService.ToolTip="トラッキングに使うカメラを選びます。&#10;「カメラを開始」を押すと映像の認識を始めます。" PlaceholderText="カメラを選択" HorizontalAlignment="Stretch" DisplayMemberPath="Label"/><Button x:Name="TrackButton" ToolTipService.ToolTip="選択したカメラで顔・手・体の認識を開始します。&#10;認識した動きをアバターに反映します。" Grid.Column="1" Content="カメラを開始" Click="Track_Click" IsEnabled="False"/></Grid>
      <TextBlock x:Name="CameraInputStatus" Text="カメラ入力：720p / 最大30fps" Foreground="#9DA7C0" FontSize="12" TextWrapping="Wrap"/>
     </StackPanel>
     <Grid Grid.Row="1" RowSpacing="12">
      <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
      <Grid ColumnSpacing="4">
       <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-      <ToggleButton x:Name="AvatarTab" Content="アバター・出力" Tag="avatar" IsChecked="True" Click="SettingsTab_Click" HorizontalAlignment="Stretch" Padding="6,8" FontSize="12"/>
-      <ToggleButton x:Name="MotionTab" Grid.Column="1" Content="動きの調整" Tag="motion" Click="SettingsTab_Click" HorizontalAlignment="Stretch" Padding="6,8" FontSize="12"/>
+      <ToggleButton x:Name="AvatarTab" ToolTipService.ToolTip="アバター・背景の選択と、&#10;OBS向けの仮想カメラ出力を設定します。" Content="アバター・出力" Tag="avatar" IsChecked="True" Click="SettingsTab_Click" HorizontalAlignment="Stretch" Padding="6,8" FontSize="12"/>
+      <ToggleButton x:Name="MotionTab" ToolTipService.ToolTip="動きの滑らかさ、顔・口の反応、&#10;髪や服の揺れを調整します。" Grid.Column="1" Content="動きの調整" Tag="motion" Click="SettingsTab_Click" HorizontalAlignment="Stretch" Padding="6,8" FontSize="12"/>
      </Grid>
       <ScrollViewer x:Name="AvatarSettings" Grid.Row="1" VerticalScrollBarVisibility="Auto">
       <StackPanel Spacing="6">
-      <Button x:Name="ModelButton" Content="VRMを開く" HorizontalAlignment="Stretch" Click="OpenModel_Click" IsEnabled="False"/>
+      <Button x:Name="ModelButton" ToolTipService.ToolTip="PCに保存したVRMファイルを開いて、&#10;使用するアバターを切り替えます。" Content="VRMを開く" HorizontalAlignment="Stretch" Click="OpenModel_Click" IsEnabled="False"/>
       <TextBlock x:Name="ModelLabel" Text="サンプルを準備中" Foreground="#9DA7C0" TextTrimming="CharacterEllipsis" FontSize="12"/>
       <TextBlock Text="サンプル" Foreground="#9DA7C0" FontSize="12"/>
        <Grid ColumnSpacing="6">
        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-       <ToggleButton x:Name="SampleGirl" Content="女の子" Tag="Y" Click="Sample_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
-       <ToggleButton x:Name="SampleBoy" Grid.Column="1" Content="男の子" Tag="Z" Click="Sample_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
-       <ToggleButton x:Name="SampleRobot" Grid.Column="2" Content="ロボット" Click="Demo_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
+       <ToggleButton x:Name="SampleGirl" ToolTipService.ToolTip="女の子のサンプル（Y）に切り替えます。&#10;選択中のボタンは青色で表示します。" Content="女の子" Tag="Y" Click="Sample_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
+       <ToggleButton x:Name="SampleBoy" ToolTipService.ToolTip="男の子のサンプル（Z）に切り替えます。&#10;選択中のボタンは青色で表示します。" Grid.Column="1" Content="男の子" Tag="Z" Click="Sample_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
+       <ToggleButton x:Name="SampleRobot" ToolTipService.ToolTip="内蔵ロボットに切り替えます。&#10;選択中のボタンは青色で表示します。" Grid.Column="2" Content="ロボット" Click="Demo_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
        </Grid>
        <TextBlock Text="背景" Foreground="#9DA7C0" FontSize="12" Margin="0,12,0,0"/>
        <Grid ColumnSpacing="6">
         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-        <ToggleButton x:Name="BackgroundGreen" Content="グリーン" Tag="#00ff00" IsChecked="True" Click="Background_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
-        <ToggleButton x:Name="BackgroundBlue" Grid.Column="1" Content="ブルー" Tag="#0000ff" Click="Background_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
-        <ToggleButton x:Name="BackgroundDark" Grid.Column="2" Content="暗色" Tag="#171b2e" Click="Background_Click" HorizontalAlignment="Stretch" Padding="6,4" ToolTipService.ToolTip="ミッドナイト"/>
+        <ToggleButton x:Name="BackgroundGreen" ToolTipService.ToolTip="背景をグリーンにします。&#10;OBSのクロマキーで背景を抜くときに使えます。" Content="グリーン" Tag="#00ff00" IsChecked="True" Click="Background_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
+        <ToggleButton x:Name="BackgroundBlue" ToolTipService.ToolTip="背景をブルーにします。&#10;アバターに緑色が多い場合のクロマキーに使えます。" Grid.Column="1" Content="ブルー" Tag="#0000ff" Click="Background_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
+        <ToggleButton x:Name="BackgroundDark" Grid.Column="2" Content="暗色" Tag="#171b2e" Click="Background_Click" HorizontalAlignment="Stretch" Padding="6,4" ToolTipService.ToolTip="背景を暗い紺色にします。&#10;背景を抜かずに表示するときに使えます。"/>
        </Grid>
-       <Button x:Name="OutputButton" Content="仮想カメラ出力を開始" Click="Output_Click" HorizontalAlignment="Stretch" IsEnabled="False" ToolTipService.ToolTip="OBSで「映像キャプチャデバイス」を追加し、&#10;「YuiTracking Camera」を選択してください。"/>
-       <Button x:Name="RegisterButton" Content="仮想カメラを登録（初回）" Click="Register_Click" HorizontalAlignment="Stretch"/>
+       <Button x:Name="OutputButton" Content="仮想カメラ出力を開始" Click="Output_Click" HorizontalAlignment="Stretch" IsEnabled="False" ToolTipService.ToolTip="アバター映像を仮想カメラへ出力します。&#10;OBSで「映像キャプチャデバイス」を追加し、&#10;「YuiTracking Camera」を選択してください。"/>
+       <Button x:Name="RegisterButton" ToolTipService.ToolTip="OBSなどから使える仮想カメラを登録します。&#10;初回のみ実行してください。" Content="仮想カメラを登録（初回）" Click="Register_Click" HorizontalAlignment="Stretch"/>
       </StackPanel>
       </ScrollViewer>
       <ScrollViewer x:Name="MotionSettings" Grid.Row="1" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
       <StackPanel Spacing="4">
-       <TextBlock x:Name="SmoothnessLabel" Text="滑らかさ：65%" Foreground="#9DA7C0"/><Slider x:Name="Smoothness" Minimum="0" Maximum="0.95" Value="0.65" StepFrequency="0.05" ValueChanged="Settings_Changed"/>
-       <TextBlock x:Name="MouthStrengthLabel" Text="口の開き具合：1.0倍" Foreground="#9DA7C0"/><Slider x:Name="MouthStrength" ToolTipService.ToolTip="アバターの口の変形量を調整" Minimum="0.5" Maximum="3" Value="1" StepFrequency="0.1" ValueChanged="MouthStrength_Changed"/>
-       <TextBlock x:Name="MouthSensitivityLabel" Text="口の感度：1.8倍" Foreground="#9DA7C0"/><Slider x:Name="MouthSensitivity" ToolTipService.ToolTip="小さな口の動きへの反応を調整" Minimum="0.5" Maximum="3" Value="1.8" StepFrequency="0.1" ValueChanged="MouthStrength_Changed"/>
-       <TextBlock x:Name="SpringStrengthLabel" Text="揺れものの強さ：1.0倍" Foreground="#9DA7C0"/><Slider x:Name="SpringStrength" Minimum="0.3" Maximum="3" Value="1" StepFrequency="0.1" ToolTipService.ToolTip="1.0倍：モデル標準&#10;値を大きくすると、髪・服が揺れやすくなります。" ValueChanged="SpringStrength_Changed"/>
-       <TextBlock x:Name="SensitivityLabel" Text="顔の動きの強さ：1.0倍" Foreground="#9DA7C0"/><Slider x:Name="Sensitivity" Minimum="0.3" Maximum="2" Value="1" StepFrequency="0.1" ValueChanged="Settings_Changed"/>
+       <TextBlock x:Name="SmoothnessLabel" Text="滑らかさ：65%" Foreground="#9DA7C0"/><Slider x:Name="Smoothness" ToolTipService.ToolTip="動きの揺れを抑える強さを調整します。&#10;大きく：滑らかになる／反応はゆっくり&#10;小さく：素早く反応する／細かな揺れが出やすい" Minimum="0" Maximum="0.95" Value="0.65" StepFrequency="0.05" ValueChanged="Settings_Changed"/>
+       <TextBlock x:Name="MouthStrengthLabel" Text="口の開き具合：1.0倍" Foreground="#9DA7C0"/><Slider x:Name="MouthStrength" ToolTipService.ToolTip="認識した口の開きに対する、アバターの変形量です。&#10;大きく：アバターの口が大きく開く&#10;小さく：アバターの口の開きが控えめになる" Minimum="0.5" Maximum="3" Value="1" StepFrequency="0.1" ValueChanged="MouthStrength_Changed"/>
+       <TextBlock x:Name="MouthSensitivityLabel" Text="口の感度：1.8倍" Foreground="#9DA7C0"/><Slider x:Name="MouthSensitivity" ToolTipService.ToolTip="自分の口の動きを拾う感度を調整します。&#10;大きく：小さな動きでも口が開きやすい&#10;小さく：しっかり口を動かすと反応する" Minimum="0.5" Maximum="3" Value="1.8" StepFrequency="0.1" ValueChanged="MouthStrength_Changed"/>
+       <TextBlock x:Name="SpringStrengthLabel" Text="揺れものの強さ：1.0倍" Foreground="#9DA7C0"/><Slider x:Name="SpringStrength" Minimum="0.3" Maximum="3" Value="1" StepFrequency="0.1" ToolTipService.ToolTip="髪・服などの揺れやすさを調整します。&#10;1.0倍：モデル標準&#10;大きく：揺れやすくなる&#10;小さく：揺れが控えめになる" ValueChanged="SpringStrength_Changed"/>
+       <TextBlock x:Name="SensitivityLabel" Text="顔の動きの強さ：1.0倍" Foreground="#9DA7C0"/><Slider x:Name="Sensitivity" ToolTipService.ToolTip="顔の向きや傾きを反映する強さを調整します。&#10;大きく：アバターの顔の動きが大きくなる&#10;小さく：アバターの顔の動きが控えめになる" Minimum="0.3" Maximum="2" Value="1" StepFrequency="0.1" ValueChanged="Settings_Changed"/>
       </StackPanel>
       </ScrollViewer>
     </Grid>
