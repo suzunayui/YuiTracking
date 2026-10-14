@@ -18,6 +18,7 @@ import {AvatarBackground} from './background.js';
 import {PreviewOutput} from './preview-output.js';
 import {FrameCapture} from './frame-capture.js';
 import {avatarTextures} from './avatar-textures.js';
+import {ArmAssociation} from './arm-association.js';
 import {limbPose,crouchRatio,LimbFollower} from './full-body.js';
 import {QuaternionDamping} from './quaternion-damping.js';
 
@@ -136,8 +137,9 @@ let springStrength=1,springPhysics=null;
 const handTransitions={left:new HandTransition(250),right:new HandTransition(250)};
 let fullBody=false,legs={},hipsRest=null,crouch=0;
 const poseFilter=new LandmarkFilter(.003);
-const limbFollowers=Object.fromEntries(['left','right'].flatMap(side=>['arm','leg'].map(kind=>[side+kind,new LimbFollower()])));
-function resetFullBody(){poseFilter.reset();for(const follower of Object.values(limbFollowers))follower.reset();}
+const armAssociation=new ArmAssociation();
+const limbFollowers=Object.fromEntries(['left','right'].map(side=>[side+'leg',new LimbFollower()]));
+function resetFullBody(){armAssociation.reset();poseFilter.reset();for(const follower of Object.values(limbFollowers))follower.reset();}
 let rotationDampers=new WeakMap();
 function dampRotation(node,target,dt){
  if(!node)return;
@@ -350,13 +352,12 @@ function aim(node,child,target,alpha){
  const direction=child.position.clone().normalize();
  if(direction.lengthSq()>.1)node.quaternion.slerp(new THREE.Quaternion().setFromUnitVectors(direction,localTarget),alpha);
 }
-function rigHand(side,landmarks,alpha,worldLandmarks=null,poseLandmarks=null,armPose=null){
+function rigHand(side,landmarks,alpha,worldLandmarks=null,poseLandmarks=null,poseWrist=null){
  const sign=side==='left'?1:-1;
  const upper=vrm?bone(side+'UpperArm'):arms[side].upper;
  const lower=vrm?bone(side+'LowerArm'):arms[side].lower;
  const hand=vrm?bone(side+'Hand'):arms[side].hand;
  if(!upper||!lower||!hand)return;
- const poseWrist=fullBody&&armPose?.sample&&armPose.blend>.25?poseLandmarks?.[side==='left'?16:15]:null;
  if(!landmarks&&!poseWrist){
   if(vrm){
    upper.updateWorldMatrix(true,false);
@@ -481,15 +482,16 @@ function animate(now,dt){
  }
  const hands=safeTracking(latestHands,now)?latestHands.result:null;
  const poseLandmarks=safeTracking(latestPose,now)?latestPose.result.landmarks?.[0]:null;
+ armAssociation.updatePose(poseLandmarks,latestPose?.time,now);
  for(const side of ['left','right']){
   // MediaPipe handedness assumes a mirrored/selfie image. Input is unmirrored.
   const label=side==='left'?'Right':'Left';
   const index=hands?.handedness?.findIndex(h=>h[0]?.categoryName===label)??-1;
   const sample=index>=0?{landmarks:hands.landmarks[index],worldLandmarks:hands.worldLandmarks?.[index],time:latestHands.time,receivedAt:latestHands.receivedAt}:null;
   const transition=handTransitions[side].update(sample,now,dt,alpha);
-  const worldPose=safeTracking(latestPose,now)?latestPose.result.worldLandmarks?.[0]:null;
-  const armPose=limbFollowers[side+'arm'].update(limbPose(worldPose,poseLandmarks,side,'arm'),latestPose?.time,now,dt);
-  rigHand(side,transition.sample?.landmarks??null,transition.alpha,transition.sample?.worldLandmarks??null,poseLandmarks,armPose);
+  if(sample)armAssociation.observe(side,sample.landmarks?.[0],sample.time,now);
+  const poseWrist=fullBody?armAssociation.wrist(side,now):null;
+  rigHand(side,transition.sample?.landmarks??null,transition.alpha,transition.sample?.worldLandmarks??null,poseLandmarks,poseWrist);
  }
  rigLegs(now,dt,alpha,poseLandmarks);
  // Strength also enlarges the model's morphs; detector weights alone cap at 1.

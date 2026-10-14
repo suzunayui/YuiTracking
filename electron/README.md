@@ -1,6 +1,6 @@
 # YuiTracking Electron版
 
-Apple Silicon（M1〜M4など）向けのデスクトップ版です。2026.1015.10でWindows最新版のVRM描画・顔・上半身・手・指の認識と動きの安定化を共有しています。WindowsのWinUI版は引き続き利用できます。
+Apple Silicon（M1〜M4など）向けのデスクトップ版です。2026.1015.11でWindows最新版のVRM描画・顔・上半身・手・指の認識と動きの安定化を共有しています。WindowsのWinUI版は引き続き利用できます。
 
 ## 画面と操作
 
