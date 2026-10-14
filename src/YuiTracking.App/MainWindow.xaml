@@ -32,9 +32,9 @@
      <Grid ColumnSpacing="6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><ComboBox x:Name="Cameras" PlaceholderText="カメラを選択" HorizontalAlignment="Stretch" DisplayMemberPath="Label"/><Button x:Name="TrackButton" Grid.Column="1" Content="カメラを開始" Click="Track_Click" IsEnabled="False"/></Grid>
      <TextBlock x:Name="CameraInputStatus" Text="カメラ入力：720p / 最大30fps" Foreground="#9DA7C0" FontSize="12" TextWrapping="Wrap"/>
     </StackPanel>
-    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-    <StackPanel Spacing="12">
-     <Expander Header="アバター" IsExpanded="True" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+    <TabView Grid.Row="1" IsAddTabButtonVisible="False" CanDragTabs="False" CanReorderTabs="False" TabWidthMode="Equal">
+     <TabViewItem IsClosable="False"><TabViewItem.Header><TextBlock Text="アバター" FontSize="12"/></TabViewItem.Header>
+      <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,12,0,0">
       <StackPanel Spacing="6">
       <Button x:Name="ModelButton" Content="VRMを開く" HorizontalAlignment="Stretch" Click="OpenModel_Click" IsEnabled="False"/>
       <TextBlock x:Name="ModelLabel" Text="サンプルを準備中" Foreground="#9DA7C0" TextTrimming="CharacterEllipsis" FontSize="12"/>
@@ -46,8 +46,10 @@
        <Button Grid.Column="2" Content="ロボット" Click="Demo_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
        </Grid>
       </StackPanel>
-     </Expander>
-     <Expander Header="動き・表情の調整" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+      </ScrollViewer>
+     </TabViewItem>
+     <TabViewItem IsClosable="False"><TabViewItem.Header><TextBlock Text="動きの調整" FontSize="12"/></TabViewItem.Header>
+      <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,12,0,0">
       <StackPanel Spacing="4">
        <TextBlock Text="滑らかさ" Foreground="#9DA7C0"/><Slider x:Name="Smoothness" Minimum="0" Maximum="0.95" Value="0.65" StepFrequency="0.05" ValueChanged="Settings_Changed"/>
        <TextBlock x:Name="MouthStrengthLabel" Text="口の開き具合：1.0倍" Foreground="#9DA7C0"/><Slider x:Name="MouthStrength" ToolTipService.ToolTip="アバターの口の変形量を調整" Minimum="0.5" Maximum="3" Value="1" StepFrequency="0.1" ValueChanged="MouthStrength_Changed"/>
@@ -55,8 +57,10 @@
        <TextBlock x:Name="SpringStrengthLabel" Text="揺れものの強さ：1.0倍" Foreground="#9DA7C0"/><Slider x:Name="SpringStrength" Minimum="0.3" Maximum="3" Value="1" StepFrequency="0.1" ToolTipService.ToolTip="1.0倍がモデル標準。大きくすると髪・服が揺れやすくなります" ValueChanged="SpringStrength_Changed"/>
        <TextBlock Text="顔の動きの強さ" Foreground="#9DA7C0"/><Slider x:Name="Sensitivity" Minimum="0.3" Maximum="2" Value="1" StepFrequency="0.1" ValueChanged="Settings_Changed"/>
       </StackPanel>
-     </Expander>
-     <Expander Header="配信出力" IsExpanded="True" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+      </ScrollViewer>
+     </TabViewItem>
+     <TabViewItem IsClosable="False"><TabViewItem.Header><TextBlock Text="配信出力" FontSize="12"/></TabViewItem.Header>
+      <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,12,0,0">
       <StackPanel Spacing="6">
       <TextBlock Text="背景" Foreground="#9DA7C0" FontSize="12"/>
       <Grid ColumnSpacing="6">
@@ -68,9 +72,9 @@
       <Button x:Name="OutputButton" Content="仮想カメラ出力を開始" Click="Output_Click" HorizontalAlignment="Stretch" IsEnabled="False" ToolTipService.ToolTip="OBSの映像キャプチャデバイスでYuiTracking Cameraを選択してください"/>
       <Button x:Name="RegisterButton" Content="仮想カメラを登録（初回）" Click="Register_Click" HorizontalAlignment="Stretch"/>
       </StackPanel>
-     </Expander>
-    </StackPanel>
-    </ScrollViewer>
+      </ScrollViewer>
+     </TabViewItem>
+    </TabView>
    </Grid>
   </Grid>
  </Grid>
