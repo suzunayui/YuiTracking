@@ -13,6 +13,12 @@ internal static class AppSettings
         : new JsonObject();
 
     public static string? DefaultVrmPath => Read()["defaultVrmPath"]?.GetValue<string>();
+    public static string? DefaultSample => Read()["defaultSample"]?.GetValue<string>();
+    public static void SaveDefaultSample(string sample)
+    {
+        if (sample is not ("Y" or "Z" or "robot")) throw new ArgumentException("Unknown sample.", nameof(sample));
+        var settings = Read(); settings["defaultSample"] = sample; Save(settings);
+    }
     public static double SpringStrength
     {
         get { var value = Read()["springStrength"]?.GetValue<double>() ?? 1; return double.IsFinite(value) ? Math.Clamp(value, .3, 3) : 1; }
@@ -59,6 +65,7 @@ internal static class AppSettings
     {
         var settings = Read();
         settings["defaultVrmPath"] = Path.GetFullPath(path);
+        settings.Remove("defaultSample");
         Save(settings);
     }
     private static void Save(JsonObject settings)

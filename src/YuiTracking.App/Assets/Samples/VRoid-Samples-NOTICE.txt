@@ -1,0 +1,22 @@
+VRoid Studio AvatarSample Y / Z
+
+Files: AvatarSample_Y.vrm, AvatarSample_Z.vrm
+Author: pixiv VRoid Project
+Source: VRoid Studio 2.14.0 official sample models
+Format: VRM 1.0
+Export date: 2026-10-14
+
+The models are not CC0. Their original rights are retained by the rights holder.
+Use must comply with the official AvatarSample A-Z conditions:
+https://vroid.pixiv.help/hc/ja/articles/4402394424089
+
+The VRM files include that URL as otherLicenseUrl and retain the official author name.
+The export metadata permits use by everyone, individual/corporate commercial use,
+redistribution, modification and redistribution of modified models, with attribution optional.
+The metadata leaves excessive violence, excessive sexual use, political/religious use,
+and antisocial/hate use disabled.
+
+The metadata is not a replacement for the full official conditions. In particular,
+do not represent the models as CC0, use their data in a character-creation service,
+redistribute the unmodified sample data for a fee without a legitimate reason,
+or imply endorsement by pixiv. Consult the official page for all conditions.

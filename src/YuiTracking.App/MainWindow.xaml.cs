@@ -21,6 +21,7 @@ public sealed partial class MainWindow : Window
     private byte[]? modelBytes;
     private int modelRequestId;
     private string? pendingModelPath;
+    private string? pendingSample;
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer statusTimer;
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer framingTimer;
     private readonly Microsoft.UI.Dispatching.DispatcherQueueTimer mouthTimer;
@@ -87,7 +88,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        Title = $"YuiTracking {typeof(App).Assembly.GetName().Version?.ToString(3) ?? "0.1.6"}";
+        Title = $"YuiTracking {typeof(App).Assembly.GetName().Version?.ToString(3) ?? "0.1.7"}";
         framingTimer = DispatcherQueue.CreateTimer(); framingTimer.Interval = TimeSpan.FromMilliseconds(250);
         framingTimer.Tick += (_, _) => SaveFraming();
         mouthTimer = DispatcherQueue.CreateTimer(); mouthTimer.Interval = TimeSpan.FromMilliseconds(250);
@@ -287,8 +288,11 @@ public sealed partial class MainWindow : Window
                     var framing = AppSettings.SavedFraming;
                     if (framing != null) Send(new { type = "restoreFraming", zoom = framing.Zoom, x = framing.X, y = framing.Y, z = framing.Z });
                     var defaultModel = AppSettings.DefaultVrmPath;
-                    if (!string.IsNullOrWhiteSpace(defaultModel)) await LoadModelAsync(defaultModel);
-                    else RestoreOutput();
+                    var defaultSample = AppSettings.DefaultSample;
+                    if (defaultSample is "Y" or "Z") await LoadSampleAsync(defaultSample);
+                    else if (defaultSample == "robot") { ModelLabel.Text = "内蔵ロボット"; RestoreOutput(); }
+                    else if (!string.IsNullOrWhiteSpace(defaultModel)) await LoadModelAsync(defaultModel);
+                    else await LoadSampleAsync("Y");
                     break;
                 case "frameReady":
                     try
@@ -311,16 +315,18 @@ public sealed partial class MainWindow : Window
                     break;
                 case "modelLoaded":
                     if (root.GetProperty("requestId").GetInt32() != modelRequestId || pendingModelPath == null) break;
-                    ModelLabel.Text = Path.GetFileName(pendingModelPath);
+                    ModelLabel.Text = pendingSample == "Y" ? "女の子（Y）" : pendingSample == "Z" ? "男の子（Z）" : Path.GetFileName(pendingModelPath);
                     App.Log("VRM loaded: " + pendingModelPath);
                     ModelButton.IsEnabled = true;
-                    AppSettings.SaveDefaultVrm(pendingModelPath);
+                    if (pendingSample != null) AppSettings.SaveDefaultSample(pendingSample);
+                    else AppSettings.SaveDefaultVrm(pendingModelPath);
                     pendingModelPath = null;
+                    pendingSample = null;
                     RestoreOutput();
                     break;
                 case "modelFailed":
                     if (root.GetProperty("requestId").GetInt32() == modelRequestId)
-                    { pendingModelPath = null; ModelButton.IsEnabled = true; RestoreOutput(); }
+                    { pendingModelPath = pendingSample = null; ModelButton.IsEnabled = true; RestoreOutput(); }
                     break;
                 case "togglePreviewMaximized": TogglePreviewMaximized(); break;
                 case "status": TrackingStatus.Text = root.GetProperty("text").GetString(); break;
@@ -360,9 +366,10 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex) { Report(ex); }
     }
-    private async Task LoadModelAsync(string path)
+    private async Task LoadModelAsync(string path, string? sample = null)
     {
         var requestId = ++modelRequestId;
+        pendingSample = sample;
         ModelButton.IsEnabled = false;
         try
         {
@@ -377,12 +384,24 @@ public sealed partial class MainWindow : Window
         }
         catch
         {
-            if (requestId == modelRequestId) { pendingModelPath = null; ModelButton.IsEnabled = true; }
+            if (requestId == modelRequestId) { pendingModelPath = pendingSample = null; ModelButton.IsEnabled = true; }
             throw;
         }
     }
     private void Demo_Click(object sender, RoutedEventArgs e)
-    { modelRequestId++; pendingModelPath = null; ModelButton.IsEnabled = ready; ModelLabel.Text = "内蔵サンプル・ロボット"; Send(new { type = "demo" }); RestoreOutput(); }
+    {
+        if (!ready || closing) return;
+        modelRequestId++; pendingModelPath = pendingSample = null; ModelButton.IsEnabled = true;
+        ModelLabel.Text = "内蔵ロボット"; Send(new { type = "demo" }); RestoreOutput();
+        try { AppSettings.SaveDefaultSample("robot"); } catch (Exception ex) { Report(ex); }
+    }
+    private Task LoadSampleAsync(string sample) => LoadModelAsync(
+        Path.Combine(AppContext.BaseDirectory, "Assets", "Samples", $"AvatarSample_{sample}.vrm"), sample);
+    private async void Sample_Click(object sender, RoutedEventArgs e)
+    {
+        if (!ready || closing || sender is not MenuFlyoutItem item || item.Tag is not string sample || sample is not ("Y" or "Z")) return;
+        try { await LoadSampleAsync(sample); } catch (Exception ex) { Report(ex); }
+    }
     private void Track_Click(object sender, RoutedEventArgs e)
     {
         if (!ready || closing) return;

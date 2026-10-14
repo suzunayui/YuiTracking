@@ -21,6 +21,8 @@ electron/renderer/
 
 # Personal avatars and camera/recording data
 *.vrm
+!src/YuiTracking.App/Assets/Samples/AvatarSample_Y.vrm
+!src/YuiTracking.App/Assets/Samples/AvatarSample_Z.vrm
 *.vroid
 *.mp4
 *.mov
