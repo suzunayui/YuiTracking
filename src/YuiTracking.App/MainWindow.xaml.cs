@@ -116,6 +116,8 @@ public sealed partial class MainWindow : Window
             { TogglePreviewMaximized(); e.Handled = true; }
         }), true);
         UpdateMotionLabels();
+        try { FullBody.IsChecked = AppSettings.FullBodyEnabled; }
+        catch (Exception ex) { App.Log(ex.Message); }
         var version = typeof(App).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0]
             ?? typeof(App).Assembly.GetName().Version?.ToString(3);
         Title = $"YuiTracking {version}";
@@ -595,10 +597,20 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex) { Report(ex); }
     }
+    private void FullBody_Click(object sender, RoutedEventArgs e)
+    {
+        if (!ready || closing) return;
+        try
+        {
+            AppSettings.SaveFullBody(FullBody.IsChecked == true); SendSettings();
+            if (FullBody.IsChecked == true) Send(new { type = "fitFullBody" });
+        }
+        catch (Exception ex) { Report(ex); }
+    }
     private void SendSettings()
     {
         if (!ready) return;
-        Send(new { type = "settings", smoothing = Smoothness.Value, sensitivity = Sensitivity.Value, mouthOpenStrength = MouthStrength.Value, mouthSensitivity = MouthSensitivity.Value, springStrength = SpringStrength.Value, background = backgroundColor });
+        Send(new { type = "settings", smoothing = Smoothness.Value, sensitivity = Sensitivity.Value, mouthOpenStrength = MouthStrength.Value, mouthSensitivity = MouthSensitivity.Value, springStrength = SpringStrength.Value, fullBody = FullBody.IsChecked == true, background = backgroundColor });
     }
     private void Privacy_Click(object sender, RoutedEventArgs e)
     {

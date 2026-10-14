@@ -52,6 +52,9 @@ export function shoulderWristTarget(wrist,pose,center,span,aspect=4/3){
  if(!valid(wrist)||![left,right].every(p=>valid(p)&&(p.visibility??1)>=.6))return null;
  const width=Math.hypot((right.x-left.x)*aspect,right.y-left.y);
  if(width<.08||!Number.isFinite(span)||span<.05)return null;
- const scale=Math.min(span/width,3);
- return new Vector3(center.x+((left.x+right.x)/2-wrist.x)*aspect*scale,center.y+((left.y+right.y)/2-wrist.y)*scale,center.z+.15);
+ const scale=Math.min(span/width,6);
+ const candidates=[pose?.[15],pose?.[16]].filter(p=>valid(p)&&(p.visibility??1)>=.6);
+ const nearest=candidates.sort((a,b)=>Math.hypot(a.x-wrist.x,a.y-wrist.y)-Math.hypot(b.x-wrist.x,b.y-wrist.y))[0];
+ const depth=nearest&&Math.hypot(nearest.x-wrist.x,nearest.y-wrist.y)<.2?Math.max(-.4,Math.min(.8,((left.z+right.z)/2-nearest.z)*aspect*scale)):.15;
+ return new Vector3(center.x+((left.x+right.x)/2-wrist.x)*aspect*scale,center.y+((left.y+right.y)/2-wrist.y)*scale,center.z+depth);
 }

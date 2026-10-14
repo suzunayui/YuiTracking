@@ -6,7 +6,7 @@ window.addEventListener('message',event=>{if(event.source!==$('preview').content
 function setStatus(text,temporary=false){clearTimeout(statusTimer);const revision=++statusRevision;$('status').textContent=text;if(temporary)statusTimer=setTimeout(()=>{if(statusRevision===revision)$('status').textContent=active?'トラッキング中':'VRMを表示中';},3000);}
 function showError(error){setStatus(error.message||String(error));}
 function send(type,rest={}){host.command({type,...rest});}
-function values(){return Object.fromEntries(keys.map(key=>[key,Number($(key).value)]));}
+function values(){return {...Object.fromEntries(keys.map(key=>[key,Number($(key).value)])),fullBody:$('full-body').getAttribute('aria-pressed')==='true'};}
 function labels(){for(const key of keys)$(key+'-value').textContent=key==='smoothing'?Math.round(Number($(key).value)*100)+'%':Number($(key).value).toFixed(1)+'倍';}
 function apply(){labels();send('settings',values());clearTimeout(timer);timer=setTimeout(()=>host.saveSettings(values()).catch(showError),200);}
 for(const key of keys)$(key).addEventListener('input',apply);
@@ -20,6 +20,7 @@ $('open').onclick=()=>host.openModel().catch(showError);
 for(const button of document.querySelectorAll('[data-sample]'))button.onclick=()=>host.selectSample(button.dataset.sample).catch(showError);
 for(const button of document.querySelectorAll('[data-background]'))button.onclick=()=>host.selectBackground(button.dataset.background).catch(showError);
 $('background-image').onclick=()=>host.selectBackground('image').catch(showError);
+$('full-body').onclick=()=>{const enabled=$('full-body').getAttribute('aria-pressed')!=='true';$('full-body').setAttribute('aria-pressed',enabled);apply();if(enabled)send('fitFullBody');};
 $('calibrate').onclick=()=>send('calibrate');$('reset').onclick=()=>send('resetFraming');
 $('privacy').onclick=()=>{const value=$('privacy').getAttribute('aria-pressed')!=='true';$('privacy').setAttribute('aria-pressed',value);send('privacy',{value});};
 $('tracking').onclick=()=>{send(active?'stopTracking':'startTracking',{deviceId:$('cameras').value.startsWith('native:')?'':$('cameras').value,cameraLabel:$('cameras').value.startsWith('native:')?$('cameras').selectedOptions[0]?.textContent:undefined});$('tracking').disabled=true;};
@@ -39,7 +40,7 @@ host.onEvent(message=>{
  if(message.type==='background'){for(const button of document.querySelectorAll('[data-background]'))button.setAttribute('aria-pressed',!message.image&&button.dataset.background===message.color);$('background-image').setAttribute('aria-pressed',message.image);}
  if(message.type==='togglePreviewMaximized')maximize(!maximized);if(message.type==='restorePreview')maximize(false);
 });
-host.getSettings().then(saved=>{for(const key of keys)if(Number.isFinite(saved[key]))$(key).value=saved[key];labels();}).catch(showError);
+host.getSettings().then(saved=>{for(const key of keys)if(Number.isFinite(saved[key]))$(key).value=saved[key];$('full-body').setAttribute('aria-pressed',saved.fullBody===true);labels();}).catch(showError);
 host.info().then(info=>document.title='YuiTracking '+info.version).catch(showError);
 async function memory(){try{const result=await host.memory();$('memory').textContent='メモリ：'+Math.round(result.mb)+' MB';$('memory').title='YuiTrackingと描画・認識プロセスの使用量合計\n'+result.processes.map(item=>item.type+'：'+Math.round(item.mb)+' MB').join('\n');}catch{} }
 memory();setInterval(memory,5000);

@@ -35,6 +35,11 @@ internal static class AppSettings
         if (!double.IsFinite(value)) return;
         var settings = Read(); settings["springStrength"] = Math.Clamp(value, .3, 3); Save(settings);
     }
+    public static bool FullBodyEnabled => Read()["fullBody"]?.GetValue<bool>() ?? false;
+    public static void SaveFullBody(bool enabled)
+    {
+        var settings = Read(); settings["fullBody"] = enabled; Save(settings);
+    }
     public static bool VirtualCameraEnabled => Read()["virtualCameraEnabled"]?.GetValue<bool>() ?? false;
     public static void SaveVirtualCameraEnabled(bool enabled)
     {

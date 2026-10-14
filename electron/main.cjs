@@ -27,7 +27,7 @@ function persist(){saveQueue=saveQueue.catch(()=>{}).then(save);return saveQueue
 function trusted(event,kind){return event.sender===window?.webContents && event.senderFrame?.url.startsWith(origin+'/'+kind+'/');}
 function command(message){if(window&&!window.webContents.isDestroyed())window.webContents.send('command',message);}
 function notify(message){if(window&&!window.webContents.isDestroyed())window.webContents.send('renderer-event',message);}
-function safeSettings(value){const result={};for(const [key,min,max] of [['smoothing',0,.95],['sensitivity',.3,2],['mouthOpenStrength',.5,3],['mouthSensitivity',.5,3],['springStrength',.3,3]])if(Number.isFinite(value?.[key]))result[key]=Math.min(max,Math.max(min,value[key]));return result;}
+function safeSettings(value){const result={};for(const [key,min,max] of [['smoothing',0,.95],['sensitivity',.3,2],['mouthOpenStrength',.5,3],['mouthSensitivity',.5,3],['springStrength',.3,3]])if(Number.isFinite(value?.[key]))result[key]=Math.min(max,Math.max(min,value[key]));if(typeof value?.fullBody==='boolean')result.fullBody=value.fullBody;return result;}
 function samplePath(sample){return path.join(app.isPackaged?path.join(process.resourcesPath,'Samples'):path.join(__dirname,'../src/YuiTracking.App/Assets/Samples'),`AvatarSample_${sample}.vrm`);}
 function selectModel(file,sample){
  if(sample==='robot'){pendingModel=null;syphon.setLoading(false);command({type:'demo'});settings.defaultSample='robot';notify({type:'avatar',sample,label:'内蔵ロボット'});return persist();}
@@ -52,7 +52,7 @@ ipcMain.on('ui-command',(event,message)=>{
  if(!trusted(event,'ui'))return;
  if(message?.type==='privacy')syphon.setPrivacy(message.value);
  if(message?.type==='settings')command({type:'settings',...safeSettings(message)});
- else if(['startTracking','stopTracking','calibrate','privacy','resetFraming','refreshCameras'].includes(message?.type))command({type:message.type,deviceId:typeof message.deviceId==='string'?message.deviceId:undefined,cameraLabel:typeof message.cameraLabel==='string'?message.cameraLabel:undefined,value:!!message.value});
+ else if(['startTracking','stopTracking','calibrate','privacy','resetFraming','refreshCameras','fitFullBody'].includes(message?.type))command({type:message.type,deviceId:typeof message.deviceId==='string'?message.deviceId:undefined,cameraLabel:typeof message.cameraLabel==='string'?message.cameraLabel:undefined,value:!!message.value});
 });
 ipcMain.on('renderer-event',async(event,message)=>{
  if(!trusted(event,'ui')||!message||typeof message.type!=='string')return;

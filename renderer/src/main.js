@@ -15,8 +15,10 @@ import {SpringStrength} from './spring-strength.js';
 import {RotationStabilizer} from './rotation-stabilizer.js';
 import {browserCameraId} from './camera-selection.js';
 import {AvatarBackground} from './background.js';
+import {PreviewOutput} from './preview-output.js';
 import {FrameCapture} from './frame-capture.js';
 import {avatarTextures} from './avatar-textures.js';
+import {limbPose,crouchRatio,LimbFollower} from './full-body.js';
 import {QuaternionDamping} from './quaternion-damping.js';
 
 const W=1280,H=720;
@@ -132,6 +134,10 @@ let handRest={};
 let mouthMorphBinds=[];
 let springStrength=1,springPhysics=null;
 const handTransitions={left:new HandTransition(250),right:new HandTransition(250)};
+let fullBody=false,legs={},hipsRest=null,crouch=0;
+const poseFilter=new LandmarkFilter(.003);
+const limbFollowers=Object.fromEntries(['left','right'].flatMap(side=>['arm','leg'].map(kind=>[side+kind,new LimbFollower()])));
+function resetFullBody(){poseFilter.reset();for(const follower of Object.values(limbFollowers))follower.reset();}
 let rotationDampers=new WeakMap();
 function dampRotation(node,target,dt){
  if(!node)return;
@@ -160,6 +166,9 @@ const capture=new FrameCapture(renderer,W,H);
 // video is kept detached and is passed exclusively to the landmark detectors.
 const standby=new THREE.Scene(); standby.background=new THREE.Color('#171b2e');
 const standbyCam=new THREE.OrthographicCamera(-W/2,W/2,H/2,-H/2,.1,10);standbyCam.position.z=1;
+const previewOutput=new PreviewOutput(renderer,camera,standbyCam,{width:W,height:H,createTarget:(w,h)=>{const target=new THREE.WebGLRenderTarget(w,h);target.texture.colorSpace=THREE.SRGBColorSpace;target.samples=Math.min(4,renderer.capabilities.maxSamples);return target;}});
+const resizePreview=()=>previewOutput.resize(document.documentElement.clientWidth,document.documentElement.clientHeight);
+new ResizeObserver(resizePreview).observe(document.documentElement);resizePreview();
 for (const x of [-20,20]) {const b=new THREE.Mesh(new THREE.PlaneGeometry(20,96),new THREE.MeshBasicMaterial({color:'#82e2c0'}));b.position.x=x;standby.add(b);}
 function mesh(geometry,color,parent,x=0,y=0,z=0) {
  const o=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({color,roughness:.55})); o.position.set(x,y,z);parent.add(o);return o;
@@ -170,6 +179,7 @@ function disposeAvatarScene(avatarScene){
  for(const image of images)image?.close?.();
 }
 function removeAvatar() {
+ resetFullBody();hipsRest=null;legs={};crouch=0;
  rotationDampers=new WeakMap();
  springPhysics=null;
  mouthMorphBinds=[];
@@ -200,7 +210,11 @@ function makeDemo(){
   const fingers=[];
   for(let i=0;i<5;i++){const f=new THREE.Group();f.position.set((i-2)*.026,-.085,0);hand.add(f);mesh(new THREE.CapsuleGeometry(.01,.065,3,6),'#83e2c0',f,0,-.028,0);fingers.push(f);}
   arms[side]={upper,lower,hand,fingers};
-  mesh(new THREE.CapsuleGeometry(.073,.24,6,12),'#b9b8ea',demo,sign*.1,.40,0);
+  const leg=new THREE.Group();leg.position.set(sign*.1,.70,0);demo.add(leg);
+  mesh(new THREE.CapsuleGeometry(.073,.18,6,12),'#b9b8ea',leg,0,-.16,0);
+  const shin=new THREE.Group();shin.position.y=-.32;leg.add(shin);mesh(new THREE.CapsuleGeometry(.06,.17,6,12),'#e5e5ff',shin,0,-.15,0);
+  const foot=new THREE.Group();foot.position.y=-.30;shin.add(foot);mesh(new THREE.BoxGeometry(.16,.10,.25),'#82e2c0',foot,0,-.015,.07);
+  const toe=new THREE.Group();toe.position.z=.18;foot.add(toe);legs[side]={upper:leg,lower:shin,foot,toe};
  }
  loading=false;status('内蔵サンプルを表示中');
 }
@@ -219,6 +233,7 @@ async function loadModel(requestId){
   removeAvatar();vrm=next;VRMUtils.rotateVRM0(vrm);scene.add(vrm.scene);
   mouthMorphBinds=['aa','ih','ou','ee','oh'].flatMap(name=>(vrm.expressionManager?.getExpression(name)?.binds??[]).filter(bind=>bind.primitives&&Number.isInteger(bind.index)).map(bind=>({bind,baseWeight:bind.weight})));
   placeAvatar(vrm);
+  hipsRest=bone('hips')?.position.clone()??null;
   springPhysics=new SpringStrength(vrm.springBoneManager);springPhysics.setStrength(springStrength);
   handRest={};
   for(const side of ['left','right']){
@@ -255,7 +270,7 @@ async function ensureTasks(){
    if(lastTrackingReceived)trackingGapMs=Math.max(trackingGapMs,receivedAt-lastTrackingReceived);
    lastTrackingReceived=receivedAt;trackingLatencyMs=Math.max(trackingLatencyMs,receivedAt-data.time);trackingResults++;
    latestFace={result:data.face,time:data.time,receivedAt};latestHands={result:stabilizeHands(data.hands,data.time),time:data.time,receivedAt};
-   if(data.pose)latestPose={result:data.pose,time:data.time,receivedAt};
+   if(data.pose){if(data.pose.worldLandmarks?.[0])data.pose.worldLandmarks[0]=poseFilter.update(data.pose.worldLandmarks[0],data.time);latestPose={result:data.pose,time:data.time,receivedAt};}
    const matrix=data.face.facialTransformationMatrixes?.[0]?.data;
    const weights=Object.fromEntries((data.face.faceBlendshapes?.[0]?.categories??[]).map(c=>[c.categoryName,c.score]));
    const sample=matrix?{time:data.time,rotation:new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().fromArray(matrix)).toArray(),eyesOpen:Math.max(weights.eyeBlinkLeft??0,weights.eyeBlinkRight??0)<.7}:null;
@@ -289,7 +304,7 @@ async function startTracking(deviceId,cameraLabel){
 }
 function stopTracking(){
  rotationDampers=new WeakMap();
- autoCalibration.stop();
+ autoCalibration.stop();resetFullBody();
  bodyStabilizer.reset();headStabilizer.reset();
  for(const filter of Object.values(handFilters)){filter.screen.reset();filter.world.reset();}
  trackingGeneration++;tracking=false;scheduleDetection();restartRenderLoop();stream?.getTracks().forEach(t=>{t.onended=null;t.stop();});stream=null;
@@ -314,7 +329,7 @@ function calibrateFace(automatic=false){
     autoCalibration.stop();
     const pose=safeTracking(latestPose,performance.now())?bodyPose(latestPose.result.worldLandmarks?.[0]):null;
     bodyNeutral=pose?{...pose}:null;
-    bodyStabilizer.reset();headStabilizer.reset();rotationDampers=new WeakMap();
+    resetFullBody();bodyStabilizer.reset();headStabilizer.reset();rotationDampers=new WeakMap();
     const weights=Object.fromEntries((latestFace.result.faceBlendshapes?.[0]?.categories??[]).map(c=>[c.categoryName,c.score]));
     blinkBaseline={left:clamp(weights.eyeBlinkLeft??0,0,.95),right:clamp(weights.eyeBlinkRight??0,0,.95)};
     if(vrm){vrm.expressionManager?.setValue('blinkLeft',0);vrm.expressionManager?.setValue('blinkRight',0);}
@@ -335,19 +350,22 @@ function aim(node,child,target,alpha){
  const direction=child.position.clone().normalize();
  if(direction.lengthSq()>.1)node.quaternion.slerp(new THREE.Quaternion().setFromUnitVectors(direction,localTarget),alpha);
 }
-function rigHand(side,landmarks,alpha,worldLandmarks=null,poseLandmarks=null){
+function rigHand(side,landmarks,alpha,worldLandmarks=null,poseLandmarks=null,armPose=null){
  const sign=side==='left'?1:-1;
  const upper=vrm?bone(side+'UpperArm'):arms[side].upper;
  const lower=vrm?bone(side+'LowerArm'):arms[side].lower;
  const hand=vrm?bone(side+'Hand'):arms[side].hand;
  if(!upper||!lower||!hand)return;
  if(!landmarks){
-  // VRM normalized arms start in T pose; lower them to an idle pose.
-  if(vrm){
+  // Pose shoulders/elbows/wrists still drive the arms when detailed hands are distant.
+  if(armPose?.sample&&armPose.blend>.01){
+   const idle=new THREE.Vector3(sign*.18,-1,0).normalize();
+   aimDirection(upper,lower,idle.lerp(armPose.sample.upper,armPose.blend).normalize(),alpha);upper.updateWorldMatrix(true,true);aimDirection(lower,hand,new THREE.Vector3(0,-1,0).lerp(armPose.sample.lower,armPose.blend).normalize(),alpha);
+  }else if(vrm){
    upper.updateWorldMatrix(true,false);
    aim(upper,lower,upper.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(sign*.18,-1,0)),alpha);
   }else upper.quaternion.slerp(new THREE.Quaternion().setFromEuler(new THREE.Euler(0,0,sign*.10)),alpha);
-  lower.quaternion.slerp(restQ,alpha);hand.quaternion.slerp(restQ,alpha);
+  if(!armPose?.sample||armPose.blend<=.01)lower.quaternion.slerp(restQ,alpha);hand.quaternion.slerp(restQ,alpha);
  }else{
   const wrist=landmarks[0];
   let target=null;
@@ -364,9 +382,11 @@ function rigHand(side,landmarks,alpha,worldLandmarks=null,poseLandmarks=null){
   const shoulder=upper.getWorldPosition(new THREE.Vector3());
   const l1=shoulder.distanceTo(lower.getWorldPosition(new THREE.Vector3()));
   const l2=lower.getWorldPosition(new THREE.Vector3()).distanceTo(hand.getWorldPosition(new THREE.Vector3()));
+  target.sub(shoulder).multiplyScalar(1.12).add(shoulder);
   const dir=target.clone().sub(shoulder);const d=clamp(dir.length(),Math.abs(l1-l2)+.01,l1+l2-.01);dir.normalize();
   const along=(l1*l1-l2*l2+d*d)/(2*d);
-  const pole=new THREE.Vector3(sign*.4,-1,-.2);pole.addScaledVector(dir,-pole.dot(dir)).normalize();
+  let pole=armPose?.sample?.upper?.clone()??new THREE.Vector3(sign*.4,-1,-.2);pole.addScaledVector(dir,-pole.dot(dir));
+  if(pole.lengthSq()<.001){pole.set(sign*.4,-1,-.2);pole.addScaledVector(dir,-pole.dot(dir));}pole.normalize();
   const elbow=shoulder.clone().addScaledVector(dir,along).addScaledVector(pole,Math.sqrt(Math.max(0,l1*l1-along*along)));
   aim(upper,lower,elbow,alpha);upper.updateWorldMatrix(true,true);aim(lower,hand,shoulder.clone().addScaledVector(dir,d),alpha);
   if(vrm&&worldLandmarks&&handRest[side]){
@@ -399,6 +419,22 @@ function rigHand(side,landmarks,alpha,worldLandmarks=null,poseLandmarks=null){
   }else arms[side].fingers[i].rotation.x=THREE.MathUtils.lerp(arms[side].fingers[i].rotation.x,-amount,alpha);
  }
 }
+function aimDirection(node,child,direction,alpha){if(!node||!child)return;node.updateWorldMatrix(true,false);aim(node,child,node.getWorldPosition(new THREE.Vector3()).add(direction),alpha);}
+function rigLegs(now,dt,alpha,screen){
+ const points=safeTracking(latestPose,now)?latestPose.result.worldLandmarks?.[0]:null;
+ const ratio=fullBody?crouchRatio(points,screen):null;
+ crouch=THREE.MathUtils.lerp(crouch,ratio===null?0:clamp(ratio-1,-.65,0),1-Math.exp(-8*dt));
+ if(vrm&&hipsRest&&bone('hips'))bone('hips').position.y=hipsRest.y+hipsRest.y*crouch;else if(demo)demo.position.y=.7*crouch;
+ for(const side of ['left','right']){
+  const upper=vrm?bone(side+'UpperLeg'):legs[side]?.upper,lower=vrm?bone(side+'LowerLeg'):legs[side]?.lower,foot=vrm?bone(side+'Foot'):legs[side]?.foot,toe=vrm?bone(side+'Toes'):legs[side]?.toe;
+  const follow=limbFollowers[side+'leg'].update(fullBody?limbPose(points,screen,side):null,latestPose?.time,now,dt);
+  if(fullBody&&follow.sample&&follow.blend>.01){
+   const rest=new THREE.Vector3(0,-1,0);aimDirection(upper,lower,rest.clone().lerp(follow.sample.upper,follow.blend).normalize(),alpha);upper?.updateWorldMatrix(true,true);aimDirection(lower,foot,rest.clone().lerp(follow.sample.lower,follow.blend).normalize(),alpha);lower?.updateWorldMatrix(true,true);
+   if(follow.sample.foot&&toe)aimDirection(foot,toe,follow.sample.foot,alpha*follow.blend);else foot?.quaternion.slerp(restQ,alpha);
+  }else{upper?.quaternion.slerp(restQ,alpha);lower?.quaternion.slerp(restQ,alpha);foot?.quaternion.slerp(restQ,alpha);}
+ }
+}
+function fitFullBody(){endPan();endOrbit();camera.zoom=1;camera.position.set(0,.9,4);cameraTarget.set(0,.9,0);camera.lookAt(cameraTarget);camera.updateProjectionMatrix();saveFraming();}
 function animate(now,dt){
  const alpha=smoothingAlpha(smoothing,dt);
  const pose=safeTracking(latestPose,now)?bodyPose(latestPose.result.worldLandmarks?.[0]):null;
@@ -450,8 +486,11 @@ function animate(now,dt){
   const index=hands?.handedness?.findIndex(h=>h[0]?.categoryName===label)??-1;
   const sample=index>=0?{landmarks:hands.landmarks[index],worldLandmarks:hands.worldLandmarks?.[index],time:latestHands.time,receivedAt:latestHands.receivedAt}:null;
   const transition=handTransitions[side].update(sample,now,dt,alpha);
-  rigHand(side,transition.sample?.landmarks??null,transition.alpha,transition.sample?.worldLandmarks??null,poseLandmarks);
+  const worldPose=safeTracking(latestPose,now)?latestPose.result.worldLandmarks?.[0]:null;
+  const armPose=limbFollowers[side+'arm'].update(limbPose(worldPose,poseLandmarks,side,'arm'),latestPose?.time,now,dt);
+  rigHand(side,transition.sample?.landmarks??null,transition.alpha,transition.sample?.worldLandmarks??null,poseLandmarks,armPose);
  }
+ rigLegs(now,dt,alpha,poseLandmarks);
  // Strength also enlarges the model's morphs; detector weights alone cap at 1.
  const morphScale=mouthOpenStrength;
  for(const {bind,baseWeight}of mouthMorphBinds)bind.weight=baseWeight*morphScale;
@@ -462,7 +501,7 @@ async function sendFrame(){
  let sharedPosted=false;
  try{
   const started=performance.now();
-  const pixels=capture.read();
+  capture.target=previewOutput.target;const pixels=capture.read();
   perfCapture=Math.max(perfCapture,performance.now()-started);perfPendingAt=performance.now();
   // The iframe host transfers/detaches its buffer; give that path an owned copy.
   if(host?.sendFrame){host.sendFrame(pixels.slice());sharedPosted=true;return;}
@@ -485,7 +524,7 @@ function loop(now){
  if(now-lastRender<renderInterval()-1.5){scheduleLoop();return;}
  const dt=Math.min((now-lastRender)/1000,.1);lastRender=now;scheduleLoop();
  animate(now,dt);
- if(privacy||loading)renderer.render(standby,standbyCam);else renderer.render(scene,camera);
+ previewOutput.render(scene,standby,privacy||loading,output&&!framePending);
  sendFrame();frameNumber++;
  perfFrames++;
  if(now-perfLast>=3000){
@@ -514,7 +553,9 @@ host?.addEventListener('message',async e=>{
     camera.lookAt(cameraTarget);camera.updateProjectionMatrix();
    }
    break;
+  case'fitFullBody':fitFullBody();break;
   case'resetFraming':
+   if(fullBody){fitFullBody();break;}
    endPan();endOrbit();camera.zoom=1;camera.position.set(0,1.35,3.1);cameraTarget.set(0,1.1,0);camera.lookAt(cameraTarget);camera.updateProjectionMatrix();saveFraming();break;
   case'loadModel':await loadModel(m.requestId);break;
   case'demo':loadVersion++;makeDemo();break;
@@ -526,9 +567,9 @@ host?.addEventListener('message',async e=>{
    try{if(await avatarBackground.set(m))post('backgroundLoaded',{requestId:m.requestId});}
    catch(err){post('backgroundFailed',{requestId:m.requestId,text:'背景画像を読み込めませんでした。'});}
    break;
-  case'settings':smoothing=clamp(m.smoothing,0,.95);sensitivity=clamp(m.sensitivity,.3,2);mouthOpenStrength=clamp(m.mouthOpenStrength??1,.5,3);mouthSensitivity=clamp(m.mouthSensitivity??1.8,.5,3);springStrength=clamp(m.springStrength??1,.3,3);springPhysics?.setStrength(springStrength);break;
+  case'settings':if(typeof m.fullBody==='boolean'&&m.fullBody!==fullBody){fullBody=m.fullBody;resetFullBody();}smoothing=clamp(m.smoothing,0,.95);sensitivity=clamp(m.sensitivity,.3,2);mouthOpenStrength=clamp(m.mouthOpenStrength??1,.5,3);mouthSensitivity=clamp(m.mouthSensitivity??1.8,.5,3);springStrength=clamp(m.springStrength??1,.3,3);springPhysics?.setStrength(springStrength);break;
   case'privacy':privacy=!!m.value;break;
-  case'output':output=!!m.value;restartRenderLoop();break;
+  case'output':output=!!m.value;if(!output){previewOutput.release();capture.target=null;}restartRenderLoop();break;
  }
  }catch(err){post('error',{text:err.message});}
 });
