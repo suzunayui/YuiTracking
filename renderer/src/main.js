@@ -14,6 +14,7 @@ import {AutoCalibration} from './auto-calibration.js';
 import {SpringStrength} from './spring-strength.js';
 import {RotationStabilizer} from './rotation-stabilizer.js';
 import {browserCameraId} from './camera-selection.js';
+import {AvatarBackground} from './background.js';
 
 const W=1280,H=720;
 const host=window.yuiHost ?? window.chrome?.webview ?? (window.parent!==window ? {
@@ -24,8 +25,10 @@ const host=window.yuiHost ?? window.chrome?.webview ?? (window.parent!==window ?
 const post=(type,rest={})=>host?.postMessage({type,...rest});
 const status=text=>post('status',{text});
 const scene=new THREE.Scene(); scene.background=new THREE.Color('#00ff00');
+const avatarBackground=new AvatarBackground(scene);
 const camera=new THREE.PerspectiveCamera(32,W/H,0.01,100); camera.position.set(0,1.35,3.1); camera.lookAt(0,1.1,0);
-const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true,alpha:true,premultipliedAlpha:false});
+renderer.setClearColor(0x000000,0);
 renderer.setSize(W,H,false); renderer.setPixelRatio(1); renderer.outputColorSpace=THREE.SRGBColorSpace;
 // Keep the VRM's authored colors without filmic highlight compression.
 renderer.toneMapping=THREE.NoToneMapping;renderer.toneMappingExposure=1;
@@ -299,10 +302,10 @@ function rigHand(side,landmarks,alpha,worldLandmarks=null,poseLandmarks=null){
  }else{
   const wrist=landmarks[0];
   let target=null;
-  if(vrm){
-   const a=bone('leftUpperArm'),b=bone('rightUpperArm');
+  {
+   const a=vrm?bone('leftUpperArm'):arms.left?.upper,b=vrm?bone('rightUpperArm'):arms.right?.upper;
    if(a&&b){
-    vrm.scene.updateWorldMatrix(true,true);
+    (vrm?.scene??demo).updateWorldMatrix(true,true);
     const left=a.getWorldPosition(new THREE.Vector3()),right=b.getWorldPosition(new THREE.Vector3());
     target=shoulderWristTarget(wrist,poseLandmarks,left.clone().add(right).multiplyScalar(.5),left.distanceTo(right),video?video.videoWidth/video.videoHeight:4/3);
    }
@@ -410,6 +413,7 @@ async function sendFrame(){
  let sharedPosted=false;
  try{
   const started=performance.now();
+  capture.clearRect(0,0,W,H);
   capture.drawImage(renderer.domElement,0,0,W,H);
   const pixels=capture.getImageData(0,0,W,H).data;
   perfCapture=Math.max(perfCapture,performance.now()-started);perfPendingAt=performance.now();
@@ -465,7 +469,11 @@ host?.addEventListener('message',async e=>{
   case'refreshCameras':await listCameras();break;
   case'stopTracking':stopTracking();break;
   case'calibrate':calibrateFace();break;
-  case'settings':smoothing=clamp(m.smoothing,0,.95);sensitivity=clamp(m.sensitivity,.3,2);mouthOpenStrength=clamp(m.mouthOpenStrength??1,.5,3);mouthSensitivity=clamp(m.mouthSensitivity??1.8,.5,3);springStrength=clamp(m.springStrength??1,.3,3);springPhysics?.setStrength(springStrength);scene.background.set(m.background);break;
+  case'background':
+   try{if(await avatarBackground.set(m))post('backgroundLoaded',{requestId:m.requestId});}
+   catch(err){post('backgroundFailed',{requestId:m.requestId,text:'背景画像を読み込めませんでした。'});}
+   break;
+  case'settings':smoothing=clamp(m.smoothing,0,.95);sensitivity=clamp(m.sensitivity,.3,2);mouthOpenStrength=clamp(m.mouthOpenStrength??1,.5,3);mouthSensitivity=clamp(m.mouthSensitivity??1.8,.5,3);springStrength=clamp(m.springStrength??1,.3,3);springPhysics?.setStrength(springStrength);break;
   case'privacy':privacy=!!m.value;break;
   case'output':output=!!m.value;restartRenderLoop();break;
  }

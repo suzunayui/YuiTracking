@@ -31,3 +31,14 @@ test('wrist location uses shoulder center and falls back when shoulders disappea
  assert.ok(shoulderWristTarget({x:.7,y:.4,z:0},pose,center,.4).x<0);
  pose[11].visibility=.1;assert.equal(shoulderWristTarget({x:.5,y:.2,z:0},pose,center,.4),null);
 });
+test('robot shoulder proportions put a raised wrist within reach of its face',()=>{
+ const pose=[];pose[11]={x:.3,y:.5,z:0,visibility:1};pose[12]={x:.7,y:.5,z:0,visibility:1};
+ const center=new Vector3(0,1.05,0);
+ const wrist=shoulderWristTarget({x:.5,y:.2,z:0},pose,center,.5,4/3);
+ const shoulder=new Vector3(.25,1.05,0),face=new Vector3(0,1.38,.17);
+ assert.ok(wrist.distanceTo(face)<.08);
+ assert.ok(wrist.distanceTo(shoulder)<.27+.23-.01);
+ const shifted=pose.map(p=>p?{...p,x:p.x+.1,y:p.y+.1}:p);
+ const moved=shoulderWristTarget({x:.6,y:.3,z:0},shifted,center,.5,4/3);
+ assert.ok(wrist.distanceTo(moved)<1e-10);
+});

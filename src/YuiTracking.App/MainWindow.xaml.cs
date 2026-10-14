@@ -19,6 +19,11 @@ public sealed partial class MainWindow : Window
     private readonly byte[] frameBytes = new byte[VirtualCamera.FrameBytes];
     private string performanceStatus = "";
     private string backgroundColor = "#00ff00";
+    private string? backgroundImagePath, pendingBackgroundPath;
+    private string pendingBackgroundColor = "#00ff00", backgroundMime = "image/png";
+    private byte[]? backgroundBytes;
+    private int backgroundRequestId;
+    private bool backgroundSavePending;
     private string? powerPolicyStatus;
     private byte[]? modelBytes;
     private int modelRequestId;
@@ -223,6 +228,10 @@ public sealed partial class MainWindow : Window
         var uri = new Uri(e.Request.Uri);
         if (uri.Scheme == "blob" || uri.Scheme == "data") return;
         if (uri.Host != "yuitracking.local") { e.Response = sender.Environment.CreateWebResourceResponse(null,403,"Forbidden",""); return; }
+        if (uri.AbsolutePath == "/background-image")
+        {
+            e.Response = sender.Environment.CreateWebResourceResponse(backgroundBytes == null ? null : new MemoryStream(backgroundBytes).AsRandomAccessStream(), backgroundBytes == null ? 404 : 200, "OK", $"Content-Type: {backgroundMime}\r\nCache-Control: no-store"); return;
+        }
         if (uri.AbsolutePath == "/avatar.vrm")
         {
             e.Response = sender.Environment.CreateWebResourceResponse(modelBytes == null ? null : new MemoryStream(modelBytes).AsRandomAccessStream(), modelBytes == null ? 404 : 200, "OK", "Content-Type: model/gltf-binary\r\nCache-Control: no-store"); return;
@@ -310,6 +319,14 @@ public sealed partial class MainWindow : Window
                     catch (Exception ex) { frameStream = null; App.Log("Frame transport fallback: " + ex.Message); }
                     TrackingStatus.Text = "準備完了";
                     SendSettings(); App.Log("Renderer ready");
+                    try
+                    {
+                        var savedColor = AppSettings.BackgroundColor;
+                        if (savedColor is "#ff0000" or "#00ff00" or "#0000ff" or "#000000" or "transparent") backgroundColor = savedColor;
+                        SetBackground(backgroundColor, null, false);
+                        if (AppSettings.BackgroundImagePath is string savedImage) await LoadBackgroundImageAsync(savedImage, false);
+                    }
+                    catch (Exception ex) { Report(ex); }
                     restoreOutputPending = AppSettings.VirtualCameraEnabled;
                     var framing = AppSettings.SavedFraming;
                     if (framing != null) Send(new { type = "restoreFraming", zoom = framing.Zoom, x = framing.X, y = framing.Y, z = framing.Z });
@@ -357,6 +374,16 @@ public sealed partial class MainWindow : Window
                     break;
                 case "togglePreviewMaximized": TogglePreviewMaximized(); break;
                 case "restorePreview": if (previewMaximized) TogglePreviewMaximized(); break;
+                case "backgroundLoaded":
+                    if (root.GetProperty("requestId").GetInt32() != backgroundRequestId) break;
+                    backgroundColor = pendingBackgroundColor; backgroundImagePath = pendingBackgroundPath;
+                    UpdateBackgroundSelection();
+                    if (backgroundSavePending) AppSettings.SaveBackground(backgroundColor, backgroundImagePath);
+                    backgroundSavePending = false;
+                    break;
+                case "backgroundFailed":
+                    if (root.GetProperty("requestId").GetInt32() != backgroundRequestId) break;
+                    UpdateBackgroundSelection(); TrackingStatus.Text = root.GetProperty("text").GetString(); break;
                 case "status": TrackingStatus.Text = root.GetProperty("text").GetString(); break;
                 case "error": TrackingStatus.Text = root.GetProperty("text").GetString(); App.Log(TrackingStatus.Text ?? "Renderer error"); break;
                 case "tracking":
@@ -478,12 +505,59 @@ public sealed partial class MainWindow : Window
     }
     private void Background_Click(object sender, RoutedEventArgs e)
     {
+        UpdateBackgroundSelection();
+        if (!ready || closing) return;
         if (sender is not Microsoft.UI.Xaml.Controls.Primitives.ToggleButton button || button.Tag is not string color) return;
-        backgroundColor = color;
-        BackgroundGreen.IsChecked = color == "#00ff00";
-        BackgroundBlue.IsChecked = color == "#0000ff";
-        BackgroundDark.IsChecked = color == "#171b2e";
-        SendSettings();
+        SetBackground(color, null, true);
+    }
+    private void UpdateBackgroundSelection()
+    {
+        var image = backgroundImagePath != null;
+        BackgroundRed.IsChecked = !image && backgroundColor == "#ff0000";
+        BackgroundGreen.IsChecked = !image && backgroundColor == "#00ff00";
+        BackgroundBlue.IsChecked = !image && backgroundColor == "#0000ff";
+        BackgroundBlack.IsChecked = !image && backgroundColor == "#000000";
+        BackgroundTransparent.IsChecked = !image && backgroundColor == "transparent";
+        BackgroundImage.IsChecked = image;
+        ToolTipService.SetToolTip(BackgroundImage, image
+            ? $"背景画像：{Path.GetFileName(backgroundImagePath)}\n押すと別の画像を選べます。"
+            : "画像ファイルを選んで背景にします。\nPNG・JPEG・BMPに対応します。\n画像は比率を保って画面全体に配置します。");
+    }
+    private void SetBackground(string color, string? imagePath, bool save)
+    {
+        pendingBackgroundColor = color; pendingBackgroundPath = imagePath; backgroundSavePending = save;
+        var requestId = ++backgroundRequestId;
+        Send(new { type = "background", requestId, color, imageUrl = imagePath == null ? null : $"https://yuitracking.local/background-image?v={requestId}" });
+    }
+    private async Task LoadBackgroundImageAsync(string path, bool save)
+    {
+        path = Path.GetFullPath(path);
+        var mime = Path.GetExtension(path).ToLowerInvariant() switch
+        { ".png" => "image/png", ".jpg" or ".jpeg" => "image/jpeg", ".bmp" => "image/bmp", _ => throw new InvalidDataException("PNG・JPEG・BMPを選択してください。") };
+        if (new FileInfo(path).Length > 20 * 1024 * 1024) throw new InvalidDataException("背景画像は20MB以下にしてください。");
+        var version = backgroundRequestId;
+        var bytes = await File.ReadAllBytesAsync(path);
+        using (var stream = new MemoryStream(bytes).AsRandomAccessStream())
+        {
+            var decoder = await Windows.Graphics.Imaging.BitmapDecoder.CreateAsync(stream);
+            if ((ulong)decoder.PixelWidth * decoder.PixelHeight > 32_000_000) throw new InvalidDataException("背景画像は3200万画素以下にしてください。");
+        }
+        if (closing || version != backgroundRequestId) return;
+        backgroundBytes = bytes; backgroundMime = mime;
+        SetBackground(backgroundColor, path, save);
+    }
+    private async void BackgroundImage_Click(object sender, RoutedEventArgs e)
+    {
+        UpdateBackgroundSelection();
+        if (!ready || closing) return;
+        try
+        {
+            var picker = new FileOpenPicker(); WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
+            foreach (var extension in new[] { ".png", ".jpg", ".jpeg", ".bmp" }) picker.FileTypeFilter.Add(extension);
+            var file = await picker.PickSingleFileAsync();
+            if (file != null) await LoadBackgroundImageAsync(file.Path, true);
+        }
+        catch (Exception ex) { Report(ex); }
     }
     private void SendSettings()
     {

@@ -14,6 +14,13 @@ internal static class AppSettings
 
     public static string? DefaultVrmPath => Read()["defaultVrmPath"]?.GetValue<string>();
     public static string? DefaultSample => Read()["defaultSample"]?.GetValue<string>();
+    public static string BackgroundColor => Read()["backgroundColor"]?.GetValue<string>() ?? "#00ff00";
+    public static string? BackgroundImagePath => Read()["backgroundImagePath"]?.GetValue<string>();
+    public static void SaveBackground(string color, string? imagePath)
+    {
+        var settings = Read(); settings["backgroundColor"] = color;
+        settings["backgroundImagePath"] = imagePath; Save(settings);
+    }
     public static void SaveDefaultSample(string sample)
     {
         if (sample is not ("Y" or "Z" or "robot")) throw new ArgumentException("Unknown sample.", nameof(sample));

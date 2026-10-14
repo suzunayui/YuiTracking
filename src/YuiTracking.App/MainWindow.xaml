@@ -37,14 +37,16 @@
      <Grid ColumnSpacing="6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><ComboBox x:Name="Cameras" ToolTipService.ToolTip="トラッキングに使うカメラを選びます。&#10;「カメラを開始」を押すと映像の認識を始めます。" PlaceholderText="カメラを選択" HorizontalAlignment="Stretch" DisplayMemberPath="Label"/><Button x:Name="TrackButton" ToolTipService.ToolTip="選択したカメラで顔・手・体の認識を開始します。&#10;認識した動きをアバターに反映します。" Grid.Column="1" Content="カメラを開始" Click="Track_Click" IsEnabled="False"/></Grid>
      <TextBlock x:Name="CameraInputStatus" Text="カメラ入力：720p / 最大30fps" Foreground="#9DA7C0" FontSize="12" TextWrapping="Wrap"/>
     </StackPanel>
-    <Grid Grid.Row="1" RowSpacing="12">
+    <Grid Grid.Row="1" RowSpacing="0">
      <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
      <Grid ColumnSpacing="4">
       <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-      <ToggleButton x:Name="AvatarTab" ToolTipService.ToolTip="アバター・背景の選択と、&#10;OBS向けの仮想カメラ出力を設定します。" Content="アバター・出力" Tag="avatar" IsChecked="True" Click="SettingsTab_Click" HorizontalAlignment="Stretch" Padding="6,8" FontSize="12"/>
-      <ToggleButton x:Name="MotionTab" ToolTipService.ToolTip="動きの滑らかさ、顔・口の反応、&#10;髪や服の揺れを調整します。" Grid.Column="1" Content="動きの調整" Tag="motion" Click="SettingsTab_Click" HorizontalAlignment="Stretch" Padding="6,8" FontSize="12"/>
+      <ToggleButton CornerRadius="8,8,0,0" x:Name="AvatarTab" ToolTipService.ToolTip="アバター・背景の選択と、&#10;OBS向けの仮想カメラ出力を設定します。" Content="アバター・出力" Tag="avatar" IsChecked="True" Click="SettingsTab_Click" HorizontalAlignment="Stretch" Padding="6,8" FontSize="12"/>
+      <ToggleButton CornerRadius="8,8,0,0" x:Name="MotionTab" ToolTipService.ToolTip="動きの滑らかさ、顔・口の反応、&#10;髪や服の揺れを調整します。" Grid.Column="1" Content="動きの調整" Tag="motion" Click="SettingsTab_Click" HorizontalAlignment="Stretch" Padding="6,8" FontSize="12"/>
      </Grid>
-      <ScrollViewer x:Name="AvatarSettings" Grid.Row="1" VerticalScrollBarVisibility="Auto">
+      <Border Grid.Row="1" BorderBrush="#48BDF5" BorderThickness="1" CornerRadius="0,0,8,8" Background="#171B27" Padding="10,12,10,10">
+       <Grid>
+      <ScrollViewer x:Name="AvatarSettings" VerticalScrollBarVisibility="Auto">
       <StackPanel Spacing="6">
       <Button x:Name="ModelButton" ToolTipService.ToolTip="PCに保存したVRMファイルを開いて、&#10;使用するアバターを切り替えます。" Content="VRMを開く" HorizontalAlignment="Stretch" Click="OpenModel_Click" IsEnabled="False"/>
       <TextBlock x:Name="ModelLabel" Text="サンプルを準備中" Foreground="#9DA7C0" TextTrimming="CharacterEllipsis" FontSize="12"/>
@@ -56,17 +58,21 @@
        <ToggleButton x:Name="SampleRobot" ToolTipService.ToolTip="内蔵ロボットに切り替えます。&#10;選択中のボタンは青色で表示します。" Grid.Column="2" Content="ロボット" Click="Demo_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
        </Grid>
        <TextBlock Text="背景" ToolTipService.ToolTip="プレビューと配信出力の背景色を選びます。&#10;青色のボタンが現在の選択です。" Foreground="#9DA7C0" FontSize="12" Margin="0,12,0,0"/>
-       <Grid ColumnSpacing="6">
+       <Grid ColumnSpacing="6" RowSpacing="6">
         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-        <ToggleButton x:Name="BackgroundGreen" ToolTipService.ToolTip="背景をグリーンにします。&#10;OBSのクロマキーで背景を抜くときに使えます。" Content="グリーン" Tag="#00ff00" IsChecked="True" Click="Background_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
-        <ToggleButton x:Name="BackgroundBlue" ToolTipService.ToolTip="背景をブルーにします。&#10;アバターに緑色が多い場合のクロマキーに使えます。" Grid.Column="1" Content="ブルー" Tag="#0000ff" Click="Background_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
-        <ToggleButton x:Name="BackgroundDark" Grid.Column="2" Content="暗色" Tag="#171b2e" Click="Background_Click" HorizontalAlignment="Stretch" Padding="6,4" ToolTipService.ToolTip="背景を暗い紺色にします。&#10;背景を抜かずに表示するときに使えます。"/>
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <ToggleButton x:Name="BackgroundRed" Content="レッド" Tag="#ff0000" Click="Background_Click" HorizontalAlignment="Stretch" Padding="6,4" ToolTipService.ToolTip="背景をレッドにします。&#10;OBSのカラーキーで背景を抜くときに使えます。"/>
+        <ToggleButton x:Name="BackgroundGreen" Grid.Column="1" Content="グリーン" Tag="#00ff00" IsChecked="True" Click="Background_Click" HorizontalAlignment="Stretch" Padding="6,4" ToolTipService.ToolTip="背景をグリーンにします。&#10;OBSのクロマキーで背景を抜くときに使えます。"/>
+        <ToggleButton x:Name="BackgroundBlue" Grid.Column="2" Content="ブルー" Tag="#0000ff" Click="Background_Click" HorizontalAlignment="Stretch" Padding="6,4" ToolTipService.ToolTip="背景をブルーにします。&#10;アバターに緑色が多い場合のクロマキーに使えます。"/>
+        <ToggleButton x:Name="BackgroundBlack" Grid.Row="1" Content="ブラック" Tag="#000000" Click="Background_Click" HorizontalAlignment="Stretch" Padding="6,4" ToolTipService.ToolTip="背景をブラックにします。&#10;背景を抜かずに表示するときに使えます。"/>
+        <ToggleButton x:Name="BackgroundTransparent" Grid.Row="1" Grid.Column="1" Content="透過" Tag="transparent" Click="Background_Click" HorizontalAlignment="Stretch" Padding="6,4" ToolTipService.ToolTip="透明な背景でアバターを出力します。&#10;OBSの「映像キャプチャデバイス」で&#10;「YuiTracking Camera」を選択し、&#10;映像フォーマットを「ARGB」にしてください。&#10;必要に応じて解像度/FPSタイプを「カスタム」にし、&#10;解像度を1280×720に設定してください。"/>
+        <ToggleButton x:Name="BackgroundImage" Grid.Row="1" Grid.Column="2" Content="背景を選択" Click="BackgroundImage_Click" HorizontalAlignment="Stretch" Padding="4,4" FontSize="12" ToolTipService.ToolTip="画像ファイルを選んで背景にします。&#10;PNG・JPEG・BMPに対応します。&#10;画像は比率を保って画面全体に配置します。"/>
        </Grid>
        <Button x:Name="OutputButton" Content="仮想カメラ出力を開始" Click="Output_Click" HorizontalAlignment="Stretch" IsEnabled="False" ToolTipService.ToolTip="アバター映像を仮想カメラへ出力します。&#10;OBSで「映像キャプチャデバイス」を追加し、&#10;「YuiTracking Camera」を選択してください。"/>
        <Button x:Name="RegisterButton" ToolTipService.ToolTip="OBSなどから使える仮想カメラを登録します。&#10;初回のみ実行してください。" Content="仮想カメラを登録（初回）" Click="Register_Click" HorizontalAlignment="Stretch"/>
       </StackPanel>
       </ScrollViewer>
-      <ScrollViewer x:Name="MotionSettings" Grid.Row="1" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+      <ScrollViewer x:Name="MotionSettings" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
       <StackPanel Spacing="4">
        <StackPanel Background="Transparent" ToolTipService.ToolTip="動きの揺れを抑える強さを調整します。&#10;大きく：滑らかになる／反応はゆっくり&#10;小さく：素早く反応する／細かな揺れが出やすい">
         <TextBlock x:Name="SmoothnessLabel" Text="滑らかさ：65%" Foreground="#9DA7C0"/>
@@ -90,6 +96,8 @@
        </StackPanel>
       </StackPanel>
       </ScrollViewer>
+       </Grid>
+      </Border>
     </Grid>
    </Grid>
   </Grid>
