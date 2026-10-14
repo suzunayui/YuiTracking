@@ -28,13 +28,14 @@
       <TextBlock Text="アバター" FontSize="14" FontWeight="SemiBold"/>
       <Button x:Name="ModelButton" Content="VRMを開く" HorizontalAlignment="Stretch" Click="OpenModel_Click" IsEnabled="False"/>
       <TextBlock x:Name="ModelLabel" Text="サンプルを準備中" Foreground="#9DA7C0" TextTrimming="CharacterEllipsis" FontSize="12"/>
-      <TextBlock Text="サンプル" Foreground="#9DA7C0" FontSize="12"/>
-      <Grid ColumnSpacing="6">
+      <Expander Header="サンプル" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+       <Grid ColumnSpacing="6">
        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
        <Button Content="女の子" Tag="Y" Click="Sample_Click" HorizontalAlignment="Stretch"/>
        <Button Grid.Column="1" Content="男の子" Tag="Z" Click="Sample_Click" HorizontalAlignment="Stretch"/>
        <Button Grid.Column="2" Content="ロボット" Click="Demo_Click" HorizontalAlignment="Stretch"/>
-      </Grid>
+       </Grid>
+      </Expander>
      </StackPanel>
      <StackPanel Spacing="6">
       <TextBlock Text="トラッキング" FontSize="14" FontWeight="SemiBold"/>
