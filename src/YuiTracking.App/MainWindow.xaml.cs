@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Reflection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
@@ -88,7 +89,9 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        Title = $"YuiTracking {typeof(App).Assembly.GetName().Version?.ToString(3) ?? "0.1.10"}";
+        var version = typeof(App).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0]
+            ?? typeof(App).Assembly.GetName().Version?.ToString(3);
+        Title = $"YuiTracking {version}";
         framingTimer = DispatcherQueue.CreateTimer(); framingTimer.Interval = TimeSpan.FromMilliseconds(250);
         framingTimer.Tick += (_, _) => SaveFraming();
         mouthTimer = DispatcherQueue.CreateTimer(); mouthTimer.Interval = TimeSpan.FromMilliseconds(250);

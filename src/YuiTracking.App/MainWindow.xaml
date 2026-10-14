@@ -17,7 +17,11 @@
     <Border x:Name="PreviewStatus" Grid.Row="1" Padding="12,8" Background="#1A1E2B" CornerRadius="8">
      <Grid ColumnSpacing="12">
       <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-      <StackPanel Spacing="4" VerticalAlignment="Center"><TextBlock x:Name="TrackingStatus" Text="描画エンジンを準備しています…" TextWrapping="Wrap" FontSize="12"/><TextBlock x:Name="OutputStatus" Text="仮想カメラ：停止中" Foreground="#9DA7C0" TextWrapping="Wrap" FontSize="12"/></StackPanel>
+      <StackPanel Spacing="6" VerticalAlignment="Center">
+       <Button Content="正面をキャリブレーション" HorizontalAlignment="Stretch" ToolTipService.ToolTip="右Ctrlまたは右Shiftを単独で押して離しても実行できます" Click="Calibrate_Click"/>
+       <TextBlock x:Name="TrackingStatus" Text="描画エンジンを準備しています…" TextWrapping="Wrap" FontSize="12"/>
+       <TextBlock x:Name="OutputStatus" Text="仮想カメラ：停止中" Foreground="#9DA7C0" TextWrapping="Wrap" FontSize="12"/>
+      </StackPanel>
       <ToggleSwitch x:Name="Privacy" Grid.Column="1" VerticalAlignment="Center" Header="待機画面" OffContent="オフ" OnContent="オン" ToolTipService.ToolTip="アバター出力を待機画面に切り替えます" Toggled="Privacy_Toggled"/>
      </Grid>
     </Border>
@@ -42,7 +46,6 @@
       <StackPanel Spacing="6">
       <Grid ColumnSpacing="6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><ComboBox x:Name="Cameras" PlaceholderText="カメラを選択" HorizontalAlignment="Stretch" DisplayMemberPath="Label"/><Button x:Name="TrackButton" Grid.Column="1" Content="カメラを開始" Click="Track_Click" IsEnabled="False"/></Grid>
       <TextBlock x:Name="CameraInputStatus" Text="カメラ入力：720p / 最大30fps" Foreground="#9DA7C0" FontSize="12" TextWrapping="Wrap"/>
-      <Button Content="正面をキャリブレーション" HorizontalAlignment="Stretch" ToolTipService.ToolTip="右Ctrlまたは右Shiftを単独で押して離しても実行できます" Click="Calibrate_Click"/>
       </StackPanel>
      </Expander>
      <Expander Header="動き・表情の調整" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">

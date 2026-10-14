@@ -4,6 +4,11 @@ $projectRoot = Split-Path $PSScriptRoot -Parent
 Push-Location $projectRoot
 try {
     if (-not $SkipAppBuild) { & "$PSScriptRoot\build.ps1" }
+    $project = [xml](Get-Content -LiteralPath 'src/YuiTracking.App/YuiTracking.App.csproj' -Raw)
+    $appVersion = [string]$project.Project.PropertyGroup.Version
+    $publishedVersion = (Get-Item -LiteralPath 'dist/YuiTracking/YuiTracking.exe').VersionInfo.FileVersion
+    if ($publishedVersion -ne "$appVersion.0") { throw "Published app version $publishedVersion does not match $appVersion. Build the app first." }
+    $installerName = "YuiTracking-Setup-$appVersion-x64.exe"
     $compiler = Join-Path $projectRoot '.tools\InnoSetup\ISCC.exe'
     if (-not (Test-Path $compiler)) { $compiler = (Get-Command ISCC.exe -ErrorAction Stop).Source }
     $bootstrapper = Join-Path $projectRoot '.tools\MicrosoftEdgeWebview2Setup.exe'
@@ -15,9 +20,9 @@ try {
     if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation') {
         throw 'Microsoft WebView2 bootstrapper signature verification failed.'
     }
-    & $compiler installer/YuiTracking.iss
+    & $compiler "/DAppVersion=$appVersion" installer/YuiTracking.iss
     if ($LASTEXITCODE) { throw 'Installer build failed' }
-    Get-FileHash dist/installer/YuiTracking-Setup-0.1.10-x64.exe -Algorithm SHA256 |
-        ForEach-Object { "$($_.Hash)  YuiTracking-Setup-0.1.10-x64.exe" } |
+    Get-FileHash -LiteralPath (Join-Path 'dist/installer' $installerName) -Algorithm SHA256 |
+        ForEach-Object { "$($_.Hash)  $installerName" } |
         Set-Content dist/installer/SHA256SUMS.txt
 } finally { Pop-Location }

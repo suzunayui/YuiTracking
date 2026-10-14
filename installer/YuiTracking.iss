@@ -1,4 +1,6 @@
-#define AppVersion "0.1.10"
+#ifndef AppVersion
+  #error AppVersion must be supplied by scripts/build-installer.ps1
+#endif
 #define CameraClass "{5C2CD55C-92AD-4999-8666-912BD3E7003B}"
 #define CameraCategory "{860BB310-5D01-11D0-BD3B-00A0C911CE86}"
 
