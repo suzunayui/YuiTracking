@@ -2,6 +2,7 @@ param(
     [string]$IdentityName = 'YuiTracking.Development',
     [string]$Publisher = 'CN=YuiTracking Development',
     [string]$PublisherDisplayName = 'YuiTracking',
+    [string]$IdentityFile,
     [switch]$Store,
     [switch]$SkipAppBuild
 )
@@ -9,6 +10,15 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path $PSScriptRoot -Parent
 Push-Location $projectRoot
 try {
+    if ($IdentityFile) {
+        $identity = Get-Content -LiteralPath $IdentityFile -Raw -Encoding UTF8 | ConvertFrom-Json
+        foreach ($field in @('identityName', 'publisher', 'publisherDisplayName')) {
+            if ([string]::IsNullOrWhiteSpace($identity.$field)) { throw "Identity file is missing $field." }
+        }
+        $IdentityName = $identity.identityName
+        $Publisher = $identity.publisher
+        $PublisherDisplayName = $identity.publisherDisplayName
+    }
     if ($Store -and ($IdentityName -eq 'YuiTracking.Development' -or $Publisher -eq 'CN=YuiTracking Development')) {
         throw 'For Store builds, supply IdentityName and Publisher exactly as shown in Partner Center for an MSIX app.'
     }

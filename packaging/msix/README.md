@@ -20,6 +20,14 @@ Reserve an **MSIX or PWA app** in Partner Center, then copy the exact package id
 
 The unsigned Store package is written to `dist/msix/YuiTracking-<version>-x64-store.msix`. Store replaces the package signature during publishing. Application version `year.MMdd.counter` becomes MSIX version `year.MMdd.counter.0`; every component must fit in an unsigned 16-bit integer and the final component remains zero.
 
+YuiTracking's MSIX registration is Store ID `9N5SV0WQDD07`. Its identity was verified in Partner Center on 2026-10-15 and saved in `store-identity.json`. Build for this registration with:
+
+```powershell
+./scripts/build-msix.ps1 -Store -IdentityFile packaging/msix/store-identity.json
+```
+
+The earlier unpublished EXE/MSI registration was deleted to release the reserved name; this is a new MSIX product. Its Japanese listing text was exported before deletion, and Store artwork remains available locally for the new submission.
+
 ## Virtual camera and shared settings
 
 The app runs as full-trust desktop code, preserving the existing named mutex/events/shared-memory protocol. Starting virtual output or using the registration button registers the user-level DirectShow COM filter; no kernel driver or service is installed. There is no installer hook in MSIX, so registration occurs through the app.
