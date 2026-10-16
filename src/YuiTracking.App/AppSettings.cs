@@ -42,7 +42,7 @@ internal static class AppSettings
     }
     public static double BodyStrength
     {
-        get { var value = Read()["bodyStrength"]?.GetValue<double>() ?? 1; return double.IsFinite(value) ? Math.Clamp(value, 0, 15) : 1; }
+        get { var value = Read()["bodyStrength"]?.GetValue<double>() ?? 1; return double.IsFinite(value) ? Math.Clamp(value, 0, 20) : 1; }
     }
     public static double ForwardLeanStrength => ReadLeanStrength("forwardLeanStrength");
     public static double BackwardLeanStrength => ReadLeanStrength("backwardLeanStrength");
@@ -71,7 +71,7 @@ internal static class AppSettings
     public static void SaveMotionSettings(double opening, double sensitivity, double faceSensitivity, double bodyStrength, double forwardLeanStrength, double backwardLeanStrength)
     {
         if (!double.IsFinite(opening) || !double.IsFinite(sensitivity) || !double.IsFinite(faceSensitivity) || !double.IsFinite(bodyStrength) || !double.IsFinite(forwardLeanStrength) || !double.IsFinite(backwardLeanStrength)) return;
-        var settings = Read(); settings["mouthOpenStrength"] = Math.Clamp(opening, .5, 3); settings["mouthSensitivity"] = Math.Clamp(sensitivity, .5, 3); settings["sensitivity"] = Math.Clamp(faceSensitivity, .3, 5); settings["bodyStrength"] = Math.Clamp(bodyStrength, 0, 15); settings["forwardLeanStrength"] = Math.Clamp(forwardLeanStrength, 0, 3); settings["backwardLeanStrength"] = Math.Clamp(backwardLeanStrength, 0, 3); Save(settings);
+        var settings = Read(); settings["mouthOpenStrength"] = Math.Clamp(opening, .5, 3); settings["mouthSensitivity"] = Math.Clamp(sensitivity, .5, 3); settings["sensitivity"] = Math.Clamp(faceSensitivity, .3, 5); settings["bodyStrength"] = Math.Clamp(bodyStrength, 0, 20); settings["forwardLeanStrength"] = Math.Clamp(forwardLeanStrength, 0, 3); settings["backwardLeanStrength"] = Math.Clamp(backwardLeanStrength, 0, 3); Save(settings);
     }
     public record Framing(double Zoom, double X, double Y, double Z, double? TargetX = null, double? TargetY = null, double? TargetZ = null);
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase };

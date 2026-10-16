@@ -11,7 +11,7 @@ export function linkedBodyRotation(headRotation,lean=0,basis=new Quaternion(),st
  const extraYaw=new Quaternion().setFromAxisAngle(new Vector3(0,1,0),yaw*.1);
  body.premultiply(basis.clone().invert().multiply(extraYaw).multiply(basis));
  // Scale world yaw only; preserve pitch/roll and depth-driven lean.
- const gain=Number.isFinite(strength)?Math.max(0,Math.min(15,strength)):1;
+ const gain=Number.isFinite(strength)?Math.max(0,Math.min(20,strength)):1;
  if(gain!==1){
   const worldBody=basis.clone().multiply(body).multiply(basis.clone().invert());
   const bodyYaw=new Euler().setFromQuaternion(worldBody,'YXZ').y;

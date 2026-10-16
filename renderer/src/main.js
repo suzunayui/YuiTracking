@@ -601,7 +601,7 @@ host?.addEventListener('message',async e=>{
    try{if(await avatarBackground.set(m))post('backgroundLoaded',{requestId:m.requestId});}
    catch(err){post('backgroundFailed',{requestId:m.requestId,text:'背景画像を読み込めませんでした。'});}
    break;
-  case'settings':if(Number.isFinite(m.forwardLeanStrength))forwardLeanStrength=clamp(m.forwardLeanStrength,0,3);if(Number.isFinite(m.backwardLeanStrength))backwardLeanStrength=clamp(m.backwardLeanStrength,0,3);if(Number.isFinite(m.bodyStrength))bodyStrength=clamp(m.bodyStrength,0,15);if(Number.isFinite(m.sensitivity))sensitivity=clamp(m.sensitivity,.3,5);if(Number.isFinite(m.springStrength)){springStrength=clamp(m.springStrength,.3,5);springControl?.setStrength(springStrength);}smoothing=clamp(m.smoothing??.65,0,.95);mouthOpenStrength=clamp(m.mouthOpenStrength??1,.5,3);mouthSensitivity=clamp(m.mouthSensitivity??1.8,.5,3);break;
+  case'settings':if(Number.isFinite(m.forwardLeanStrength))forwardLeanStrength=clamp(m.forwardLeanStrength,0,3);if(Number.isFinite(m.backwardLeanStrength))backwardLeanStrength=clamp(m.backwardLeanStrength,0,3);if(Number.isFinite(m.bodyStrength))bodyStrength=clamp(m.bodyStrength,0,20);if(Number.isFinite(m.sensitivity))sensitivity=clamp(m.sensitivity,.3,5);if(Number.isFinite(m.springStrength)){springStrength=clamp(m.springStrength,.3,5);springControl?.setStrength(springStrength);}smoothing=clamp(m.smoothing??.65,0,.95);mouthOpenStrength=clamp(m.mouthOpenStrength??1,.5,3);mouthSensitivity=clamp(m.mouthSensitivity??1.8,.5,3);break;
   case'privacy':privacy=!!m.value;break;
   case'output':output=!!m.value;restartRenderLoop();break;
  }
