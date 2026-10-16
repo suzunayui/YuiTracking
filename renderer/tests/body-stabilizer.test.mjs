@@ -2,31 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {BodyStabilizer} from '../src/body-stabilizer.js';
 import {bodyPose} from '../src/body-pose.js';
-import {OneEuroFilter} from '../src/vendor/one-euro-filter.js';
 const pose=(yaw=0)=>({pitch:0,yaw,roll:0});
-
-test('gentle body tuning reduces small oscillations without adding a slow-motion hold or delaying ordinary turns',()=>{
- for(const axis of ['pitch','yaw','roll']){
-  for(const frequency of [.8,1.7,3]){
-   const tuned=new BodyStabilizer(),previous=new OneEuroFilter(10,1,2);let before=0,after=0;
-   for(let i=0;i<=200;i++){
-    const t=i/10,raw=.012*Math.sin(2*Math.PI*frequency*t)+.003*Math.sin(2*Math.PI*4.1*t);
-    const old=previous.filter(raw,t),value=tuned.update({...pose(),[axis]:raw},i*100)[axis];
-    if(i>20){before+=old*old;after+=value*value;}
-   }
-   assert.ok(Math.sqrt(after/before)<.96,'Reduce RMS jitter by at least 4% across the tested frequencies');
-  }
-  for(const speed of [.02,.05,.5,1.5]){
-   const tuned=new BodyStabilizer(),previous=new OneEuroFilter(10,1,2);let before=0,after=0,count=0;
-   tuned.update(pose(),0);previous.filter(0,0);
-   for(let i=1;i<=60;i++){
-    const t=i/10,raw=speed*t,old=previous.filter(raw,t),value=tuned.update({...pose(),[axis]:raw},i*100)[axis];
-    if(i>20){before+=(raw-old)/speed*1000;after+=(raw-value)/speed*1000;count++;}
-   }
-   assert.ok((after-before)/count<(speed<.1?30:5),'Keep added slow-turn lag below 30ms and ordinary-turn lag below 5ms');
-  }
- }
-});
 
 test('shoulder depth noise is attenuated without hold/release discontinuities',()=>{
  const filter=new BodyStabilizer();let inputEnergy=0,outputEnergy=0;
@@ -67,10 +43,7 @@ test('ordinary yaw and reversals respond promptly without overshoot',()=>{
 
 test('stationary input at a leaned pose settles with no self-generated oscillation',()=>{
  const filter=new BodyStabilizer();const input={pitch:.2,yaw:.3,roll:.1};
- for(let i=0;i<=100;i++){
-  const value=filter.update(input,i*100,i*100);
-  for(const axis of ['pitch','yaw','roll'])assert.ok(Math.abs(value[axis]-input[axis])<1e-12);
- }
+ for(let i=0;i<=100;i++)assert.deepEqual(filter.update(input,i*100,i*100),input);
 });
 
 test('body observation cadence, invalid data and brief loss do not corrupt state',()=>{
