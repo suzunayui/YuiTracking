@@ -16,6 +16,7 @@ test('straight and bent fingers produce bounded rotations',()=>{
  assert.equal(bend({x:0,y:0,z:0},{x:1,y:0,z:0},{x:2,y:0,z:0}),0);
  assert.ok(Math.abs(bend({x:0,y:0,z:0},{x:1,y:0,z:0},{x:1,y:1,z:0})-Math.PI/2)<1e-6);
  assert.equal(bend({x:0,y:0,z:0},{x:0,y:0,z:0},{x:0,y:0,z:0}),0);
+ assert.ok(bend({x:0,y:0,z:0},{x:1,y:0,z:0},{x:0,y:0,z:0})>3,'Do not apply an authored finger angle cap');
 });
 test('stale and future recognition data never drive the avatar',()=>{
  assert.equal(safeTracking({time:100},700),false);assert.equal(safeTracking(null,700),false);

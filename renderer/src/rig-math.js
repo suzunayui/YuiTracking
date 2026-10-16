@@ -9,7 +9,7 @@ export function bend(a,b,c) {
   const u=[a.x-b.x,a.y-b.y,a.z-b.z], v=[c.x-b.x,c.y-b.y,c.z-b.z];
   const den=Math.hypot(...u)*Math.hypot(...v);
   if (den<1e-8) return 0;
-  return clamp(Math.PI-Math.acos(clamp(u.reduce((s,x,i)=>s+x*v[i],0)/den,-1,1)),0,1.7);
+  return Math.PI-Math.acos(clamp(u.reduce((s,x,i)=>s+x*v[i],0)/den,-1,1));
 }
 export function smoothingAlpha(smoothing, dt) {
   return 1-Math.exp(-clamp(dt,0,0.1)* (5+55*(1-clamp(smoothing,0,0.95))));

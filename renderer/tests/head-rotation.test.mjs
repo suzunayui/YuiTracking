@@ -14,14 +14,13 @@ test('face turns and nodding reverse while tilt keeps its direction',()=>{
  }
  }
 });
-test('calibrated neutral stays neutral and large turns remain bounded',()=>{
- const raw=new Quaternion().setFromEuler(new Euler(.1,.3,.2,'YXZ'));
- const neutral=raw.clone().invert().multiply(raw);
- assert.ok(avatarHeadRotation(neutral,2).angleTo(new Quaternion())<1e-7);
- const result=new Euler().setFromQuaternion(avatarHeadRotation(new Quaternion().setFromEuler(new Euler(.8,1,.7,'YXZ')),2),'YXZ');
- assert.ok(Math.abs(result.x+.65)<1e-10);
- assert.ok(Math.abs(result.y+.9)<1e-10);
- assert.ok(Math.abs(result.z-.5)<1e-10);
+test('head conversion has no sensitivity gain or angle clamp',()=>{
+ const raw=new Quaternion().setFromEuler(new Euler(.8,1,.7,'YXZ'));
+ const result=new Euler().setFromQuaternion(avatarHeadRotation(raw,2),'YXZ');
+ assert.ok(Math.abs(result.x+.8)<1e-10);
+ assert.ok(Math.abs(result.y+1)<1e-10);
+ assert.ok(Math.abs(result.z-.7)<1e-10);
+ assert.ok(avatarHeadRotation(raw,2).angleTo(avatarHeadRotation(raw,1))<1e-7);
 });
 
 test('VRM 0, VRM 1 and rotated rig bases produce the same scene-space head motion',()=>{

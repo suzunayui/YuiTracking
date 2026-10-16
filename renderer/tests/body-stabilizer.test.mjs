@@ -9,6 +9,7 @@ test('shoulder depth noise is attenuated without hold/release discontinuities',(
  for(let i=0;i<=200;i++){
   const t=i/10,depth=.006*Math.sin(2*Math.PI*1.7*t)+.0015*Math.sin(2*Math.PI*3.1*t);
   const points=[];points[11]={x:-.2,y:-.5,z:-depth,visibility:1};points[12]={x:.2,y:-.5,z:depth,visibility:1};
+  points[23]={x:-.15,y:0,z:0};points[24]={x:.15,y:0,z:0};
   const raw=bodyPose(points),value=filter.update(raw,i*100,i*100);
   if(i>20){inputEnergy+=raw.yaw**2;outputEnergy+=value.yaw**2;}
  }
