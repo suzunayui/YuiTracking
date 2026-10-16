@@ -91,7 +91,7 @@
        </StackPanel>
        <StackPanel Background="Transparent" ToolTipService.ToolTip="モデルに設定された胸・髪・服などの揺れを調整します。">
         <TextBlock x:Name="SpringStrengthLabel" Text="揺れものの強さ：1.0倍" Foreground="#9DA7C0"/>
-        <Slider x:Name="SpringStrength" Minimum="0.3" Maximum="3" Value="1" StepFrequency="0.1" ToolTipService.ToolTip="モデルに設定された胸・髪・服などの揺れを調整します。" ValueChanged="SpringStrength_Changed"/>
+        <Slider x:Name="SpringStrength" Minimum="0.3" Maximum="5" Value="1" StepFrequency="0.1" ToolTipService.ToolTip="モデルに設定された胸・髪・服などの揺れを調整します。" ValueChanged="SpringStrength_Changed"/>
        </StackPanel>
        <StackPanel Background="Transparent" ToolTipService.ToolTip="補正なし比較版のため、顔の動きは1倍固定です。">
         <TextBlock x:Name="SensitivityLabel" Text="顔の動きの強さ：1.0倍" Foreground="#9DA7C0"/>

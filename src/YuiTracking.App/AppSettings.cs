@@ -28,12 +28,12 @@ internal static class AppSettings
     }
     public static double SpringStrength
     {
-        get { var value = Read()["springStrength"]?.GetValue<double>() ?? 1; return double.IsFinite(value) ? Math.Clamp(value, .3, 3) : 1; }
+        get { var value = Read()["springStrength"]?.GetValue<double>() ?? 1; return double.IsFinite(value) ? Math.Clamp(value, .3, 5) : 1; }
     }
     public static void SaveSpringStrength(double value)
     {
         if (!double.IsFinite(value)) return;
-        var settings = Read(); settings["springStrength"] = Math.Clamp(value, .3, 3); Save(settings);
+        var settings = Read(); settings["springStrength"] = Math.Clamp(value, .3, 5); Save(settings);
     }
     public static bool VirtualCameraEnabled => Read()["virtualCameraEnabled"]?.GetValue<bool>() ?? false;
     public static void SaveVirtualCameraEnabled(bool enabled)

@@ -6,6 +6,9 @@ test('stronger springs retain more motion; adjustment does not accumulate and re
  const control=new SpringStrength({joints:[joint]});
  control.setStrength(3);const strong={...joint.settings};
  assert.ok(strong.stiffness<2&&strong.dragForce<.4);
+ control.setStrength(5);const maximum={...joint.settings};
+ assert.ok(maximum.stiffness<strong.stiffness&&maximum.dragForce<strong.dragForce);
+ control.setStrength(5);assert.deepEqual(joint.settings,maximum);
  control.setStrength(3);assert.deepEqual(joint.settings,strong);
  assert.equal(joint.settings.hitRadius,.03);assert.equal(joint.settings.gravityPower,.1);
  control.setStrength(.3);assert.ok(joint.settings.stiffness>2&&joint.settings.dragForce>.4);
