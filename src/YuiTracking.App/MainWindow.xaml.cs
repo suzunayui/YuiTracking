@@ -61,7 +61,7 @@ public sealed partial class MainWindow : Window
     {
         mouthTimer.Stop();
         if (!pendingMouthSettings) return;
-        try { AppSettings.SaveMouthSettings(MouthStrength.Value, MouthSensitivity.Value, Sensitivity.Value); pendingMouthSettings = false; }
+        try { AppSettings.SaveMouthSettings(MouthStrength.Value, MouthSensitivity.Value, Sensitivity.Value, BodyStrength.Value); pendingMouthSettings = false; }
         catch (Exception ex) { App.Log(ex.Message); }
     }
     private AppSettings.Framing? pendingFraming;
@@ -128,7 +128,7 @@ public sealed partial class MainWindow : Window
         try { SpringStrength.Value = AppSettings.SpringStrength; }
         catch (Exception ex) { App.Log(ex.Message); }
         SpringStrengthLabel.Text = $"揺れものの強さ：{SpringStrength.Value:0.0}倍";
-        try { MouthStrength.Value = AppSettings.MouthOpenStrength; MouthSensitivity.Value = AppSettings.MouthSensitivity; Sensitivity.Value = AppSettings.FaceSensitivity; }
+        try { MouthStrength.Value = AppSettings.MouthOpenStrength; MouthSensitivity.Value = AppSettings.MouthSensitivity; Sensitivity.Value = AppSettings.FaceSensitivity; BodyStrength.Value = AppSettings.BodyStrength; }
         catch (Exception ex) { App.Log(ex.Message); }
         MouthStrengthLabel.Text = $"口の開き具合：{MouthStrength.Value:0.0}倍";
         MouthSensitivityLabel.Text = $"口の感度：{MouthSensitivity.Value:0.0}倍";
@@ -520,6 +520,7 @@ public sealed partial class MainWindow : Window
     {
         // XAML ValueChanged can fire before all named controls are created.
         if (SmoothnessLabel != null && Smoothness != null) SmoothnessLabel.Text = $"滑らかさ：{Smoothness.Value * 100:0}%";
+        if (BodyStrengthLabel != null && BodyStrength != null) BodyStrengthLabel.Text = $"体の動きの強さ：{BodyStrength.Value:0.0}倍";
         if (SensitivityLabel != null && Sensitivity != null) SensitivityLabel.Text = $"顔の動きの強さ：{Sensitivity.Value:0.0}倍";
     }
     private void SettingsTab_Click(object sender, RoutedEventArgs e)
@@ -609,7 +610,7 @@ public sealed partial class MainWindow : Window
     private void SendSettings()
     {
         if (!ready) return;
-        Send(new { type = "settings", smoothing = Smoothness.Value, sensitivity = Sensitivity.Value, mouthOpenStrength = MouthStrength.Value, mouthSensitivity = MouthSensitivity.Value, springStrength = SpringStrength.Value, background = backgroundColor });
+        Send(new { type = "settings", smoothing = Smoothness.Value, sensitivity = Sensitivity.Value, bodyStrength = BodyStrength.Value, mouthOpenStrength = MouthStrength.Value, mouthSensitivity = MouthSensitivity.Value, springStrength = SpringStrength.Value, background = backgroundColor });
     }
     private void Privacy_Click(object sender, RoutedEventArgs e)
     {

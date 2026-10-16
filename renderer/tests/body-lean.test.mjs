@@ -75,3 +75,36 @@ test('head turns drive stronger body yaw without increasing pitch or roll',()=>{
   assert.ok(linkedBodyRotation(input).angleTo(expected)<1e-7);
  }
 });
+
+
+test('body strength scales yaw alone across model bases and keeps forward lean',()=>{
+ for(const rootYaw of [0,Math.PI])for(const sign of [-1,1]){
+  const basis=new Quaternion().setFromAxisAngle(new Vector3(0,1,0),rootYaw);
+  const head=new Quaternion().setFromEuler(new Euler(.4,sign*.8,.2,'YXZ'));
+  const local=basis.clone().invert().multiply(head).multiply(basis);
+  const world=(gain,lean=0)=>basis.clone().multiply(linkedBodyRotation(local,lean,basis,gain)).multiply(basis.clone().invert());
+  const original=new Euler().setFromQuaternion(world(1),'YXZ');
+  for(const gain of [0,.5,2,3]){
+   const scaled=new Euler().setFromQuaternion(world(gain),'YXZ');
+   assert.ok(Math.abs(scaled.y-original.y*gain)<1e-10);
+   assert.ok(Math.abs(scaled.x-original.x)<1e-10&&Math.abs(scaled.z-original.z)<1e-10);
+   const expected=new Quaternion().setFromAxisAngle(new Vector3(1,0,0),.2).multiply(world(gain));
+   assert.ok(world(gain,.2).angleTo(expected)<1e-7);
+  }
+  assert.ok(world(NaN).angleTo(world(1))<1e-7);
+  assert.ok(world(100).angleTo(world(15))<1e-7);
+  assert.ok(world(-1).angleTo(world(0))<1e-7);
+ }
+});
+
+
+test('high body strength turns 45 degree head yaw to the back and caps rotation at 180 degrees',()=>{
+ for(const rootYaw of [0,Math.PI])for(const sign of [-1,1])for(const angle of [Math.PI/4,Math.PI/3,Math.PI/2]){
+  const basis=new Quaternion().setFromAxisAngle(new Vector3(0,1,0),rootYaw);
+  const head=new Quaternion().setFromAxisAngle(new Vector3(0,1,0),sign*angle);
+  const local=basis.clone().invert().multiply(head).multiply(basis);
+  const result=basis.clone().multiply(linkedBodyRotation(local,0,basis,40/3)).multiply(basis.clone().invert());
+  const expected=new Quaternion().setFromAxisAngle(new Vector3(0,1,0),sign*Math.PI);
+  assert.ok(result.angleTo(expected)<1e-7);
+ }
+});

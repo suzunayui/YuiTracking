@@ -127,7 +127,7 @@ const key=new THREE.DirectionalLight(0xffffff,Math.PI*.85); key.position.set(1,3
 let vrm=null,demo=null,head=null,eyes=[],arms={},loading=false,privacy=false,output=false;
 const bodyFromHead=true,bodyLeanEnabled=true;
 let springStrength=1,springControl=null;
-let smoothing=.65,sensitivity=1,mouthOpenStrength=1,mouthSensitivity=1.8,tracking=false,video,stream,initializing=false;
+let smoothing=.65,sensitivity=1,bodyStrength=1,mouthOpenStrength=1,mouthSensitivity=1.8,tracking=false,video,stream,initializing=false;
 let latestFace=null,latestHands=null,frameNumber=0,lastVideoTime=-1,lastDetect=0,lastRender=0;
 let calibration=new THREE.Quaternion(),rawHead=new THREE.Quaternion(),haveFace=false;
 let blinkBaseline={left:0,right:0};
@@ -471,7 +471,7 @@ function animate(now,dt){
  // Pose landmarks remain available to the existing shoulder-relative hand IK.
  const pose=!bodyFromHead&&safeTracking(latestPose,now)?bodyPose(latestPose.result.worldLandmarks?.[0]):null;
  const body=bodyFromHead?null:bodyStabilizer.update(pose?relativeBodyPose(pose,bodyNeutral):null,latestPose?.time,now);
- const bodyTarget=away?new THREE.Quaternion():bodyFromHead?linkedBodyRotation(bodyHeadTarget,bodyLeanEnabled?bodyLean.value:0,basis):avatarBodyRotation(body,basis);
+ const bodyTarget=away?new THREE.Quaternion():bodyFromHead?linkedBodyRotation(bodyHeadTarget,bodyLeanEnabled?bodyLean.value:0,basis,bodyStrength):avatarBodyRotation(body,basis);
  const headNode=vrm?bone('head'):head;
  const rigRoot=vrm?vrm.humanoid.normalizedHumanBonesRoot:scene;
  const previousHead=bodyFromHead&&headNode?headRotationInRoot(headNode,rigRoot):null;
@@ -587,7 +587,7 @@ host?.addEventListener('message',async e=>{
    try{if(await avatarBackground.set(m))post('backgroundLoaded',{requestId:m.requestId});}
    catch(err){post('backgroundFailed',{requestId:m.requestId,text:'背景画像を読み込めませんでした。'});}
    break;
-  case'settings':if(Number.isFinite(m.sensitivity))sensitivity=clamp(m.sensitivity,.3,2);if(Number.isFinite(m.springStrength)){springStrength=clamp(m.springStrength,.3,5);springControl?.setStrength(springStrength);}smoothing=clamp(m.smoothing??.65,0,.95);mouthOpenStrength=clamp(m.mouthOpenStrength??1,.5,3);mouthSensitivity=clamp(m.mouthSensitivity??1.8,.5,3);break;
+  case'settings':if(Number.isFinite(m.bodyStrength))bodyStrength=clamp(m.bodyStrength,0,15);if(Number.isFinite(m.sensitivity))sensitivity=clamp(m.sensitivity,.3,2);if(Number.isFinite(m.springStrength)){springStrength=clamp(m.springStrength,.3,5);springControl?.setStrength(springStrength);}smoothing=clamp(m.smoothing??.65,0,.95);mouthOpenStrength=clamp(m.mouthOpenStrength??1,.5,3);mouthSensitivity=clamp(m.mouthSensitivity??1.8,.5,3);break;
   case'privacy':privacy=!!m.value;break;
   case'output':output=!!m.value;restartRenderLoop();break;
  }

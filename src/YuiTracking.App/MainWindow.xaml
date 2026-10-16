@@ -96,6 +96,8 @@
        <StackPanel Background="Transparent" ToolTipService.ToolTip="頭の向き・傾きを反映する強さです。&#10;1倍：今までと同じ／大きく：動きを強調／小さく：控えめ">
         <TextBlock x:Name="SensitivityLabel" Text="顔の動きの強さ：1.0倍" Foreground="#9DA7C0"/>
         <Slider x:Name="Sensitivity" ToolTipService.ToolTip="頭の向き・傾きを反映する強さです。&#10;1倍：今までと同じ／大きく：動きを強調／小さく：控えめ" Minimum="0.3" Maximum="2" Value="1" StepFrequency="0.1" ValueChanged="FaceSensitivity_Changed"/>
+        <TextBlock x:Name="BodyStrengthLabel" Text="体の動きの強さ：1.0倍" Foreground="#9DA7C0"/>
+        <Slider x:Name="BodyStrength" Minimum="0" Maximum="15" Value="1" StepFrequency="0.1" ToolTipService.ToolTip="頭に連動する体の左右のひねりを調整します。&#10;1倍：今までと同じ／約13.3倍：顔45度で体180度（左右180度まで）。0倍：左右のひねりなし。頭の向き・前後の傾きは変わりません。" ValueChanged="FaceSensitivity_Changed"/>
        </StackPanel>
       </StackPanel>
       </ScrollViewer>
