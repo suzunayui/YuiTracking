@@ -6,7 +6,7 @@ import { placeAvatar } from './avatar-placement.js';
 import { avatarHeadRotation } from './head-rotation.js';
 import {linkedBodyRotation,headRotationInRoot,applyLinkedHeadRotation} from './head-linked-body.js';
 import {bodyPose,relativeBodyPose,avatarBodyRotation} from './body-pose.js';
-import {fingerBones,palmBasis,fingerSegments,captureHandRest,shoulderWristTarget,trackedElbowTarget,elbowPoleDirection,keepElbowInFront} from './hand-rig.js';
+import {fingerBones,palmBasis,fingerSegments,captureHandRest,shoulderWristTarget,handWristTarget,wristDepthRatio,trackedElbowTarget,elbowPoleDirection,keepElbowInFront} from './hand-rig.js';
 import {LandmarkFilter} from './landmark-filter.js';
 import {BodyStabilizer} from './body-stabilizer.js';
 import {AutoCalibration} from './auto-calibration.js';
@@ -15,6 +15,7 @@ import {RotationStabilizer} from './rotation-stabilizer.js';
 import {BodyLean} from './body-lean.js';
 import {TrackingPresence} from './tracking-presence.js';
 import {TrackingTransition} from './tracking-transition.js';
+import {WristDepth} from './wrist-depth.js';
 import {SpringStrength} from './spring-strength.js';
 import {browserCameraId} from './camera-selection.js';
 import {AvatarBackground} from './background.js';
@@ -137,8 +138,9 @@ const elbowFilters=Array.from({length:4},()=>new LandmarkFilter({minCutoff:1,bet
 const bodyLean=new BodyLean();
 const trackingPresence=new TrackingPresence();
 const handTransitions=Object.fromEntries(['left','right'].map(side=>[side,new TrackingTransition()]));
+const wristDepthFilters=Object.fromEntries(['left','right'].map(side=>[side,new WristDepth()]));
 const elbowTransitions=Object.fromEntries(['left','right'].map(side=>[side,new TrackingTransition()]));
-function resetArmTransitions(){for(const transition of [...Object.values(handTransitions),...Object.values(elbowTransitions)])transition.reset();}
+function resetArmTransitions(){for(const filter of Object.values(wristDepthFilters))filter.reset();for(const transition of [...Object.values(handTransitions),...Object.values(elbowTransitions)])transition.reset();}
 let handRest={};
 let mouthMorphBinds=[];
 const handFilters=Object.fromEntries(['Left','Right'].map(side=>[side,{screen:new LandmarkFilter({minCutoff:1,beta:5}),world:new LandmarkFilter({minCutoff:1,beta:5})}]));
@@ -374,7 +376,9 @@ function rigHand(side,landmarks,alpha,worldLandmarks=null,poseLandmarks=null,rec
    (vrm?.scene??demo).updateWorldMatrix(true,true);
    const left=leftShoulder.getWorldPosition(new THREE.Vector3()),right=rightShoulder.getWorldPosition(new THREE.Vector3());
    const center=left.clone().add(right).multiplyScalar(.5),span=left.distanceTo(right),aspect=video?video.videoWidth/video.videoHeight:4/3;
-   target=shoulderWristTarget(wrist,poseLandmarks,center,span,aspect);
+   const rawDepth=recovery?wristDepthRatio(wrist,poseLandmarks,recovery.poseWorld,aspect):null;
+   const depth=recovery?wristDepthFilters[side].update(rawDepth,recovery.poseTime,recovery.now,recovery.dt):null;
+   target=handWristTarget(wrist,poseLandmarks,center,span,aspect,depth);
    elbowTarget=trackedElbowTarget(wrist,poseLandmarks,center,span,aspect);
   }
   target??=new THREE.Vector3((.5-wrist.x)*1.7,1.85-wrist.y*1.5,.20);
@@ -489,8 +493,8 @@ function animate(now,dt){
   const sample=index>=0?{landmarks:hands.landmarks[index],worldLandmarks:hands.worldLandmarks?.[index],time:latestHands.time,receivedAt:latestHands.receivedAt}:null;
   const transition=handTransitions[side].update(!!sample,sample?.time,now,dt,alpha,away);
   const active=transition.mode==='tracked'?sample:null;
-  if(transition.mode==='idle')elbowTransitions[side].reset();
-  rigHand(side,active?.landmarks??null,transition.alpha,active?.worldLandmarks??null,poseLandmarks,{now,dt,poseTime:latestPose?.time});
+  if(transition.mode==='idle'){elbowTransitions[side].reset();wristDepthFilters[side].reset();}
+  rigHand(side,active?.landmarks??null,transition.alpha,active?.worldLandmarks??null,poseLandmarks,{now,dt,poseTime:latestPose?.time,poseWorld:safeTracking(latestPose,now)?latestPose.result.worldLandmarks?.[0]:null});
  }
  // Strength also enlarges the model's morphs; detector weights alone cap at 1.
  const morphScale=mouthOpenStrength;

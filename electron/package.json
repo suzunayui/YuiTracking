@@ -1,7 +1,7 @@
 {
   "name": "yuitracking-desktop",
   "productName": "YuiTracking",
-  "version": "2026.1017.22",
+  "version": "2026.1017.23",
   "private": true,
   "author": "suzunayui",
   "description": "YuiTracking Electron desktop",
