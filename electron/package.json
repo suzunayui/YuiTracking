@@ -1,7 +1,7 @@
 {
   "name": "yuitracking-desktop",
   "productName": "YuiTracking",
-  "version": "2026.1015.8",
+  "version": "2026.1017.1",
   "private": true,
   "author": "suzunayui",
   "description": "YuiTracking Electron desktop",
@@ -34,6 +34,10 @@
       "!**/*.map"
     ],
     "extraResources": [
+      {
+        "from": "../LICENSE",
+        "to": "LICENSE"
+      },
       {
         "from": "../src/YuiTracking.App/Assets/Branding/YuiTracking.png",
         "to": "icon.png"

@@ -1,16 +1,16 @@
 import {Quaternion} from 'three';
 import {MotionIntent} from './motion-intent.js';
+import {QuaternionOneEuroFilter} from './one-euro-filter.js';
 
 // Hold small orientation changes around any pose, not only calibrated neutral.
 // Filter each camera observation once; the render loop handles interpolation.
 export class RotationStabilizer {
- constructor(deadZone=.025){this.deadZone=deadZone;this.motion=new MotionIntent(4,deadZone*.5);this.input=new Float64Array(4);this.reset();}
- reset(){this.value=new Quaternion();this.target=new Quaternion();this.candidate=new Quaternion();this.hasCandidate=false;this.time=null;this.motion.reset();}
+ constructor(deadZone=.025){this.deadZone=deadZone;this.motion=new MotionIntent(4,deadZone*.5);this.filter=new QuaternionOneEuroFilter();this.input=new Float64Array(4);this.reset();}
+ reset(){this.value=new Quaternion();this.target=new Quaternion();this.candidate=new Quaternion();this.hasCandidate=false;this.time=null;this.motion.reset();this.filter.reset();}
  update(rotation,time){
   if(!rotation||!Number.isFinite(time)||![rotation.x,rotation.y,rotation.z,rotation.w].every(Number.isFinite))return this.value.clone();
-  if(time===this.time)return this.value.clone();
+  if(this.time!==null&&time<=this.time)return this.value.clone();
   if(this.time!==null&&time-this.time>150)this.hasCandidate=false;
-  const dt=this.time===null?.1:Math.max(.001,Math.min(.2,(time-this.time)/1000));
   if(this.time!==null&&time-this.time>500){this.target.copy(rotation);this.value.copy(rotation);this.hasCandidate=false;}
   this.time=time;
   rotation.toArray(this.input);
@@ -28,9 +28,7 @@ export class RotationStabilizer {
     this.target.copy(rotation);this.hasCandidate=false;
    }else{this.candidate.copy(rotation);this.hasCandidate=true;}
   }else this.hasCandidate=false;
-  const speed=this.value.angleTo(this.target)/dt;
-  const alpha=1-Math.exp(-2*Math.PI*(1.5+2*speed)*dt);
-  this.value.slerp(this.target,alpha);
+  this.value.copy(this.filter.update(this.target,time));
   return this.value.clone();
  }
 }
