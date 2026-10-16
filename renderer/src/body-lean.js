@@ -16,7 +16,8 @@ export class BodyLean {
   const ratio=(this.reference-distance)/this.reference;
   // Map distance changes to gentle forward/backward bending, bounded to avoid
   // extreme poses when the face approaches the camera. No stationary gate.
-  const pitch=Math.max(-Math.PI/15,Math.min(Math.PI/9,Math.atan(2*ratio)));
+  const gain=ratio<0?2.6:2;
+  const pitch=Math.max(-Math.PI/10,Math.min(Math.PI/9,Math.atan(gain*ratio)));
   this.time=time;this.value=this.filter.filter(pitch,time/1000);
   return this.value;
  }

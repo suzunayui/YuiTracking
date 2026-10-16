@@ -17,7 +17,7 @@ test('approaching and retreating produce bounded forward and backward pitch at a
  for(const reference of [30,50,100])for(const ratio of [.1,-.1,.9,-4]){
   const lean=new BodyLean();lean.calibrate(matrix(-reference),0);
   for(let i=1;i<=100;i++)lean.update(matrix(-reference*(1-ratio)),i*50);
-  const expected=Math.max(-Math.PI/15,Math.min(Math.PI/9,Math.atan(2*ratio)));
+  const expected=Math.max(-Math.PI/10,Math.min(Math.PI/9,Math.atan((ratio<0?2.6:2)*ratio)));
   assert.ok(Math.abs(lean.value-expected)<1e-5);
   assert.equal(Math.sign(lean.value),Math.sign(ratio));
  }
@@ -48,4 +48,16 @@ test('lean direction is consistent with model roots facing either direction',()=
   const up=new Vector3(0,1,0).applyQuaternion(world);
   assert.ok(up.z>0);assert.ok(Math.abs(world.y)<1e-12&&Math.abs(world.z)<1e-12);
  }
+});
+
+test('forward leaning keeps its response while retreating bends back more clearly',()=>{
+ const settle=distance=>{
+  const lean=new BodyLean();lean.calibrate(matrix(-50),0);
+  for(let i=1;i<=150;i++)lean.update(matrix(-distance),i*50);
+  return lean.value*180/Math.PI;
+ };
+ const forward=settle(45),backward=settle(55),fullBack=settle(65);
+ assert.ok(forward>11&&forward<12,'Keep existing response for a 10% approach');
+ assert.ok(backward<-14&&backward>-15,'A 10% retreat should bend back more clearly');
+ assert.ok(Math.abs(fullBack+18)<1e-5,'Backward limit increases to 18 degrees');
 });
