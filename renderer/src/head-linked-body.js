@@ -1,9 +1,15 @@
-import {Quaternion,Vector3} from 'three';
+import {Quaternion,Vector3,Euler} from 'three';
 
 // Independent implementation inspired by head-driven body motion in VTubing
 // tools. Reuse the filtered head; do not add another filter or motion gate.
 export function linkedBodyRotation(headRotation,lean=0,basis=new Quaternion()){
  const body=new Quaternion().slerp(headRotation,.2);
+ // Add only yaw in world space: a pure head turn drives 30% body rotation,
+ // while pitch/roll and the separate depth-driven lean keep their response.
+ const worldHead=basis.clone().multiply(headRotation).multiply(basis.clone().invert());
+ const yaw=new Euler().setFromQuaternion(worldHead,'YXZ').y;
+ const extraYaw=new Quaternion().setFromAxisAngle(new Vector3(0,1,0),yaw*.1);
+ body.premultiply(basis.clone().invert().multiply(extraYaw).multiply(basis));
  if(lean===0)return body;
  // Positive world X bends the upper body toward the default camera (+Z).
  const pitch=new Quaternion().setFromAxisAngle(new Vector3(1,0,0),lean);

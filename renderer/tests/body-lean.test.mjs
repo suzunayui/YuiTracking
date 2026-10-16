@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {BodyLean} from '../src/body-lean.js';
 import {linkedBodyRotation} from '../src/head-linked-body.js';
-import {Quaternion,Vector3} from 'three';
+import {Quaternion,Vector3,Euler} from 'three';
 const matrix=z=>{const m=new Array(16).fill(0);m[0]=m[5]=m[10]=m[15]=1;m[14]=z;return m;};
 
 test('calibrated depth remains still and ignores lateral movement or shoulder data',()=>{
@@ -60,4 +60,18 @@ test('forward leaning keeps its response while retreating bends back more clearl
  assert.ok(forward>11&&forward<12,'Keep existing response for a 10% approach');
  assert.ok(backward<-14&&backward>-15,'A 10% retreat should bend back more clearly');
  assert.ok(Math.abs(fullBack+18)<1e-5,'Backward limit increases to 18 degrees');
+});
+
+test('head turns drive stronger body yaw without increasing pitch or roll',()=>{
+ for(const angle of [-.8,.8])for(const rootYaw of [0,Math.PI]){
+  const basis=new Quaternion().setFromAxisAngle(new Vector3(0,1,0),rootYaw);
+  const worldHead=new Quaternion().setFromAxisAngle(new Vector3(0,1,0),angle);
+  const localHead=basis.clone().invert().multiply(worldHead).multiply(basis);
+  const worldBody=basis.clone().multiply(linkedBodyRotation(localHead,0,basis)).multiply(basis.clone().invert());
+  assert.ok(Math.abs(new Euler().setFromQuaternion(worldBody,'YXZ').y-angle*.3)<1e-10);
+ }
+ for(const axis of [new Vector3(1,0,0),new Vector3(0,0,1)]){
+  const input=new Quaternion().setFromAxisAngle(axis,.6),expected=new Quaternion().slerp(input,.2);
+  assert.ok(linkedBodyRotation(input).angleTo(expected)<1e-7);
+ }
 });
