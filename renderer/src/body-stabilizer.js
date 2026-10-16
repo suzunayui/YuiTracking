@@ -2,9 +2,13 @@ import {MotionIntent} from './motion-intent.js';
 import {OneEuroFilter} from './one-euro-filter.js';
 const axes=['pitch','yaw','roll'];
 const deadZone={pitch:.025,yaw:.045,roll:.02};
+// Shoulder depth is less stable than image-plane tilt. Require a longer,
+// larger coherent trend to unlock tiny yaw changes, and release quickly at
+// reversals. Large turns still use the existing immediate/confirmed path.
+const intentOptions={yaw:{minSamples:5,minTravel:.5,holdMs:100}};
 const zero=()=>({pitch:0,yaw:0,roll:0});
 export class BodyStabilizer {
- constructor(){this.motion=Object.fromEntries(axes.map(axis=>[axis,new MotionIntent(1,deadZone[axis])]));this.filters=Object.fromEntries(axes.map(axis=>[axis,new OneEuroFilter()]));this.input=new Float64Array(1);this.reset();}
+ constructor(){this.motion=Object.fromEntries(axes.map(axis=>[axis,new MotionIntent(1,deadZone[axis],intentOptions[axis])]));this.filters=Object.fromEntries(axes.map(axis=>[axis,new OneEuroFilter()]));this.input=new Float64Array(1);this.reset();}
  reset(){this.value=zero();this.target=zero();this.candidates={};this.time=null;this.lastReceived=-Infinity;for(const motion of Object.values(this.motion))motion.reset();for(const filter of Object.values(this.filters))filter.reset();}
  update(pose,time,now){
   if(!pose){this.candidates={};for(const motion of Object.values(this.motion))motion.reset();return now-this.lastReceived<=300?{...this.value}:zero();}

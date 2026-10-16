@@ -1,6 +1,45 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {BodyStabilizer} from '../src/body-stabilizer.js';
+import {bodyPose} from '../src/body-pose.js';
+
+test('stationary shoulder depth oscillation cannot repeatedly unlock torso yaw',()=>{
+ const filter=new BodyStabilizer();
+ for(let i=0;i<=200;i++){
+  const t=i/10,depth=.006*Math.sin(2*Math.PI*1.7*t)+.0015*Math.sin(2*Math.PI*3.1*t);
+  const points=[];
+  points[11]={x:-.2,y:-.5,z:-depth,visibility:1};
+  points[12]={x:.2,y:-.5,z:depth,visibility:1};
+  const value=filter.update(bodyPose(points),i*100,i*100);
+  assert.equal(value.yaw,0,'Bounded shoulder-depth noise should remain held');
+ }
+});
+
+test('slow intentional yaw starts within 500ms then follows smoothly in either direction',()=>{
+ for(const sign of [-1,1]){
+  const filter=new BodyStabilizer();let previous=0;
+  for(let i=0;i<=40;i++){
+   const raw=sign*i*.005;
+   const value=filter.update({pitch:0,yaw:raw,roll:0},i*100,i*100).yaw*sign;
+   if(i===5)assert.ok(value>.005,'Do not freeze a slow turn until the full hold boundary');
+   if(i>=8)assert.ok(value-previous>.002,'A sustained turn must not advance in steps');
+   if(i>=10)assert.ok(raw*sign-value<.015,'Limit steady slow-yaw lag to 300ms');
+   previous=value;
+  }
+ }
+});
+
+test('deliberate yaw reversals stay responsive and settle after stopping',()=>{
+ const filter=new BodyStabilizer();filter.update({pitch:0,yaw:0,roll:0},0,0);
+ assert.ok(filter.update({pitch:0,yaw:.3,roll:0},100,100).yaw>.2);
+ assert.ok(filter.update({pitch:0,yaw:-.3,roll:0},200,200).yaw<-.2);
+ for(let i=3;i<=40;i++)filter.update({pitch:0,yaw:-.3,roll:0},i*100,i*100);
+ const held=filter.value.yaw;
+ for(let i=41;i<=140;i++){
+  const raw=-.3+.02*Math.sin(2*Math.PI*1.7*i/10);
+  assert.ok(Math.abs(filter.update({pitch:0,yaw:raw,roll:0},i*100,i*100).yaw-held)<1e-6);
+ }
+});
 test('slow torso movement follows within 300ms and does not repeatedly stop at hold boundaries',()=>{
  const filter=new BodyStabilizer();let previous=0;
  for(let i=0;i<=30;i++){
