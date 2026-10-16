@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
-import { bend, clamp, safeTracking, calibratedBlink } from './rig-math.js';
+import { bend, clamp, smoothingAlpha, safeTracking, calibratedBlink } from './rig-math.js';
 import { placeAvatar } from './avatar-placement.js';
 import { avatarHeadRotation } from './head-rotation.js';
 import {bodyPose,relativeBodyPose,avatarBodyRotation} from './body-pose.js';
@@ -117,12 +117,13 @@ renderer.domElement.addEventListener('wheel',event=>{
 scene.add(new THREE.HemisphereLight(0xffffff,0xffffff,.35));
 const key=new THREE.DirectionalLight(0xffffff,Math.PI*.85); key.position.set(1,3,3); scene.add(key);
 let vrm=null,demo=null,head=null,eyes=[],arms={},loading=false,privacy=false,output=false;
-let mouthOpenStrength=1,mouthSensitivity=1.8,tracking=false,video,stream,initializing=false;
+let smoothing=.65,mouthOpenStrength=1,mouthSensitivity=1.8,tracking=false,video,stream,initializing=false;
 let latestFace=null,latestHands=null,frameNumber=0,lastVideoTime=-1,lastDetect=0,lastRender=0;
 let calibration=new THREE.Quaternion(),rawHead=new THREE.Quaternion(),haveFace=false;
 let blinkBaseline={left:0,right:0};
 const autoCalibration=new AutoCalibration();
 let latestPose=null,lastPoseDetect=0,bodyNeutral=null;
+let lastHandDetection=-1;
 const bodyStabilizer=new BodyStabilizer();
 const headStabilizer=new RotationStabilizer();
 let handRest={};
@@ -240,6 +241,8 @@ async function ensureTasks(){
    if(lastTrackingReceived)trackingGapMs=Math.max(trackingGapMs,receivedAt-lastTrackingReceived);
    lastTrackingReceived=receivedAt;trackingLatencyMs=Math.max(trackingLatencyMs,receivedAt-data.time);trackingResults++;
    latestFace={result:data.face,time:data.time,receivedAt};latestHands={result:stabilizeHands(data.hands,data.time),time:data.time,receivedAt};
+   const handCount=data.hands.landmarks?.length??0;
+   if(handCount!==lastHandDetection){lastHandDetection=handCount;post('handDetection',{count:handCount});}
    if(data.pose)latestPose={result:data.pose,time:data.time,receivedAt};
    const matrix=data.face.facialTransformationMatrixes?.[0]?.data;
    const weights=Object.fromEntries((data.face.faceBlendshapes?.[0]?.categories??[]).map(c=>[c.categoryName,c.score]));
@@ -269,7 +272,7 @@ async function startTracking(deviceId,cameraLabel){
   await video.play(); await listCameras();
   const input=track.getSettings();post('cameraInput',{deviceId:input.deviceId,width:input.width??video.videoWidth,height:input.height??video.videoHeight,fps:input.frameRate??0});
   track.onended=()=>{stopTracking();status('カメラが切断されました。待機ポーズに戻ります。');};
-  lastTrackingReceived=0;trackingGapMs=trackingLatencyMs=trackingResults=0;tracking=true;restartRenderLoop();scheduleDetection();lastVideoTime=-1;lastPoseDetect=0;bodyNeutral=null;calibration.identity();blinkBaseline={left:0,right:0};autoCalibration.start(performance.now());post('tracking',{active:true});status('正面を向いて目を開けてください。顔の検出が安定すると一度だけ自動でキャリブレーションします。');
+  lastHandDetection=-1;lastTrackingReceived=0;trackingGapMs=trackingLatencyMs=trackingResults=0;tracking=true;restartRenderLoop();scheduleDetection();lastVideoTime=-1;lastPoseDetect=0;bodyNeutral=null;calibration.identity();blinkBaseline={left:0,right:0};autoCalibration.start(performance.now());post('tracking',{active:true});status('正面を向いて目を開けてください。顔の検出が安定すると一度だけ自動でキャリブレーションします。');
  }catch(e){stopTracking();post('error',{text:'カメラを開始できません：'+e.message});}
  finally{initializing=false;}
 }
@@ -377,15 +380,17 @@ function rigHand(side,landmarks,alpha,worldLandmarks=null,poseLandmarks=null){
  }
 }
 function animate(now,dt){
- const alpha=1; // Diagnostic baseline: no render interpolation.
+ // Interpolate the already-filtered pose only. Zero reproduces the direct
+ // rendering baseline; no prediction, motion gate or additional damping.
+ const alpha=smoothing===0?1:smoothingAlpha(smoothing,dt);
  const pose=safeTracking(latestPose,now)?bodyPose(latestPose.result.worldLandmarks?.[0]):null;
  const body=bodyStabilizer.update(pose?relativeBodyPose(pose,bodyNeutral):null,latestPose?.time,now);
  const basis=vrm?vrm.humanoid.normalizedHumanBonesRoot.getWorldQuaternion(new THREE.Quaternion()):new THREE.Quaternion();
  const bodyTarget=avatarBodyRotation(body,basis);
  if(vrm){
   const torso=bone('spine')??bone('chest')??bone('hips');
-  if(torso)torso.quaternion.copy(bodyTarget);
- }else if(demo)demo.quaternion.copy(bodyTarget);
+  if(torso)torso.quaternion.slerp(bodyTarget,alpha);
+ }else if(demo)demo.quaternion.slerp(bodyTarget,alpha);
  const face=safeTracking(latestFace,now)?latestFace.result:null;
  const categories=face?.faceBlendshapes?.[0]?.categories??[];
  const weights=Object.fromEntries(categories.map(c=>[c.categoryName,c.score]));
@@ -399,17 +404,17 @@ function animate(now,dt){
   target.copy(avatarHeadRotation(headStabilizer.update(relative,latestFace.time),1,basis));
  }
  if(vrm){
-  const headNode=bone('head');if(headNode)headNode.quaternion.copy(target);
+  const headNode=bone('head');if(headNode)headNode.quaternion.slerp(target,alpha);
   const expr=vrm.expressionManager;
   const vowels=mouthShapes(weights,mouthSensitivity,face?.faceLandmarks?.[0],video?.videoWidth&&video?.videoHeight?video.videoWidth/video.videoHeight:16/9);
   for(const [name,value]of Object.entries({blinkLeft,blinkRight,...vowels,happy:((weights.mouthSmileLeft??0)+(weights.mouthSmileRight??0))*.5})){
    if(expr){
-    const expressionAlpha=name.startsWith('blink')?1-Math.exp(-45*dt):name in vowels?Math.max(alpha,1-Math.exp(-35*dt)):alpha;
+    const expressionAlpha=name.startsWith('blink')?1-Math.exp(-45*dt):1;
     expr.setValue(name,THREE.MathUtils.lerp(expr.getValue(name)??0,value,expressionAlpha));
    }
   }
  }else if(head){
-  head.quaternion.copy(target);eyes.forEach((eye,i)=>eye.scale.y=1-clamp(i?blinkRight:blinkLeft,0,.93));
+  head.quaternion.slerp(target,alpha);eyes.forEach((eye,i)=>eye.scale.y=1-clamp(i?blinkRight:blinkLeft,0,.93));
   const amount=Object.values(mouthShapes(weights,mouthSensitivity)).reduce((sum,value)=>sum+value,0);
   head.getObjectByName('mouth').scale.y=1+(8/1.4)*mouthOpenStrength*amount;
  }
@@ -501,7 +506,7 @@ host?.addEventListener('message',async e=>{
    try{if(await avatarBackground.set(m))post('backgroundLoaded',{requestId:m.requestId});}
    catch(err){post('backgroundFailed',{requestId:m.requestId,text:'背景画像を読み込めませんでした。'});}
    break;
-  case'settings':mouthOpenStrength=clamp(m.mouthOpenStrength??1,.5,3);mouthSensitivity=clamp(m.mouthSensitivity??1.8,.5,3);break;
+  case'settings':smoothing=clamp(m.smoothing??.65,0,.95);mouthOpenStrength=clamp(m.mouthOpenStrength??1,.5,3);mouthSensitivity=clamp(m.mouthSensitivity??1.8,.5,3);break;
   case'privacy':privacy=!!m.value;break;
   case'output':output=!!m.value;restartRenderLoop();break;
  }

@@ -423,6 +423,7 @@ public sealed partial class MainWindow : Window
                 case "error": TrackingStatus.Text = root.GetProperty("text").GetString(); App.Log(TrackingStatus.Text ?? "Renderer error"); break;
                 case "tracking":
                     cameraStarting = false; tracking = root.GetProperty("active").GetBoolean(); UpdateTrackingPowerPolicy();
+                    HandDetectionStatus.Text = tracking ? "手：認識を準備中…" : "手：カメラ停止中";
                     TrackButton.Content = tracking ? "カメラを停止" : "カメラを開始";
                     ToolTipService.SetToolTip(TrackButton, tracking
                         ? "カメラでの顔・手・体の認識を停止します。\nアバターの動きへの反映も止まります。"
@@ -433,6 +434,10 @@ public sealed partial class MainWindow : Window
                         Cameras.SelectedItem = Cameras.Items.OfType<CameraItem>().FirstOrDefault(c => c.Id == activeDevice.GetString()) ?? Cameras.SelectedItem;
                     CameraInputStatus.Text = $"カメラ入力：{root.GetProperty("width").GetInt32()} × {root.GetProperty("height").GetInt32()} / {root.GetProperty("fps").GetDouble():0.#}fps";
                     App.Log("Camera input: " + root.GetRawText());
+                    break;
+                case "handDetection":
+                    if (root.TryGetProperty("count", out var count) && count.TryGetInt32(out var handCount) && handCount >= 0 && handCount <= 2)
+                        HandDetectionStatus.Text = handCount == 0 ? "手：未検出" : $"手：{handCount}つ検出";
                     break;
                 case "cameras":
                     var selected = Cameras.SelectedItem as CameraItem;
