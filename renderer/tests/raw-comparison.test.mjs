@@ -5,7 +5,8 @@ import {runInNewContext} from 'node:vm';
 import * as THREE from 'three';
 import {relativeBodyPose,avatarBodyRotation} from '../src/body-pose.js';
 import {avatarHeadRotation} from '../src/head-rotation.js';
-import {smoothingAlpha} from '../src/rig-math.js';
+import {smoothingAlpha,clamp} from '../src/rig-math.js';
+import {TrackingPresence} from '../src/tracking-presence.js';
 import {linkedBodyRotation,headRotationInRoot,applyLinkedHeadRotation} from '../src/head-linked-body.js';
 
 function fixture(smoothing=0){
@@ -15,7 +16,7 @@ function fixture(smoothing=0){
  const nodes=Object.fromEntries(['spine','chest','upperChest','head'].map(name=>[name,new THREE.Object3D()]));
  const root=new THREE.Object3D();root.add(nodes.spine);nodes.spine.add(nodes.chest);nodes.chest.add(nodes.upperChest);nodes.upperChest.add(nodes.head);
  let rigUpdates=0,expressionUpdates=0,springUpdates=0;const order=[];
- const context={THREE,smoothing,bodyFromHead:false,bodyLeanEnabled:true,bodyLean:{value:0,update(){}},linkedBodyRotation,headRotationInRoot,applyLinkedHeadRotation,smoothingAlpha,latestPose:{result:{worldLandmarks:[[]]},time:0},latestFace:null,latestHands:null,
+ const context={THREE,clamp,trackingPresence:{isAway:()=>false},smoothing,bodyFromHead:false,bodyLeanEnabled:true,bodyLean:{value:0,update(){}},linkedBodyRotation,headRotationInRoot,applyLinkedHeadRotation,smoothingAlpha,latestPose:{result:{worldLandmarks:[[]]},time:0},latestFace:null,latestHands:null,
   safeTracking:value=>!!value,bodyPose:()=>body,relativeBodyPose,bodyNeutral:null,bodyStabilizer:{update:value=>value},avatarBodyRotation,avatarHeadRotation,
   headStabilizer:{value:head},bone:name=>nodes[name],mouthShapes:()=>({aa:0}),mouthSensitivity:1,mouthOpenStrength:1,
   blinkBaseline:{left:0,right:0},calibratedBlink:value=>value,
@@ -126,4 +127,23 @@ test('forward leaning affects torso pitch while preserving head direction and th
  assert.ok(nodes.spine.quaternion.angleTo(new THREE.Quaternion())<1e-7);
  context.bodyFromHead=false;context.bodyLeanEnabled=true;context.animate(200,1/60);
  assert.ok(nodes.spine.quaternion.angleTo(avatarBodyRotation({pitch:.9,yaw:1.1,roll:.8},new THREE.Quaternion()))<1e-7);
+});
+
+test('sustained face loss returns head, body and hands smoothly to idle in both body modes',()=>{
+ for(const linked of [false,true]){
+  const {context,nodes}=fixture(0);context.bodyFromHead=linked;
+  context.animate(0,1/60);
+  const before=nodes.spine.quaternion.angleTo(new THREE.Quaternion());assert.ok(before>.1);
+  const presence=new TrackingPresence();presence.isAway(true,0,0);context.trackingPresence=presence;
+  context.latestPose=null;context.bodyStabilizer.update=()=>({pitch:.9,yaw:1.1,roll:.8});
+  const calls=[];context.rigHand=(side,landmarks)=>calls.push(landmarks);
+  context.latestHands={time:1600,result:{landmarks:[[]],handedness:[[{categoryName:'Left'}]]}};
+  context.animate(1600,1/60);
+  const first=nodes.spine.quaternion.angleTo(new THREE.Quaternion());
+  assert.ok(first>0&&first<before,'Even zero smoothing must ease back instead of snapping');
+  assert.ok(calls.every(value=>value===null),'Ignore stray hand detections while away');
+  for(let i=1;i<=180;i++)context.animate(1600+i*1000/60,1/60);
+  assert.ok(nodes.spine.quaternion.angleTo(new THREE.Quaternion())<.001);
+  assert.ok(headRotationInRoot(nodes.head,context.vrm.humanoid.normalizedHumanBonesRoot).angleTo(new THREE.Quaternion())<.001);
+ }
 });

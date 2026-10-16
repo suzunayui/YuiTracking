@@ -13,6 +13,7 @@ import {AutoCalibration} from './auto-calibration.js';
 import {mouthShapes} from './mouth-shapes.js';
 import {RotationStabilizer} from './rotation-stabilizer.js';
 import {BodyLean} from './body-lean.js';
+import {TrackingPresence} from './tracking-presence.js';
 import {SpringStrength} from './spring-strength.js';
 import {browserCameraId} from './camera-selection.js';
 import {AvatarBackground} from './background.js';
@@ -131,6 +132,7 @@ let lastHandDetection=-1;
 const bodyStabilizer=new BodyStabilizer();
 const headStabilizer=new RotationStabilizer();
 const bodyLean=new BodyLean();
+const trackingPresence=new TrackingPresence();
 let handRest={};
 let mouthMorphBinds=[];
 const handFilters=Object.fromEntries(['Left','Right'].map(side=>[side,{screen:new LandmarkFilter({minCutoff:1,beta:5}),world:new LandmarkFilter({minCutoff:1,beta:5})}]));
@@ -278,13 +280,13 @@ async function startTracking(deviceId,cameraLabel){
   await video.play(); await listCameras();
   const input=track.getSettings();post('cameraInput',{deviceId:input.deviceId,width:input.width??video.videoWidth,height:input.height??video.videoHeight,fps:input.frameRate??0});
   track.onended=()=>{stopTracking();status('カメラが切断されました。待機ポーズに戻ります。');};
-  lastHandDetection=-1;lastTrackingReceived=0;trackingGapMs=trackingLatencyMs=trackingResults=0;tracking=true;restartRenderLoop();scheduleDetection();lastVideoTime=-1;lastPoseDetect=0;bodyNeutral=null;bodyLean.reset();calibration.identity();blinkBaseline={left:0,right:0};autoCalibration.start(performance.now());post('tracking',{active:true});status('正面を向いて目を開けてください。顔の検出が安定すると一度だけ自動でキャリブレーションします。');
+  lastHandDetection=-1;lastTrackingReceived=0;trackingGapMs=trackingLatencyMs=trackingResults=0;tracking=true;restartRenderLoop();scheduleDetection();lastVideoTime=-1;lastPoseDetect=0;bodyNeutral=null;bodyLean.reset();trackingPresence.reset();calibration.identity();blinkBaseline={left:0,right:0};autoCalibration.start(performance.now());post('tracking',{active:true});status('正面を向いて目を開けてください。顔の検出が安定すると一度だけ自動でキャリブレーションします。');
  }catch(e){stopTracking();post('error',{text:'カメラを開始できません：'+e.message});}
  finally{initializing=false;}
 }
 function stopTracking(){
  autoCalibration.stop();
- bodyStabilizer.reset();headStabilizer.reset();bodyLean.reset();
+ bodyStabilizer.reset();headStabilizer.reset();bodyLean.reset();trackingPresence.reset();
  for(const filter of Object.values(handFilters)){filter.screen.reset();filter.world.reset();}
  trackingGeneration++;tracking=false;scheduleDetection();restartRenderLoop();stream?.getTracks().forEach(t=>{t.onended=null;t.stop();});stream=null;
  // Stopped tracking should release all three WASM recognition engines.
@@ -397,7 +399,7 @@ function rigHand(side,landmarks,alpha,worldLandmarks=null,poseLandmarks=null){
 function animate(now,dt){
  // Interpolate the already-filtered pose only. Zero reproduces the direct
  // rendering baseline; no prediction, motion gate or additional damping.
- const alpha=smoothing===0?1:smoothingAlpha(smoothing,dt);
+ let alpha=smoothing===0?1:smoothingAlpha(smoothing,dt);
  const basis=vrm?vrm.humanoid.normalizedHumanBonesRoot.getWorldQuaternion(new THREE.Quaternion()):new THREE.Quaternion();
  const face=safeTracking(latestFace,now)?latestFace.result:null;
  const categories=face?.faceBlendshapes?.[0]?.categories??[];
@@ -405,6 +407,8 @@ function animate(now,dt){
  const blinkLeft=calibratedBlink(weights.eyeBlinkRight??0,blinkBaseline.right);
  const blinkRight=calibratedBlink(weights.eyeBlinkLeft??0,blinkBaseline.left);
  const mat=face?.facialTransformationMatrixes?.[0]?.data;
+ const away=trackingPresence.isAway(!!mat,latestFace?.time,now);
+ if(away)alpha=1-Math.exp(-3*clamp(dt,0,.1));
  const target=avatarHeadRotation(headStabilizer.value,1,basis);haveFace=!!mat;
  if(mat){
   rawHead.setFromRotationMatrix(new THREE.Matrix4().fromArray(mat));
@@ -412,11 +416,12 @@ function animate(now,dt){
   target.copy(avatarHeadRotation(headStabilizer.update(relative,latestFace.time),1,basis));
   bodyLean.update(mat,latestFace.time);
  }
+ if(away)target.identity();
  // Linked mode reads only the calibrated, One Euro filtered head rotation.
  // Pose landmarks remain available to the existing shoulder-relative hand IK.
  const pose=!bodyFromHead&&safeTracking(latestPose,now)?bodyPose(latestPose.result.worldLandmarks?.[0]):null;
  const body=bodyFromHead?null:bodyStabilizer.update(pose?relativeBodyPose(pose,bodyNeutral):null,latestPose?.time,now);
- const bodyTarget=bodyFromHead?linkedBodyRotation(target,bodyLeanEnabled?bodyLean.value:0,basis):avatarBodyRotation(body,basis);
+ const bodyTarget=away?new THREE.Quaternion():bodyFromHead?linkedBodyRotation(target,bodyLeanEnabled?bodyLean.value:0,basis):avatarBodyRotation(body,basis);
  const headNode=vrm?bone('head'):head;
  const rigRoot=vrm?vrm.humanoid.normalizedHumanBonesRoot:scene;
  const previousHead=bodyFromHead&&headNode?headRotationInRoot(headNode,rigRoot):null;
@@ -440,7 +445,7 @@ function animate(now,dt){
   const amount=Object.values(mouthShapes(weights,mouthSensitivity)).reduce((sum,value)=>sum+value,0);
   head.getObjectByName('mouth').scale.y=1+(8/1.4)*mouthOpenStrength*amount;
  }
- const hands=safeTracking(latestHands,now)?latestHands.result:null;
+ const hands=!away&&safeTracking(latestHands,now)?latestHands.result:null;
  const poseLandmarks=safeTracking(latestPose,now)?latestPose.result.landmarks?.[0]:null;
  for(const side of ['left','right']){
   // MediaPipe handedness assumes a mirrored/selfie image. Input is unmirrored.
