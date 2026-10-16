@@ -16,6 +16,7 @@ import {BodyLean} from './body-lean.js';
 import {TrackingPresence} from './tracking-presence.js';
 import {TrackingTransition} from './tracking-transition.js';
 import {WristDepth} from './wrist-depth.js';
+import {HandIdentity} from './hand-identity.js';
 import {SpringStrength} from './spring-strength.js';
 import {browserCameraId} from './camera-selection.js';
 import {AvatarBackground} from './background.js';
@@ -137,10 +138,11 @@ const headStabilizer=new RotationStabilizer();
 const elbowFilters=Array.from({length:4},()=>new LandmarkFilter({minCutoff:1,beta:5}));
 const bodyLean=new BodyLean();
 const trackingPresence=new TrackingPresence();
+const handIdentity=new HandIdentity();
 const handTransitions=Object.fromEntries(['left','right'].map(side=>[side,new TrackingTransition({holdMs:600,recoveryMs:150,recoveryRate:20})]));
 const wristDepthFilters=Object.fromEntries(['left','right'].map(side=>[side,new WristDepth()]));
 const elbowTransitions=Object.fromEntries(['left','right'].map(side=>[side,new TrackingTransition()]));
-function resetArmTransitions(){for(const filter of Object.values(wristDepthFilters))filter.reset();for(const transition of [...Object.values(handTransitions),...Object.values(elbowTransitions)])transition.reset();}
+function resetArmTransitions(){handIdentity.reset();for(const filter of Object.values(wristDepthFilters))filter.reset();for(const transition of [...Object.values(handTransitions),...Object.values(elbowTransitions)])transition.reset();}
 let handRest={};
 let mouthMorphBinds=[];
 const handFilters=Object.fromEntries(['Left','Right'].map(side=>[side,{screen:new LandmarkFilter({minCutoff:1,beta:5}),world:new LandmarkFilter({minCutoff:1,beta:5})}]));
@@ -256,10 +258,12 @@ async function ensureTasks(){
    const receivedAt=performance.now();
    if(lastTrackingReceived)trackingGapMs=Math.max(trackingGapMs,receivedAt-lastTrackingReceived);
    lastTrackingReceived=receivedAt;trackingLatencyMs=Math.max(trackingLatencyMs,receivedAt-data.time);trackingResults++;
-   latestFace={result:data.face,time:data.time,receivedAt};latestHands={result:stabilizeHands(data.hands,data.time),time:data.time,receivedAt};
+   latestFace={result:data.face,time:data.time,receivedAt};
+   if(data.pose)latestPose={result:stabilizeElbows(data.pose,data.time),time:data.time,receivedAt};
+   const identified=handIdentity.assign(data.hands,data.time,safeTracking(latestPose,data.time)?latestPose.result.landmarks?.[0]:null);
+   latestHands={result:stabilizeHands(identified,data.time),time:data.time,receivedAt};
    const handCount=data.hands.landmarks?.length??0;
    if(handCount!==lastHandDetection){lastHandDetection=handCount;post('handDetection',{count:handCount});}
-   if(data.pose)latestPose={result:stabilizeElbows(data.pose,data.time),time:data.time,receivedAt};
    const matrix=data.face.facialTransformationMatrixes?.[0]?.data;
    const weights=Object.fromEntries((data.face.faceBlendshapes?.[0]?.categories??[]).map(c=>[c.categoryName,c.score]));
    const sample=matrix?{time:data.time,rotation:new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().fromArray(matrix)).toArray(),eyesOpen:Math.max(weights.eyeBlinkLeft??0,weights.eyeBlinkRight??0)<.7}:null;
@@ -376,10 +380,10 @@ function rigHand(side,landmarks,alpha,worldLandmarks=null,poseLandmarks=null,rec
    (vrm?.scene??demo).updateWorldMatrix(true,true);
    const left=leftShoulder.getWorldPosition(new THREE.Vector3()),right=rightShoulder.getWorldPosition(new THREE.Vector3());
    const center=left.clone().add(right).multiplyScalar(.5),span=left.distanceTo(right),aspect=video?video.videoWidth/video.videoHeight:4/3;
-   const rawDepth=recovery?wristDepthRatio(wrist,poseLandmarks,recovery.poseWorld,aspect):null;
+   const rawDepth=recovery?wristDepthRatio(wrist,poseLandmarks,recovery.poseWorld,aspect,recovery.poseWristIndex):null;
    const depth=recovery?wristDepthFilters[side].update(rawDepth,recovery.poseTime,recovery.now,recovery.dt):null;
    target=handWristTarget(wrist,poseLandmarks,center,span,aspect,depth);
-   elbowTarget=trackedElbowTarget(wrist,poseLandmarks,center,span,aspect);
+   elbowTarget=trackedElbowTarget(wrist,poseLandmarks,center,span,aspect,recovery?.poseWristIndex);
   }
   target??=new THREE.Vector3((.5-wrist.x)*1.7,1.85-wrist.y*1.5,.20);
   upper.updateWorldMatrix(true,true);
@@ -390,6 +394,7 @@ function rigHand(side,landmarks,alpha,worldLandmarks=null,poseLandmarks=null,rec
   // Smooth the wrist in position space first, then solve the complete arm.
   // Independently slerping upper/lower joints makes elbow changes pull the wrist.
   const displayedTarget=hand.getWorldPosition(new THREE.Vector3()).lerp(target,alpha);
+  displayedTarget.z=Math.max(displayedTarget.z,shoulder.z+.03);
   const dir=displayedTarget.sub(shoulder);const d=clamp(dir.length(),Math.abs(l1-l2)+.01,l1+l2-.01);dir.normalize();
   const along=(l1*l1-l2*l2+d*d)/(2*d);
   const currentPole=elbowPoleDirection(lower.getWorldPosition(new THREE.Vector3()),shoulder,dir,sign);
@@ -490,11 +495,11 @@ function animate(now,dt){
   // MediaPipe handedness assumes a mirrored/selfie image. Input is unmirrored.
   const label=side==='left'?'Right':'Left';
   const index=hands?.handedness?.findIndex(h=>h[0]?.categoryName===label)??-1;
-  const sample=index>=0?{landmarks:hands.landmarks[index],worldLandmarks:hands.worldLandmarks?.[index],time:latestHands.time,receivedAt:latestHands.receivedAt}:null;
+  const sample=index>=0?{landmarks:hands.landmarks[index],worldLandmarks:hands.worldLandmarks?.[index],time:latestHands.time,receivedAt:latestHands.receivedAt,poseWristIndex:hands.poseWristIndices?.[index]}:null;
   const transition=handTransitions[side].update(!!sample,sample?.time,now,dt,alpha,away);
   const active=transition.mode==='tracked'?sample:null;
   if(transition.mode==='idle'){elbowTransitions[side].reset();wristDepthFilters[side].reset();}
-  rigHand(side,active?.landmarks??null,transition.alpha,active?.worldLandmarks??null,poseLandmarks,{now,dt,poseTime:latestPose?.time,poseWorld:safeTracking(latestPose,now)?latestPose.result.worldLandmarks?.[0]:null});
+  rigHand(side,active?.landmarks??null,transition.alpha,active?.worldLandmarks??null,poseLandmarks,{now,dt,poseTime:latestPose?.time,poseWorld:safeTracking(latestPose,now)?latestPose.result.worldLandmarks?.[0]:null,poseWristIndex:active?.poseWristIndex});
  }
  // Strength also enlarges the model's morphs; detector weights alone cap at 1.
  const morphScale=mouthOpenStrength;

@@ -158,3 +158,21 @@ test('pose wrist depth moves actual hands forward while keeping their screen tar
   assert.ok(Math.abs(after.x-before.x)<1e-6&&Math.abs(after.y-before.y)<1e-6,'Keep reachable horizontal and vertical targets');
  }
 });
+
+test('a recovered tracked wrist cannot interpolate behind its shoulder',()=>{
+ const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
+ for(const side of ['left','right']){
+  const scene=new THREE.Group(),nodes={};
+  for(const [name,sign]of [['left',1],['right',-1]]){
+   const upper=new THREE.Bone(),lower=new THREE.Bone(),hand=new THREE.Bone();
+   upper.position.set(sign*.25,1.2,0);lower.position.x=sign*.27;hand.position.x=sign*.23;
+   upper.rotation.y=sign*Math.PI/2;scene.add(upper);upper.add(lower);lower.add(hand);
+   nodes[name+'UpperArm']=upper;nodes[name+'LowerArm']=lower;nodes[name+'Hand']=hand;
+  }
+  const context={THREE,clamp,bend,palmBasis,fingerSegments,fingerBones,shoulderWristTarget,handWristTarget,wristDepthRatio,trackedElbowTarget,elbowPoleDirection,keepElbowInFront,video:null,handRest:{},vrm:{scene,humanoid:{getNormalizedBoneNode:name=>nodes[name]}}};
+  runInNewContext(source.slice(source.indexOf('function bone('),source.indexOf('function animate(')),context);
+  const landmarks=Array.from({length:21},()=>({x:.5,y:.4,z:0}));
+  context.rigHand(side,landmarks,.1);
+  assert.ok(nodes[side+'Hand'].getWorldPosition(new THREE.Vector3()).z>nodes[side+'UpperArm'].getWorldPosition(new THREE.Vector3()).z);
+ }
+});

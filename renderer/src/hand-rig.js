@@ -56,19 +56,20 @@ export function shoulderWristTarget(wrist,pose,center,span,aspect=4/3){
  return new Vector3(center.x+((left.x+right.x)/2-wrist.x)*aspect*scale,center.y+((left.y+right.y)/2-wrist.y)*scale,center.z+.15);
 }
 
-export function matchedPoseWrist(wrist,pose,aspect=4/3){
+export function matchedPoseWrist(wrist,pose,aspect=4/3,preferred=null){
  if(!valid(wrist))return null;
  const visible=p=>valid(p)&&(p.visibility??1)>=.6;
  // Match the hand's wrist to pose wrists instead of relying on the two
  // detectors having identical handedness conventions or screen ordering.
- const candidates=[15,16].filter(i=>visible(pose?.[i])).map(i=>({i,d:Math.hypot((pose[i].x-wrist.x)*aspect,pose[i].y-wrist.y)})).sort((a,b)=>a.d-b.d);
+ const indices=preferred===15||preferred===16?[preferred]:[15,16];
+ const candidates=indices.filter(i=>visible(pose?.[i])).map(i=>({i,d:Math.hypot((pose[i].x-wrist.x)*aspect,pose[i].y-wrist.y)})).sort((a,b)=>a.d-b.d);
  const match=candidates[0];
  if(!match||match.d>.18)return null;
  return match.i;
 }
 
-export function wristDepthRatio(wrist,pose,world,aspect=4/3){
- const index=matchedPoseWrist(wrist,pose,aspect);
+export function wristDepthRatio(wrist,pose,world,aspect=4/3,preferred=null){
+ const index=matchedPoseWrist(wrist,pose,aspect,preferred);
  if(index===null||![11,12,index].every(i=>valid(world?.[i])&&(pose?.[i]?.visibility??0)>=.6))return null;
  const left=world[11],right=world[12],width=new Vector3(left.x-right.x,left.y-right.y,left.z-right.z).length();
  if(width<.08)return null;
@@ -86,8 +87,8 @@ export function handWristTarget(wrist,pose,center,span,aspect=4/3,depthRatio=nul
  return target;
 }
 
-export function trackedElbowTarget(wrist,pose,center,span,aspect=4/3){
- const index=matchedPoseWrist(wrist,pose,aspect);
+export function trackedElbowTarget(wrist,pose,center,span,aspect=4/3,preferred=null){
+ const index=matchedPoseWrist(wrist,pose,aspect,preferred);
  if(index===null)return null;
  const elbow=pose[index-2];
  const visible=p=>valid(p)&&(p.visibility??1)>=.6;
