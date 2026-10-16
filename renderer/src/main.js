@@ -18,6 +18,7 @@ import {AvatarBackground} from './background.js';
 import {FrameCapture} from './frame-capture.js';
 import {avatarTextures} from './avatar-textures.js';
 import {QuaternionDamping} from './quaternion-damping.js';
+import {BodyTrace} from './body-trace.js';
 
 const W=1280,H=720;
 const host=window.yuiHost ?? window.chrome?.webview ?? (window.parent!==window ? {
@@ -127,6 +128,7 @@ let blinkBaseline={left:0,right:0};
 const autoCalibration=new AutoCalibration();
 let latestPose=null,lastPoseDetect=0,bodyNeutral=null;
 const bodyStabilizer=new BodyStabilizer();
+const bodyTrace=new BodyTrace(data=>post('bodyTrace',data));
 const headStabilizer=new RotationStabilizer();
 let handRest={};
 let mouthMorphBinds=[];
@@ -282,6 +284,7 @@ async function startTracking(deviceId,cameraLabel){
   video=document.createElement('video');video.muted=true;video.playsInline=true;video.srcObject=stream;
   await video.play(); await listCameras();
   const input=track.getSettings();post('cameraInput',{deviceId:input.deviceId,width:input.width??video.videoWidth,height:input.height??video.videoHeight,fps:input.frameRate??0});
+  bodyTrace.start(performance.now());
   track.onended=()=>{stopTracking();status('カメラが切断されました。待機ポーズに戻ります。');};
   lastTrackingReceived=0;trackingGapMs=trackingLatencyMs=trackingResults=0;tracking=true;restartRenderLoop();scheduleDetection();lastVideoTime=-1;lastPoseDetect=0;bodyNeutral=null;calibration.identity();blinkBaseline={left:0,right:0};autoCalibration.start(performance.now());post('tracking',{active:true});status('正面を向いて目を開けてください。顔の検出が安定すると一度だけ自動でキャリブレーションします。');
  }catch(e){stopTracking();post('error',{text:'カメラを開始できません：'+e.message});}
@@ -403,7 +406,8 @@ function animate(now,dt){
  const alpha=smoothingAlpha(smoothing,dt);
  const pose=safeTracking(latestPose,now)?bodyPose(latestPose.result.worldLandmarks?.[0]):null;
  if(pose&&!bodyNeutral)bodyNeutral={...pose};
- const body=bodyStabilizer.update(pose?relativeBodyPose(pose,bodyNeutral):null,latestPose?.time,now);
+ const relativeBody=pose?relativeBodyPose(pose,bodyNeutral):null;
+ const body=bodyStabilizer.update(relativeBody,latestPose?.time,now);
  const basis=vrm?vrm.humanoid.normalizedHumanBonesRoot.getWorldQuaternion(new THREE.Quaternion()):new THREE.Quaternion();
  const bodyTarget=avatarBodyRotation(body,basis);
  const bodyActual=new THREE.Quaternion();
@@ -414,6 +418,7 @@ function animate(now,dt){
    bodyActual.multiply(node.quaternion);
   }
  }else if(demo){dampRotation(demo,bodyTarget,dt);bodyActual.copy(demo.quaternion);}
+ if(tracking)bodyTrace.observe(latestPose?.time,now,pose,relativeBody,body,bodyStabilizer.target,bodyActual,bodyStabilizer.motion.yaw);
  const face=safeTracking(latestFace,now)?latestFace.result:null;
  const categories=face?.faceBlendshapes?.[0]?.categories??[];
  const weights=Object.fromEntries(categories.map(c=>[c.categoryName,c.score]));
