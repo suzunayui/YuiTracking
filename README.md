@@ -101,3 +101,14 @@ powershell -ExecutionPolicy Bypass -File scripts/build.ps1
 ネイティブフィルターはUnity Captureの既存バイナリです。独自のドライバーとして偽装せず、その共有メモリプロトコルをC#から利用しています。専用スロット42を利用し、既存の別登録は上書きしません。ライセンスは `THIRD-PARTY-NOTICES.txt` を参照してください。
 
 旧版との互換性のため、内部のソースフォルダ名と保存先 `%LOCALAPPDATA%/HoloTrack` は維持しています。仮想カメラは同じデバイスIDを利用し、表示名を YuiTracking Camera に更新しています。
+
+## ライセンス
+
+YuiTracking の自作コードは [MIT License](LICENSE) で公開しています。
+公開版 `v2026.1015.8` に含まれる自作コードにも、このライセンスを適用します。
+著作権表示とライセンス文を保持する条件で、個人・商用での利用、改変、再配布ができます。
+
+外部ライブラリ・認識モデル・同梱素材は、それぞれのライセンス・利用条件に従います。
+外部ライブラリについては [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt) を参照してください。
+公開版に同梱する VRoid Studio AvatarSample Y / Z は MIT ライセンスの対象ではありません。
+モデルの利用条件は同梱の `Assets/Samples/VRoid-Samples-NOTICE.txt`（Mac 版では `Samples/VRoid-Samples-NOTICE.txt`）を参照してください。
