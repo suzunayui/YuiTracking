@@ -14,3 +14,9 @@ export function bodyPose(points){
  const upY=(left.y+right.y-lh.y-rh.y)/2,upZ=(left.z+right.z-lh.z-rh.z)/2;
  return {pitch:Math.atan2(-upZ,-upY),yaw:Math.atan2(dz,width),roll:Math.atan2(dy,Math.abs(dx))};
 }
+
+// Calibration is a fixed reference offset, without angle caps or noise gates.
+export function relativeBodyPose(pose,neutral){
+ if(!pose)return null;
+ return {pitch:pose.pitch-(neutral?.pitch??0),yaw:pose.yaw-(neutral?.yaw??0),roll:pose.roll-(neutral?.roll??0)};
+}

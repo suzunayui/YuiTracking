@@ -19,7 +19,7 @@
       <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
       <Grid ColumnSpacing="6">
        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-       <Button IsEnabled="False" Content="キャリブレーション" HorizontalAlignment="Stretch" ToolTipService.ToolTip="補正なし比較版のため、正面補正は無効です。" Click="Calibrate_Click"/>
+       <Button Content="キャリブレーション" HorizontalAlignment="Stretch" ToolTipService.ToolTip="今の顔・体の向きと目の開き具合を基準に合わせます。&#10;正面を向いて実行してください。&#10;ショートカット：右Ctrl／右Shift" Click="Calibrate_Click"/>
        <Button Grid.Column="1" Content="初期位置に戻す" Click="ResetFraming_Click" ToolTipService.ToolTip="拡大率・移動位置・カメラの回転を、&#10;最初の状態に戻します。"/>
        <Button Grid.Column="2" Content="最大化" Click="MaximizePreview_Click" ToolTipService.ToolTip="プレビューを最大化します。&#10;Esc：元に戻す&#10;ダブルクリックでも切り替えられます。"/>
        <ToggleButton x:Name="Privacy" Grid.Column="3" VerticalAlignment="Center" Content="待機画面" ToolTipService.ToolTip="待機画面に切り替えます。&#10;オンの間はアバターの代わりに待機画面を出力します。" Click="Privacy_Click"/>

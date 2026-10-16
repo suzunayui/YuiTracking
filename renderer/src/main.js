@@ -1,13 +1,14 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
-import { bend, clamp, safeTracking } from './rig-math.js';
+import { bend, clamp, safeTracking, calibratedBlink } from './rig-math.js';
 import { placeAvatar } from './avatar-placement.js';
 import { avatarHeadRotation } from './head-rotation.js';
-import {bodyPose,avatarBodyRotation} from './body-pose.js';
+import {bodyPose,relativeBodyPose,avatarBodyRotation} from './body-pose.js';
 import {fingerBones,palmBasis,fingerSegments,captureHandRest} from './hand-rig.js';
 import {LandmarkFilter} from './landmark-filter.js';
 import {BodyStabilizer} from './body-stabilizer.js';
+import {AutoCalibration} from './auto-calibration.js';
 import {mouthShapes} from './mouth-shapes.js';
 import {RotationStabilizer} from './rotation-stabilizer.js';
 import {browserCameraId} from './camera-selection.js';
@@ -118,8 +119,10 @@ const key=new THREE.DirectionalLight(0xffffff,Math.PI*.85); key.position.set(1,3
 let vrm=null,demo=null,head=null,eyes=[],arms={},loading=false,privacy=false,output=false;
 let mouthOpenStrength=1,mouthSensitivity=1.8,tracking=false,video,stream,initializing=false;
 let latestFace=null,latestHands=null,frameNumber=0,lastVideoTime=-1,lastDetect=0,lastRender=0;
-let rawHead=new THREE.Quaternion(),haveFace=false;
-let latestPose=null,lastPoseDetect=0;
+let calibration=new THREE.Quaternion(),rawHead=new THREE.Quaternion(),haveFace=false;
+let blinkBaseline={left:0,right:0};
+const autoCalibration=new AutoCalibration();
+let latestPose=null,lastPoseDetect=0,bodyNeutral=null;
 const bodyStabilizer=new BodyStabilizer();
 const headStabilizer=new RotationStabilizer();
 let handRest={};
@@ -238,6 +241,10 @@ async function ensureTasks(){
    lastTrackingReceived=receivedAt;trackingLatencyMs=Math.max(trackingLatencyMs,receivedAt-data.time);trackingResults++;
    latestFace={result:data.face,time:data.time,receivedAt};latestHands={result:stabilizeHands(data.hands,data.time),time:data.time,receivedAt};
    if(data.pose)latestPose={result:data.pose,time:data.time,receivedAt};
+   const matrix=data.face.facialTransformationMatrixes?.[0]?.data;
+   const weights=Object.fromEntries((data.face.faceBlendshapes?.[0]?.categories??[]).map(c=>[c.categoryName,c.score]));
+   const sample=matrix?{time:data.time,rotation:new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().fromArray(matrix)).toArray(),eyesOpen:Math.max(weights.eyeBlinkLeft??0,weights.eyeBlinkRight??0)<.7}:null;
+   if(autoCalibration.observe(sample,performance.now()))calibrateFace(true);
 
   };
   trackingWorker.postMessage({type:'init'});
@@ -262,18 +269,19 @@ async function startTracking(deviceId,cameraLabel){
   await video.play(); await listCameras();
   const input=track.getSettings();post('cameraInput',{deviceId:input.deviceId,width:input.width??video.videoWidth,height:input.height??video.videoHeight,fps:input.frameRate??0});
   track.onended=()=>{stopTracking();status('カメラが切断されました。待機ポーズに戻ります。');};
-  lastTrackingReceived=0;trackingGapMs=trackingLatencyMs=trackingResults=0;tracking=true;restartRenderLoop();scheduleDetection();lastVideoTime=-1;lastPoseDetect=0;post('tracking',{active:true});status('補正なし比較版：One Euro Filterのみ。正面補正・描画補間は無効です。');
+  lastTrackingReceived=0;trackingGapMs=trackingLatencyMs=trackingResults=0;tracking=true;restartRenderLoop();scheduleDetection();lastVideoTime=-1;lastPoseDetect=0;bodyNeutral=null;calibration.identity();blinkBaseline={left:0,right:0};autoCalibration.start(performance.now());post('tracking',{active:true});status('正面を向いて目を開けてください。顔の検出が安定すると一度だけ自動でキャリブレーションします。');
  }catch(e){stopTracking();post('error',{text:'カメラを開始できません：'+e.message});}
  finally{initializing=false;}
 }
 function stopTracking(){
+ autoCalibration.stop();
  bodyStabilizer.reset();headStabilizer.reset();
  for(const filter of Object.values(handFilters)){filter.screen.reset();filter.world.reset();}
  trackingGeneration++;tracking=false;scheduleDetection();restartRenderLoop();stream?.getTracks().forEach(t=>{t.onended=null;t.stop();});stream=null;
  // Stopped tracking should release all three WASM recognition engines.
  trackingWorker?.terminate();trackingWorker=null;workerReady=null;workerBusy=false;
  if(video){video.pause();video.srcObject=null;video=null;}
- latestFace=latestHands=latestPose=null;haveFace=false;post('tracking',{active:false});status('カメラ停止中。待機ポーズを表示しています。');
+ latestFace=latestHands=latestPose=null;bodyNeutral=null;haveFace=false;post('tracking',{active:false});status('カメラ停止中。待機ポーズを表示しています。');
 }
 function detect(now){
  if(workerBusy||!tracking||!video||video.readyState<2||video.currentTime===lastVideoTime||now-lastDetect<48)return;
@@ -284,8 +292,24 @@ function detect(now){
   trackingWorker.postMessage({type:'frame',bitmap,time:now,generation},[bitmap]);
  }).catch(e=>{if(generation!==trackingGeneration)return;workerBusy=false;stopTracking();post('error',{text:'認識を停止しました：'+e.message});});
 }
-function calibrateFace(){status('比較版ではキャリブレーションを無効にしています。');return false;}
-
+function calibrateFace(automatic=false){
+ const matrix=latestFace?.result.facialTransformationMatrixes?.[0]?.data;
+ if(matrix&&safeTracking(latestFace,performance.now())){
+    calibration.setFromRotationMatrix(new THREE.Matrix4().fromArray(matrix));
+    autoCalibration.stop();
+    const pose=safeTracking(latestPose,performance.now())?bodyPose(latestPose.result.worldLandmarks?.[0]):null;
+    bodyNeutral=pose?{...pose}:null;
+    bodyStabilizer.reset();headStabilizer.reset();
+    const weights=Object.fromEntries((latestFace.result.faceBlendshapes?.[0]?.categories??[]).map(c=>[c.categoryName,c.score]));
+    blinkBaseline={left:clamp(weights.eyeBlinkLeft??0,0,.95),right:clamp(weights.eyeBlinkRight??0,0,.95)};
+    if(vrm){vrm.expressionManager?.setValue('blinkLeft',0);vrm.expressionManager?.setValue('blinkRight',0);}
+    else eyes.forEach(eye=>eye.scale.y=1);
+    status((automatic?'自動キャリブレーション完了。':'')+'正面位置・目の開き具合・上半身の基準を調整しました。',true);
+    return true;
+ }
+ if(!automatic)status('顔が検出されてからキャリブレーションしてください。');
+ return false;
+}
 function bone(name){return vrm?.humanoid.getNormalizedBoneNode(name);}
 function rotateBone(name,q,alpha){const n=bone(name);if(n)n.quaternion.slerp(q,alpha);}
 const restQ=new THREE.Quaternion();
@@ -355,7 +379,7 @@ function rigHand(side,landmarks,alpha,worldLandmarks=null,poseLandmarks=null){
 function animate(now,dt){
  const alpha=1; // Diagnostic baseline: no render interpolation.
  const pose=safeTracking(latestPose,now)?bodyPose(latestPose.result.worldLandmarks?.[0]):null;
- const body=bodyStabilizer.update(pose,latestPose?.time,now);
+ const body=bodyStabilizer.update(pose?relativeBodyPose(pose,bodyNeutral):null,latestPose?.time,now);
  const basis=vrm?vrm.humanoid.normalizedHumanBonesRoot.getWorldQuaternion(new THREE.Quaternion()):new THREE.Quaternion();
  const bodyTarget=avatarBodyRotation(body,basis);
  if(vrm){
@@ -365,13 +389,14 @@ function animate(now,dt){
  const face=safeTracking(latestFace,now)?latestFace.result:null;
  const categories=face?.faceBlendshapes?.[0]?.categories??[];
  const weights=Object.fromEntries(categories.map(c=>[c.categoryName,c.score]));
- const blinkLeft=weights.eyeBlinkRight??0;
- const blinkRight=weights.eyeBlinkLeft??0;
+ const blinkLeft=calibratedBlink(weights.eyeBlinkRight??0,blinkBaseline.right);
+ const blinkRight=calibratedBlink(weights.eyeBlinkLeft??0,blinkBaseline.left);
  const mat=face?.facialTransformationMatrixes?.[0]?.data;
  const target=avatarHeadRotation(headStabilizer.value,1,basis);haveFace=!!mat;
  if(mat){
   rawHead.setFromRotationMatrix(new THREE.Matrix4().fromArray(mat));
-  target.copy(avatarHeadRotation(headStabilizer.update(rawHead,latestFace.time),1,basis));
+  const relative=calibration.clone().invert().multiply(rawHead);
+  target.copy(avatarHeadRotation(headStabilizer.update(relative,latestFace.time),1,basis));
  }
  if(vrm){
   const headNode=bone('head');if(headNode)headNode.quaternion.copy(target);

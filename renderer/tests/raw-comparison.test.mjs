@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
 import * as THREE from 'three';
-import {avatarBodyRotation} from '../src/body-pose.js';
+import {relativeBodyPose,avatarBodyRotation} from '../src/body-pose.js';
 import {avatarHeadRotation} from '../src/head-rotation.js';
 
 test('comparison rendering applies the filtered pose directly without joint mixing, interpolation or added physics',()=>{
@@ -13,8 +13,9 @@ test('comparison rendering applies the filtered pose directly without joint mixi
  const nodes=Object.fromEntries(['spine','chest','upperChest','head'].map(name=>[name,{quaternion:new THREE.Quaternion()}]));
  let rigUpdates=0,expressionUpdates=0;
  const context={THREE,latestPose:{result:{worldLandmarks:[[]]},time:0},latestFace:null,latestHands:null,
-  safeTracking:value=>!!value,bodyPose:()=>body,bodyStabilizer:{update:value=>value},avatarBodyRotation,avatarHeadRotation,
+  safeTracking:value=>!!value,bodyPose:()=>body,relativeBodyPose,bodyNeutral:null,bodyStabilizer:{update:value=>value},avatarBodyRotation,avatarHeadRotation,
   headStabilizer:{value:head},bone:name=>nodes[name],mouthShapes:()=>({aa:0}),mouthSensitivity:1,mouthOpenStrength:1,
+  blinkBaseline:{left:0,right:0},calibratedBlink:value=>value,
   video:null,mouthMorphBinds:[],rigHand(){},demo:null,
   vrm:{humanoid:{normalizedHumanBonesRoot:{getWorldQuaternion:q=>q.identity()},update(){rigUpdates++;}},
    expressionManager:{getValue:()=>0,setValue(){},update(){expressionUpdates++;}},materials:[],
