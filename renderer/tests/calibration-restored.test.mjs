@@ -14,7 +14,7 @@ test('manual calibration sets face/body/eye references and clears filter history
  points[11]={x:-.2,y:-.5,z:-.1};points[12]={x:.2,y:-.4,z:.1};
  points[23]={x:-.15,y:0,z:0};points[24]={x:.15,y:0,z:0};
  let bodyResets=0,headResets=0,cancelled=0,leanCalibration=null;
- const context={bodyLean:{calibrate(matrix){leanCalibration=matrix;}},THREE,bodyPose,safeTracking,clamp,performance:{now:()=>1100},
+ const context={elbowFilters:[],bodyLean:{calibrate(matrix){leanCalibration=matrix;}},THREE,bodyPose,safeTracking,clamp,performance:{now:()=>1100},
   latestFace:{time:1000,result:{facialTransformationMatrixes:[{data:matrix}],faceBlendshapes:[{categories:[
    {categoryName:'eyeBlinkLeft',score:.15},{categoryName:'eyeBlinkRight',score:.2}]}]}},
   latestPose:{time:1000,result:{worldLandmarks:[points]}},calibration:new THREE.Quaternion(),

@@ -14,7 +14,7 @@ test('recognition timer keeps its cadence independently of rendering and cancels
 
 test('stopping the camera releases recognition worker and webcam, allowing fresh initialization',()=>{
  let terminated=0,stopped=0,paused=0;
- const context={trackingPresence:{reset(){}},bodyLean:{reset(){}},autoCalibration:{stop(){}},bodyStabilizer:{reset(){}},headStabilizer:{reset(){}},handFilters:{},
+ const context={elbowFilters:[],trackingPresence:{reset(){}},bodyLean:{reset(){}},autoCalibration:{stop(){}},bodyStabilizer:{reset(){}},headStabilizer:{reset(){}},handFilters:{},
   trackingGeneration:1,tracking:true,scheduleDetection(){},restartRenderLoop(){},stream:{getTracks:()=>[{onended(){},stop(){stopped++;}}]},
   trackingWorker:{terminate(){terminated++;}},workerReady:Promise.resolve(),workerBusy:true,
   video:{pause(){paused++;},srcObject:{}},latestFace:{},latestHands:{},latestPose:{},bodyNeutral:{},haveFace:true,post(){},status(){}};

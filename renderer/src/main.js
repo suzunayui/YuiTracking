@@ -6,7 +6,7 @@ import { placeAvatar } from './avatar-placement.js';
 import { avatarHeadRotation } from './head-rotation.js';
 import {linkedBodyRotation,headRotationInRoot,applyLinkedHeadRotation} from './head-linked-body.js';
 import {bodyPose,relativeBodyPose,avatarBodyRotation} from './body-pose.js';
-import {fingerBones,palmBasis,fingerSegments,captureHandRest,shoulderWristTarget} from './hand-rig.js';
+import {fingerBones,palmBasis,fingerSegments,captureHandRest,shoulderWristTarget,trackedElbowTarget,elbowPoleDirection} from './hand-rig.js';
 import {LandmarkFilter} from './landmark-filter.js';
 import {BodyStabilizer} from './body-stabilizer.js';
 import {AutoCalibration} from './auto-calibration.js';
@@ -131,6 +131,7 @@ let latestPose=null,lastPoseDetect=0,bodyNeutral=null;
 let lastHandDetection=-1;
 const bodyStabilizer=new BodyStabilizer();
 const headStabilizer=new RotationStabilizer();
+const elbowFilters=Array.from({length:4},()=>new LandmarkFilter({minCutoff:1,beta:5}));
 const bodyLean=new BodyLean();
 const trackingPresence=new TrackingPresence();
 let handRest={};
@@ -251,7 +252,7 @@ async function ensureTasks(){
    latestFace={result:data.face,time:data.time,receivedAt};latestHands={result:stabilizeHands(data.hands,data.time),time:data.time,receivedAt};
    const handCount=data.hands.landmarks?.length??0;
    if(handCount!==lastHandDetection){lastHandDetection=handCount;post('handDetection',{count:handCount});}
-   if(data.pose)latestPose={result:data.pose,time:data.time,receivedAt};
+   if(data.pose)latestPose={result:stabilizeElbows(data.pose,data.time),time:data.time,receivedAt};
    const matrix=data.face.facialTransformationMatrixes?.[0]?.data;
    const weights=Object.fromEntries((data.face.faceBlendshapes?.[0]?.categories??[]).map(c=>[c.categoryName,c.score]));
    const sample=matrix?{time:data.time,rotation:new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().fromArray(matrix)).toArray(),eyesOpen:Math.max(weights.eyeBlinkLeft??0,weights.eyeBlinkRight??0)<.7}:null;
@@ -261,6 +262,17 @@ async function ensureTasks(){
   trackingWorker.postMessage({type:'init'});
  });
  return workerReady;
+}
+function stabilizeElbows(result,time){
+ const points=result.landmarks?.[0];
+ if(!points){for(const filter of elbowFilters)filter.reset();return result;}
+ const filtered=points.slice();
+ for(const [i,index]of [13,14,15,16].entries()){
+  const point=points[index];
+  if(point&&[point.x,point.y,point.z].every(Number.isFinite)&&(point.visibility??1)>=.6)filtered[index]=elbowFilters[i].update([point],time)[0];
+  else elbowFilters[i].reset();
+ }
+ return {...result,landmarks:[filtered,...result.landmarks.slice(1)]};
 }
 async function listCameras(devices){
  devices??=await navigator.mediaDevices.enumerateDevices();
@@ -287,6 +299,7 @@ async function startTracking(deviceId,cameraLabel){
 function stopTracking(){
  autoCalibration.stop();
  bodyStabilizer.reset();headStabilizer.reset();bodyLean.reset();trackingPresence.reset();
+ for(const filter of elbowFilters)filter.reset();
  for(const filter of Object.values(handFilters)){filter.screen.reset();filter.world.reset();}
  trackingGeneration++;tracking=false;scheduleDetection();restartRenderLoop();stream?.getTracks().forEach(t=>{t.onended=null;t.stop();});stream=null;
  // Stopped tracking should release all three WASM recognition engines.
@@ -311,6 +324,7 @@ function calibrateFace(automatic=false){
     const pose=safeTracking(latestPose,performance.now())?bodyPose(latestPose.result.worldLandmarks?.[0]):null;
     bodyNeutral=pose?{...pose}:null;
     bodyStabilizer.reset();headStabilizer.reset();bodyLean.calibrate(matrix,latestFace.time);
+    for(const filter of elbowFilters)filter.reset();
     const weights=Object.fromEntries((latestFace.result.faceBlendshapes?.[0]?.categories??[]).map(c=>[c.categoryName,c.score]));
     blinkBaseline={left:clamp(weights.eyeBlinkLeft??0,0,.95),right:clamp(weights.eyeBlinkRight??0,0,.95)};
     if(vrm){vrm.expressionManager?.setValue('blinkLeft',0);vrm.expressionManager?.setValue('blinkRight',0);}
@@ -348,13 +362,15 @@ function rigHand(side,landmarks,alpha,worldLandmarks=null,poseLandmarks=null){
   const wrist=landmarks[0];
   // Map the observed wrist relative to the person's shoulders, scaled to
   // this avatar's shoulder span. This changes placement, not noise filtering.
-  let target=null;
+  let target=null,elbowTarget=null;
   const leftShoulder=vrm?bone('leftUpperArm'):arms.left?.upper;
   const rightShoulder=vrm?bone('rightUpperArm'):arms.right?.upper;
   if(leftShoulder&&rightShoulder){
    (vrm?.scene??demo).updateWorldMatrix(true,true);
    const left=leftShoulder.getWorldPosition(new THREE.Vector3()),right=rightShoulder.getWorldPosition(new THREE.Vector3());
-   target=shoulderWristTarget(wrist,poseLandmarks,left.clone().add(right).multiplyScalar(.5),left.distanceTo(right),video?video.videoWidth/video.videoHeight:4/3);
+   const center=left.clone().add(right).multiplyScalar(.5),span=left.distanceTo(right),aspect=video?video.videoWidth/video.videoHeight:4/3;
+   target=shoulderWristTarget(wrist,poseLandmarks,center,span,aspect);
+   elbowTarget=trackedElbowTarget(wrist,poseLandmarks,center,span,aspect);
   }
   target??=new THREE.Vector3((.5-wrist.x)*1.7,1.85-wrist.y*1.5,.20);
   upper.updateWorldMatrix(true,true);
@@ -363,7 +379,7 @@ function rigHand(side,landmarks,alpha,worldLandmarks=null,poseLandmarks=null){
   const l2=lower.getWorldPosition(new THREE.Vector3()).distanceTo(hand.getWorldPosition(new THREE.Vector3()));
   const dir=target.clone().sub(shoulder);const d=clamp(dir.length(),Math.abs(l1-l2)+.01,l1+l2-.01);dir.normalize();
   const along=(l1*l1-l2*l2+d*d)/(2*d);
-  const pole=new THREE.Vector3(sign*.4,-1,-.2);pole.addScaledVector(dir,-pole.dot(dir)).normalize();
+  const pole=elbowPoleDirection(elbowTarget,shoulder,dir,sign);
   const elbow=shoulder.clone().addScaledVector(dir,along).addScaledVector(pole,Math.sqrt(Math.max(0,l1*l1-along*along)));
   aim(upper,lower,elbow,alpha);upper.updateWorldMatrix(true,true);aim(lower,hand,shoulder.clone().addScaledVector(dir,d),alpha);
   if(vrm&&worldLandmarks&&handRest[side]){

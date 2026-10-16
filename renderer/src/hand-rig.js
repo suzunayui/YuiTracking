@@ -55,3 +55,31 @@ export function shoulderWristTarget(wrist,pose,center,span,aspect=4/3){
  const scale=Math.min(span/width,3);
  return new Vector3(center.x+((left.x+right.x)/2-wrist.x)*aspect*scale,center.y+((left.y+right.y)/2-wrist.y)*scale,center.z+.15);
 }
+
+export function trackedElbowTarget(wrist,pose,center,span,aspect=4/3){
+ if(!valid(wrist))return null;
+ const visible=p=>valid(p)&&(p.visibility??1)>=.6;
+ // Match the hand's wrist to pose wrists instead of relying on the two
+ // detectors having identical handedness conventions or screen ordering.
+ const candidates=[15,16].filter(i=>visible(pose?.[i])).map(i=>({i,d:Math.hypot((pose[i].x-wrist.x)*aspect,pose[i].y-wrist.y)})).sort((a,b)=>a.d-b.d);
+ const match=candidates[0];
+ if(!match||match.d>.18)return null;
+ const elbow=pose[match.i-2],poseWrist=pose[match.i];
+ if(!visible(elbow))return null;
+ const target=shoulderWristTarget(elbow,pose,center,span,aspect);
+ if(!target)return null;
+ const width=Math.hypot((pose[12].x-pose[11].x)*aspect,pose[12].y-pose[11].y);
+ target.z-=(elbow.z-poseWrist.z)*aspect*Math.min(span/width,3);
+ return target;
+}
+
+export function elbowPoleDirection(elbowTarget,shoulder,armDirection,sign){
+ const fallback=new Vector3(sign*.4,-1,-.2);
+ const pole=elbowTarget?elbowTarget.clone().sub(shoulder):fallback.clone();
+ pole.addScaledVector(armDirection,-pole.dot(armDirection));
+ if(pole.lengthSq()<1e-8){
+  pole.copy(fallback).addScaledVector(armDirection,-fallback.dot(armDirection));
+  if(pole.lengthSq()<1e-8)pole.crossVectors(armDirection,Math.abs(armDirection.y)<.9?new Vector3(0,1,0):new Vector3(1,0,0));
+ }
+ return pole.normalize();
+}
