@@ -93,11 +93,15 @@
         <TextBlock x:Name="SpringStrengthLabel" Text="揺れものの強さ：1.0倍" Foreground="#9DA7C0"/>
         <Slider x:Name="SpringStrength" Minimum="0.3" Maximum="5" Value="1" StepFrequency="0.1" ToolTipService.ToolTip="モデルに設定された胸・髪・服などの揺れを調整します。" ValueChanged="SpringStrength_Changed"/>
        </StackPanel>
-       <StackPanel Background="Transparent" ToolTipService.ToolTip="頭の向き・傾きを反映する強さです。&#10;1倍：今までと同じ／大きく：動きを強調／小さく：控えめ">
+       <StackPanel Background="Transparent" ToolTipService.ToolTip="頭の向き・傾きを反映する強さです。&#10;1倍：今までと同じ／4倍：顔45度でアバターの顔180度。回転は180度まで。体の強さとは別に調整できます。">
         <TextBlock x:Name="SensitivityLabel" Text="顔の動きの強さ：1.0倍" Foreground="#9DA7C0"/>
-        <Slider x:Name="Sensitivity" ToolTipService.ToolTip="頭の向き・傾きを反映する強さです。&#10;1倍：今までと同じ／大きく：動きを強調／小さく：控えめ" Minimum="0.3" Maximum="2" Value="1" StepFrequency="0.1" ValueChanged="FaceSensitivity_Changed"/>
+        <Slider x:Name="Sensitivity" ToolTipService.ToolTip="頭の向き・傾きを反映する強さです。&#10;1倍：今までと同じ／4倍：顔45度でアバターの顔180度。回転は180度まで。体の強さとは別に調整できます。" Minimum="0.3" Maximum="5" Value="1" StepFrequency="0.1" ValueChanged="FaceSensitivity_Changed"/>
         <TextBlock x:Name="BodyStrengthLabel" Text="体の動きの強さ：1.0倍" Foreground="#9DA7C0"/>
         <Slider x:Name="BodyStrength" Minimum="0" Maximum="15" Value="1" StepFrequency="0.1" ToolTipService.ToolTip="頭に連動する体の左右のひねりを調整します。&#10;1倍：今までと同じ／約13.3倍：顔45度で体180度（左右180度まで）。0倍：左右のひねりなし。頭の向き・前後の傾きは変わりません。" ValueChanged="FaceSensitivity_Changed"/>
+        <TextBlock x:Name="ForwardLeanStrengthLabel" Text="前傾の強さ：1.0倍" Foreground="#9DA7C0"/>
+        <Slider x:Name="ForwardLeanStrength" Minimum="0" Maximum="3" Value="1" StepFrequency="0.1" ToolTipService.ToolTip="カメラとの距離による体の傾きを調整します。1倍：今までと同じ／0倍：この方向の傾きなし。" ValueChanged="FaceSensitivity_Changed"/>
+        <TextBlock x:Name="BackwardLeanStrengthLabel" Text="反りの強さ：1.0倍" Foreground="#9DA7C0"/>
+        <Slider x:Name="BackwardLeanStrength" Minimum="0" Maximum="3" Value="1" StepFrequency="0.1" ToolTipService.ToolTip="カメラとの距離による体の傾きを調整します。1倍：今までと同じ／0倍：この方向の傾きなし。" ValueChanged="FaceSensitivity_Changed"/>
        </StackPanel>
       </StackPanel>
       </ScrollViewer>

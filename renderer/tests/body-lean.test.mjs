@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {BodyLean} from '../src/body-lean.js';
+import {BodyLean,scaledBodyLean} from '../src/body-lean.js';
 import {linkedBodyRotation} from '../src/head-linked-body.js';
 import {Quaternion,Vector3,Euler} from 'three';
 const matrix=z=>{const m=new Array(16).fill(0);m[0]=m[5]=m[10]=m[15]=1;m[14]=z;return m;};
@@ -107,4 +107,20 @@ test('high body strength turns 45 degree head yaw to the back and caps rotation 
   const expected=new Quaternion().setFromAxisAngle(new Vector3(0,1,0),sign*Math.PI);
   assert.ok(result.angleTo(expected)<1e-7);
  }
+});
+
+
+test('forward and backward lean strengths are independent and preserve neutral and default response',()=>{
+ for(const angle of [.01,.2,Math.PI/9]){
+  assert.equal(scaledBodyLean(angle),angle);
+  assert.equal(scaledBodyLean(-angle),-angle);
+  assert.equal(scaledBodyLean(angle,2,3),angle*2);
+  assert.equal(scaledBodyLean(-angle,2,3),-angle*3);
+  assert.ok(Math.abs(scaledBodyLean(angle,0,3))===0);
+  assert.ok(Math.abs(scaledBodyLean(-angle,2,0))===0);
+ }
+ assert.equal(scaledBodyLean(0,3,3),0);
+ assert.equal(scaledBodyLean(NaN,3,3),0);
+ assert.ok(Math.abs(scaledBodyLean(.2,100,1)-.6)<1e-12);
+ assert.equal(scaledBodyLean(.2,NaN,1),.2);
 });

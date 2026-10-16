@@ -12,7 +12,7 @@ import {BodyStabilizer} from './body-stabilizer.js';
 import {AutoCalibration} from './auto-calibration.js';
 import {mouthShapes} from './mouth-shapes.js';
 import {RotationStabilizer} from './rotation-stabilizer.js';
-import {BodyLean} from './body-lean.js';
+import {BodyLean,scaledBodyLean} from './body-lean.js';
 import {TrackingPresence} from './tracking-presence.js';
 import {TrackingTransition} from './tracking-transition.js';
 import {WristDepth} from './wrist-depth.js';
@@ -127,7 +127,7 @@ const key=new THREE.DirectionalLight(0xffffff,Math.PI*.85); key.position.set(1,3
 let vrm=null,demo=null,head=null,eyes=[],arms={},loading=false,privacy=false,output=false;
 const bodyFromHead=true,bodyLeanEnabled=true;
 let springStrength=1,springControl=null;
-let smoothing=.65,sensitivity=1,bodyStrength=1,mouthOpenStrength=1,mouthSensitivity=1.8,tracking=false,video,stream,initializing=false;
+let smoothing=.65,sensitivity=1,bodyStrength=1,forwardLeanStrength=1,backwardLeanStrength=1,mouthOpenStrength=1,mouthSensitivity=1.8,tracking=false,video,stream,initializing=false;
 let latestFace=null,latestHands=null,frameNumber=0,lastVideoTime=-1,lastDetect=0,lastRender=0;
 let calibration=new THREE.Quaternion(),rawHead=new THREE.Quaternion(),haveFace=false;
 let blinkBaseline={left:0,right:0};
@@ -357,17 +357,30 @@ function aim(node,child,target,alpha){
  const direction=child.position.clone().normalize();
  if(direction.lengthSq()>.1)node.quaternion.slerp(new THREE.Quaternion().setFromUnitVectors(direction,localTarget),alpha);
 }
+// Camera targets, forward limits and IK share a frame that turns with the torso.
+function armTrackingFrame(){
+ const torso=vrm?(bone('spine')??bone('chest')??bone('hips')):demo;
+ const rotation=new THREE.Quaternion(),origin=new THREE.Vector3();
+ if(torso){
+  torso.updateWorldMatrix(true,false);torso.getWorldPosition(origin);
+  const parent=torso.parent?.getWorldQuaternion(new THREE.Quaternion())??new THREE.Quaternion();
+  rotation.copy(parent).multiply(torso.quaternion).multiply(parent.clone().invert());
+ }
+ const inverse=rotation.clone().invert();
+ return {rotation,toLocal:p=>p.clone().sub(origin).applyQuaternion(inverse).add(origin),toWorld:p=>p.clone().sub(origin).applyQuaternion(rotation).add(origin)};
+}
 function rigHand(side,landmarks,alpha,worldLandmarks=null,poseLandmarks=null,recovery=null){
  const sign=side==='left'?1:-1;
  const upper=vrm?bone(side+'UpperArm'):arms[side].upper;
  const lower=vrm?bone(side+'LowerArm'):arms[side].lower;
  const hand=vrm?bone(side+'Hand'):arms[side].hand;
  if(!upper||!lower||!hand)return;
+ const frame=armTrackingFrame();
  if(!landmarks){
   // VRM normalized arms start in T pose; lower them to an idle pose.
   if(vrm){
    upper.updateWorldMatrix(true,false);
-   aim(upper,lower,upper.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(sign*.18,-1,0)),alpha);
+   aim(upper,lower,upper.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(sign*.18,-1,0).applyQuaternion(frame.rotation)),alpha);
   }else upper.quaternion.slerp(new THREE.Quaternion().setFromEuler(new THREE.Euler(0,0,sign*.10)),alpha);
   lower.quaternion.slerp(restQ,alpha);hand.quaternion.slerp(restQ,alpha);
  }else{
@@ -379,30 +392,31 @@ function rigHand(side,landmarks,alpha,worldLandmarks=null,poseLandmarks=null,rec
   const rightShoulder=vrm?bone('rightUpperArm'):arms.right?.upper;
   if(leftShoulder&&rightShoulder){
    (vrm?.scene??demo).updateWorldMatrix(true,true);
-   const left=leftShoulder.getWorldPosition(new THREE.Vector3()),right=rightShoulder.getWorldPosition(new THREE.Vector3());
+   const left=frame.toLocal(leftShoulder.getWorldPosition(new THREE.Vector3())),right=frame.toLocal(rightShoulder.getWorldPosition(new THREE.Vector3()));
    const center=left.clone().add(right).multiplyScalar(.5),span=left.distanceTo(right),aspect=video?video.videoWidth/video.videoHeight:4/3;
    const rawDepth=recovery?wristDepthRatio(wrist,poseLandmarks,recovery.poseWorld,aspect,recovery.poseWristIndex):null;
    const depth=recovery?wristDepthFilters[side].update(rawDepth,recovery.poseTime,recovery.now,recovery.dt):null;
    target=handWristTarget(wrist,poseLandmarks,center,span,aspect,depth)??new THREE.Vector3((.5-wrist.x)*1.7,1.85-wrist.y*1.5,.20);
    if(recovery?.faceLandmarks){
     const anchor=avatarFaceAnchor(vrm?bone('head'):head,vrm?bone('leftEye'):null,vrm?bone('rightEye'):null,span);
+    if(anchor)anchor.mouth=frame.toLocal(anchor.mouth);
     target=faceRelativeWristTarget(target,landmarks,recovery.faceLandmarks,anchor,aspect);
    }
    elbowTarget=trackedElbowTarget(wrist,poseLandmarks,center,span,aspect,recovery?.poseWristIndex);
   }
   target??=new THREE.Vector3((.5-wrist.x)*1.7,1.85-wrist.y*1.5,.20);
   upper.updateWorldMatrix(true,true);
-  const shoulder=upper.getWorldPosition(new THREE.Vector3());
-  const l1=shoulder.distanceTo(lower.getWorldPosition(new THREE.Vector3()));
+  const shoulder=frame.toLocal(upper.getWorldPosition(new THREE.Vector3()));
+  const l1=shoulder.distanceTo(frame.toLocal(lower.getWorldPosition(new THREE.Vector3())));
   const l2=lower.getWorldPosition(new THREE.Vector3()).distanceTo(hand.getWorldPosition(new THREE.Vector3()));
   const previousHandRotation=hand.getWorldQuaternion(new THREE.Quaternion());
   // Smooth the wrist in position space first, then solve the complete arm.
   // Independently slerping upper/lower joints makes elbow changes pull the wrist.
-  const displayedTarget=hand.getWorldPosition(new THREE.Vector3()).lerp(target,alpha);
+  const displayedTarget=frame.toLocal(hand.getWorldPosition(new THREE.Vector3())).lerp(target,alpha);
   displayedTarget.z=Math.max(displayedTarget.z,shoulder.z+.03);
   const dir=displayedTarget.sub(shoulder);const d=clamp(dir.length(),Math.abs(l1-l2)+.01,l1+l2-.01);dir.normalize();
   const along=(l1*l1-l2*l2+d*d)/(2*d);
-  const currentPole=elbowPoleDirection(lower.getWorldPosition(new THREE.Vector3()),shoulder,dir,sign);
+  const currentPole=elbowPoleDirection(frame.toLocal(lower.getWorldPosition(new THREE.Vector3())),shoulder,dir,sign);
   const elbowTransition=recovery?elbowTransitions[side].update(!!elbowTarget,recovery.poseTime,recovery.now,recovery.dt,alpha):{mode:'tracked',alpha};
   // A brief missing elbow holds the bend plane. Sustained loss relaxes it
   // toward a forward-facing bend, while the wrist continues following the hand.
@@ -414,12 +428,12 @@ function rigHand(side,landmarks,alpha,worldLandmarks=null,poseLandmarks=null,rec
   const height=Math.sqrt(Math.max(0,l1*l1-along*along));
   if(elbowTarget||recovery)keepElbowInFront(pole,dir,along,height);
   const elbow=shoulder.clone().addScaledVector(dir,along).addScaledVector(pole,height);
-  aim(upper,lower,elbow,1);upper.updateWorldMatrix(true,true);aim(lower,hand,shoulder.clone().addScaledVector(dir,d),1);
+  aim(upper,lower,frame.toWorld(elbow),1);upper.updateWorldMatrix(true,true);aim(lower,hand,frame.toWorld(shoulder.clone().addScaledVector(dir,d)),1);
   if(vrm&&worldLandmarks&&handRest[side]){
    const palm=palmBasis(worldLandmarks),rest=handRest[side];
    if(palm&&rest.palm){
     hand.parent.updateWorldMatrix(true,false);
-    const worldTarget=palm.multiply(rest.palm.clone().invert());
+    const worldTarget=frame.rotation.clone().multiply(palm).multiply(rest.palm.clone().invert());
     const parentRotation=hand.parent.getWorldQuaternion(new THREE.Quaternion());
     hand.quaternion.copy(parentRotation.invert().multiply(previousHandRotation.slerp(worldTarget,alpha)));
    }
@@ -435,7 +449,7 @@ function rigHand(side,landmarks,alpha,worldLandmarks=null,poseLandmarks=null,rec
     const node=bone(side+name),direction=segments?.[i]?.[j],rest=handRest[side]?.directions[name];
     if(node&&direction&&rest){
      node.parent.updateWorldMatrix(true,false);
-     const localDirection=direction.clone().applyQuaternion(node.parent.getWorldQuaternion(new THREE.Quaternion()).invert());
+     const localDirection=direction.clone().applyQuaternion(frame.rotation).applyQuaternion(node.parent.getWorldQuaternion(new THREE.Quaternion()).invert());
      node.quaternion.slerp(new THREE.Quaternion().setFromUnitVectors(rest,localDirection),alpha);
     }else{
      const jointAmount=landmarks?bend(landmarks[j===0?0:root+j-1],landmarks[root+j],landmarks[root+j+1]):.12;
@@ -471,7 +485,7 @@ function animate(now,dt){
  // Pose landmarks remain available to the existing shoulder-relative hand IK.
  const pose=!bodyFromHead&&safeTracking(latestPose,now)?bodyPose(latestPose.result.worldLandmarks?.[0]):null;
  const body=bodyFromHead?null:bodyStabilizer.update(pose?relativeBodyPose(pose,bodyNeutral):null,latestPose?.time,now);
- const bodyTarget=away?new THREE.Quaternion():bodyFromHead?linkedBodyRotation(bodyHeadTarget,bodyLeanEnabled?bodyLean.value:0,basis,bodyStrength):avatarBodyRotation(body,basis);
+ const bodyTarget=away?new THREE.Quaternion():bodyFromHead?linkedBodyRotation(bodyHeadTarget,bodyLeanEnabled?scaledBodyLean(bodyLean.value,forwardLeanStrength,backwardLeanStrength):0,basis,bodyStrength):avatarBodyRotation(body,basis);
  const headNode=vrm?bone('head'):head;
  const rigRoot=vrm?vrm.humanoid.normalizedHumanBonesRoot:scene;
  const previousHead=bodyFromHead&&headNode?headRotationInRoot(headNode,rigRoot):null;
@@ -587,7 +601,7 @@ host?.addEventListener('message',async e=>{
    try{if(await avatarBackground.set(m))post('backgroundLoaded',{requestId:m.requestId});}
    catch(err){post('backgroundFailed',{requestId:m.requestId,text:'背景画像を読み込めませんでした。'});}
    break;
-  case'settings':if(Number.isFinite(m.bodyStrength))bodyStrength=clamp(m.bodyStrength,0,15);if(Number.isFinite(m.sensitivity))sensitivity=clamp(m.sensitivity,.3,2);if(Number.isFinite(m.springStrength)){springStrength=clamp(m.springStrength,.3,5);springControl?.setStrength(springStrength);}smoothing=clamp(m.smoothing??.65,0,.95);mouthOpenStrength=clamp(m.mouthOpenStrength??1,.5,3);mouthSensitivity=clamp(m.mouthSensitivity??1.8,.5,3);break;
+  case'settings':if(Number.isFinite(m.forwardLeanStrength))forwardLeanStrength=clamp(m.forwardLeanStrength,0,3);if(Number.isFinite(m.backwardLeanStrength))backwardLeanStrength=clamp(m.backwardLeanStrength,0,3);if(Number.isFinite(m.bodyStrength))bodyStrength=clamp(m.bodyStrength,0,15);if(Number.isFinite(m.sensitivity))sensitivity=clamp(m.sensitivity,.3,5);if(Number.isFinite(m.springStrength)){springStrength=clamp(m.springStrength,.3,5);springControl?.setStrength(springStrength);}smoothing=clamp(m.smoothing??.65,0,.95);mouthOpenStrength=clamp(m.mouthOpenStrength??1,.5,3);mouthSensitivity=clamp(m.mouthSensitivity??1.8,.5,3);break;
   case'privacy':privacy=!!m.value;break;
   case'output':output=!!m.value;restartRenderLoop();break;
  }

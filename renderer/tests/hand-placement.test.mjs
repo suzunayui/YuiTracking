@@ -203,3 +203,39 @@ test('covering the mouth uses the avatar face height instead of leaving the hand
   assert.ok(nodes[side+'Hand'].getWorldPosition(new THREE.Vector3()).distanceTo(expected)<1e-6);
  }
 });
+
+
+test('tracked wrists elbows palms fingers and idle arms follow torso turns through 180 degrees',()=>{
+ const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
+ const scene=new THREE.Group(),torso=new THREE.Bone(),nodes={spine:torso};scene.add(torso);torso.position.set(.2,.8,.1);
+ for(const [side,sign]of [['left',1],['right',-1]]){
+  const upper=new THREE.Bone(),lower=new THREE.Bone(),hand=new THREE.Bone(),finger=new THREE.Bone();
+  upper.position.set(sign*.25,.4,0);lower.position.x=sign*.27;hand.position.x=sign*.23;finger.position.x=sign*.03;
+  torso.add(upper);upper.add(lower);lower.add(hand);hand.add(finger);
+  Object.assign(nodes,{[side+'UpperArm']:upper,[side+'LowerArm']:lower,[side+'Hand']:hand,[side+'IndexProximal']:finger});
+ }
+ const landmarks=Array.from({length:21},()=>({x:.5,y:.2,z:0})),pose=[];
+ pose[11]={x:.3,y:.5,z:0,visibility:1};pose[12]={x:.7,y:.5,z:0,visibility:1};
+ pose[13]={x:.25,y:.3,z:0,visibility:1};pose[14]={x:.75,y:.3,z:0,visibility:1};
+ pose[15]={x:.5,y:.2,z:0,visibility:1};pose[16]={x:.85,y:.7,z:0,visibility:1};
+ const world=Array.from({length:21},(_,i)=>({x:(i%4)*.01,y:-i*.01,z:.01}));
+ world[5]={x:-.05,y:-.1,z:0};world[9]={x:0,y:-.1,z:0};world[17]={x:.05,y:-.1,z:0};
+ const context={THREE,clamp,bend,palmBasis,fingerSegments,fingerBones,shoulderWristTarget,handWristTarget,wristDepthRatio,trackedElbowTarget,elbowPoleDirection,keepElbowInFront,video:null,
+  handRest:Object.fromEntries(['left','right'].map(side=>[side,{palm:new THREE.Quaternion(),directions:{IndexProximal:new THREE.Vector3(1,0,0)}}])),vrm:{scene,humanoid:{getNormalizedBoneNode:name=>nodes[name]}}};
+ runInNewContext(source.slice(source.indexOf('function bone('),source.indexOf('function animate(')),context);
+ const origin=torso.position.clone();
+ for(const active of [true,false])for(const side of ['left','right']){
+  torso.quaternion.identity();context.rigHand(side,active?landmarks:null,1,active?world:null,pose);scene.updateMatrixWorld(true);
+  const names=['UpperArm','LowerArm','Hand','IndexProximal'].map(name=>side+name);
+  const baseline=names.map(name=>({position:nodes[name].getWorldPosition(new THREE.Vector3()),rotation:nodes[name].getWorldQuaternion(new THREE.Quaternion())}));
+  for(const yaw of [-Math.PI,-Math.PI/2,Math.PI/2,Math.PI]){
+   const rotation=new THREE.Quaternion().setFromEuler(new THREE.Euler(.15,yaw,.1,'YXZ'));torso.quaternion.copy(rotation);
+   context.rigHand(side,active?landmarks:null,1,active?world:null,pose);scene.updateMatrixWorld(true);
+   names.forEach((name,i)=>{
+    const expected=baseline[i].position.clone().sub(origin).applyQuaternion(rotation).add(origin);
+    assert.ok(nodes[name].getWorldPosition(new THREE.Vector3()).distanceTo(expected)<1e-6,name+' position must turn with torso');
+    if(active)assert.ok(nodes[name].getWorldQuaternion(new THREE.Quaternion()).angleTo(rotation.clone().multiply(baseline[i].rotation))<1e-7,name+' orientation must turn with torso');
+   });
+  }
+ }
+});

@@ -35,8 +35,10 @@
      <label title="口の変形量を調整します。&#10;大きく：口が大きく開く／小さく：控えめに開く">口の開き具合：<output id="mouthOpenStrength-value"></output><input id="mouthOpenStrength" type="range" min="0.5" max="3" step="0.1" value="1"></label>
      <label title="小さな口の開きを読み取る敏感さです。&#10;大きく：小さな開きにも反応／小さく：大きな開きに反応">口の感度：<output id="mouthSensitivity-value"></output><input id="mouthSensitivity" type="range" min="0.5" max="3" step="0.1" value="1.8"></label>
      <label title="髪・服などの揺れやすさです。&#10;1.0倍：モデル標準&#10;大きく：揺れやすい／小さく：揺れが控えめ">揺れものの強さ：<output id="springStrength-value"></output><input id="springStrength" type="range" min="0.3" max="5" step="0.1" value="1"></label>
-     <label title="頭の向き・傾きを反映する強さです。&#10;1倍：今までと同じ／大きく：動きを強調／小さく：控えめ">顔の動きの強さ：<output id="sensitivity-value">1.0倍</output><input id="sensitivity" type="range" min="0.3" max="2" step="0.1" value="1"></label>
+     <label title="頭の向き・傾きを反映する強さです。&#10;1倍：今までと同じ／4倍：顔45度でアバターの顔180度。回転は180度まで。体の強さとは別に調整できます。">顔の動きの強さ：<output id="sensitivity-value">1.0倍</output><input id="sensitivity" type="range" min="0.3" max="5" step="0.1" value="1"></label>
      <label title="頭に連動する体の左右のひねりを調整します。&#10;1倍：今までと同じ／約13.3倍：顔45度で体180度（左右180度まで）。0倍：左右のひねりなし。頭の向き・前後の傾きは変わりません。">体の動きの強さ：<output id="bodyStrength-value">1.0倍</output><input id="bodyStrength" type="range" min="0" max="15" step="0.1" value="1"></label>
+     <label title="カメラとの距離による体の傾きを調整します。1倍：今までと同じ／0倍：この方向の傾きなし。">反りの強さ：<output id="backwardLeanStrength-value">1.0倍</output><input id="backwardLeanStrength" type="range" min="0" max="3" step="0.1" value="1"></label>
+     <label title="カメラとの距離による体の傾きを調整します。1倍：今までと同じ／0倍：この方向の傾きなし。">前傾の強さ：<output id="forwardLeanStrength-value">1.0倍</output><input id="forwardLeanStrength" type="range" min="0" max="3" step="0.1" value="1"></label>
     </div>
    </div>
   </div>

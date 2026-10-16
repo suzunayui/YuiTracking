@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
 import * as THREE from 'three';
 import {relativeBodyPose,avatarBodyRotation} from '../src/body-pose.js';
+import {scaledBodyLean} from '../src/body-lean.js';
 import {avatarHeadRotation} from '../src/head-rotation.js';
 import {smoothingAlpha,clamp} from '../src/rig-math.js';
 import {TrackingPresence} from '../src/tracking-presence.js';
@@ -17,7 +18,7 @@ function fixture(smoothing=0){
  const root=new THREE.Object3D();root.add(nodes.spine);nodes.spine.add(nodes.chest);nodes.chest.add(nodes.upperChest);nodes.upperChest.add(nodes.head);
  let rigUpdates=0,expressionUpdates=0,springUpdates=0;const order=[];
  const transition={update:(detected,time,now,dt,alpha)=>({mode:detected?'tracked':'idle',alpha}),reset(){}};
- const context={THREE,clamp,sensitivity:1,bodyStrength:1,wristDepthFilters:{left:{reset(){}},right:{reset(){}}},handTransitions:{left:transition,right:transition},elbowTransitions:{left:transition,right:transition},trackingPresence:{isAway:()=>false},smoothing,bodyFromHead:false,bodyLeanEnabled:true,bodyLean:{value:0,update(){}},linkedBodyRotation,headRotationInRoot,applyLinkedHeadRotation,smoothingAlpha,latestPose:{result:{worldLandmarks:[[]]},time:0},latestFace:null,latestHands:null,
+ const context={THREE,clamp,sensitivity:1,bodyStrength:1,forwardLeanStrength:1,backwardLeanStrength:1,scaledBodyLean,wristDepthFilters:{left:{reset(){}},right:{reset(){}}},handTransitions:{left:transition,right:transition},elbowTransitions:{left:transition,right:transition},trackingPresence:{isAway:()=>false},smoothing,bodyFromHead:false,bodyLeanEnabled:true,bodyLean:{value:0,update(){}},linkedBodyRotation,headRotationInRoot,applyLinkedHeadRotation,smoothingAlpha,latestPose:{result:{worldLandmarks:[[]]},time:0},latestFace:null,latestHands:null,
   safeTracking:value=>!!value,bodyPose:()=>body,relativeBodyPose,bodyNeutral:null,bodyStabilizer:{update:value=>value},avatarBodyRotation,avatarHeadRotation,
   headStabilizer:{value:head},bone:name=>nodes[name],mouthShapes:()=>({aa:0}),mouthSensitivity:1,mouthOpenStrength:1,
   blinkBaseline:{left:0,right:0},calibratedBlink:value=>value,
@@ -151,7 +152,7 @@ test('sustained face loss returns head, body and hands smoothly to idle in both 
 
 test('face strength changes displayed head rotation while body response stays unchanged',()=>{
  const bodies=[];
- for(const gain of [.5,1,2]){
+ for(const gain of [.5,1,4,5]){
   const {context,nodes,head}=fixture(0);context.bodyFromHead=true;context.sensitivity=gain;
   context.animate(0,1/60);bodies.push(nodes.spine.quaternion.clone());
   const displayed=headRotationInRoot(nodes.head,context.vrm.humanoid.normalizedHumanBonesRoot);
@@ -170,4 +171,31 @@ test('body strength changes torso twist without changing displayed head directio
   assert.ok(displayed.angleTo(avatarHeadRotation(head,1,new THREE.Quaternion()))<1e-7);
  }
  assert.ok(bodies[0].angleTo(bodies[1])>.001&&bodies[1].angleTo(bodies[2])>.001);
+});
+
+
+test('face four times and body thirteen-and-a-third turn head and torso to the back together',()=>{
+ for(const sign of [-1,1]){
+  const {context,nodes,head}=fixture(0);context.bodyFromHead=true;context.sensitivity=4;context.bodyStrength=40/3;
+  head.setFromEuler(new THREE.Euler(0,sign*Math.PI/4,0,'YXZ'));
+  context.animate(0,1/60);
+  const displayed=headRotationInRoot(nodes.head,context.vrm.humanoid.normalizedHumanBonesRoot);
+  const back=new THREE.Quaternion().setFromEuler(new THREE.Euler(0,Math.PI,0));
+  assert.ok(displayed.angleTo(back)<1e-7);
+  assert.ok(nodes.spine.quaternion.angleTo(back)<1e-7);
+  assert.ok(nodes.head.quaternion.angleTo(new THREE.Quaternion())<1e-7);
+ }
+});
+
+
+test('rendering applies directional lean strength independently of head and torso yaw strengths',()=>{
+ for(const lean of [.15,-.15])for(const [forward,backward] of [[0,3],[2,0],[2,3]]){
+  const {context,nodes,head}=fixture(0);context.bodyFromHead=true;context.sensitivity=4;context.bodyStrength=2;
+  context.bodyLean.value=lean;context.forwardLeanStrength=forward;context.backwardLeanStrength=backward;
+  context.animate(0,1/60);
+  const target=avatarHeadRotation(head,1,new THREE.Quaternion());
+  const expected=linkedBodyRotation(target,lean*(lean<0?backward:forward),new THREE.Quaternion(),2);
+  assert.ok(nodes.spine.quaternion.angleTo(expected)<1e-7);
+  assert.ok(headRotationInRoot(nodes.head,context.vrm.humanoid.normalizedHumanBonesRoot).angleTo(avatarHeadRotation(head,4,new THREE.Quaternion()))<1e-7);
+ }
 });

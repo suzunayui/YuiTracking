@@ -51,5 +51,18 @@ test('strength gain is independent of model basis and invalid values keep the de
   assert.ok(world.angleTo(expected)<1e-7);
  }
  assert.ok(avatarHeadRotation(raw,NaN).angleTo(avatarHeadRotation(raw,1))<1e-7);
- assert.ok(avatarHeadRotation(raw,10).angleTo(avatarHeadRotation(raw,2))<1e-7);
+ assert.ok(avatarHeadRotation(raw,10).angleTo(avatarHeadRotation(raw,5))<1e-7);
+});
+
+
+test('four-times head yaw reaches the back at 45 degrees and stays there at larger angles',()=>{
+ for(const basis of [new Quaternion(),new Quaternion(0,1,0,0)])for(const sign of [-1,1]){
+  for(const angle of [Math.PI/4,Math.PI/3,Math.PI/2]){
+   const raw=new Quaternion().setFromEuler(new Euler(0,sign*angle,0,'YXZ'));
+   const local=avatarHeadRotation(raw,4,basis);
+   const world=basis.clone().multiply(local).multiply(basis.clone().invert());
+   const expected=new Quaternion().setFromEuler(new Euler(0,-sign*Math.PI,0,'YXZ'));
+   assert.ok(world.angleTo(expected)<1e-7);
+  }
+ }
 });
