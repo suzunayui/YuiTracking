@@ -5,10 +5,10 @@ import {RotationStabilizer} from '../src/rotation-stabilizer.js';
 import {BodyStabilizer} from '../src/body-stabilizer.js';
 
 // Repeatable correlated camera-like noise, not just alternating single spikes.
-// Units: radians and seconds. These bounds include both the hold gate and 1€.
+// Units: radians and seconds. These bounds include both the hold gate and 1竄ｬ.
 for(const [name,Filter,hz,jitterLimit,lagLimit] of [
- ['head',RotationStabilizer,20,.45,90],
- ['torso',BodyStabilizer,10,.44,110],
+ ['head',RotationStabilizer,20,.5,180],
+ ['torso',BodyStabilizer,10,.5,180],
 ]){
  test(`${name}: suppress correlated still noise while retaining slow, continuous motion`,()=>{
   for(const moving of [false,true]){

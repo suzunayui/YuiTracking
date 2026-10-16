@@ -1,34 +1,17 @@
 import {Quaternion} from 'three';
-import {MotionIntent} from './motion-intent.js';
-import {QuaternionOneEuroFilter} from './one-euro-filter.js';
-
-// Hold small orientation changes around any pose, not only calibrated neutral.
-// Filter each camera observation once; the render loop handles interpolation.
+import {OneEuroFilter} from './vendor/one-euro-filter.js';
+const axes=['x','y','z','w'];
 export class RotationStabilizer {
- constructor(deadZone=.025){this.deadZone=deadZone;this.motion=new MotionIntent(4,deadZone*.5);this.filter=new QuaternionOneEuroFilter();this.input=new Float64Array(4);this.reset();}
- reset(){this.value=new Quaternion();this.target=new Quaternion();this.candidate=new Quaternion();this.hasCandidate=false;this.time=null;this.motion.reset();this.filter.reset();}
+ constructor(){this.filters=axes.map(()=>new OneEuroFilter(20,1,2));this.raw=new Quaternion();this.value=new Quaternion();this.reset();}
+ reset(){this.time=null;this.raw.identity();this.value.identity();for(const filter of this.filters)filter.reset();}
  update(rotation,time){
-  if(!rotation||!Number.isFinite(time)||![rotation.x,rotation.y,rotation.z,rotation.w].every(Number.isFinite))return this.value.clone();
-  if(this.time!==null&&time<=this.time)return this.value.clone();
-  if(this.time!==null&&time-this.time>150)this.hasCandidate=false;
-  if(this.time!==null&&time-this.time>500){this.target.copy(rotation);this.value.copy(rotation);this.hasCandidate=false;}
-  this.time=time;
-  rotation.toArray(this.input);
-  // q and -q denote the same rotation; do not interpret a sign flip as motion.
-  if(this.motion.haveLast&&this.input.reduce((sum,value,i)=>sum+value*this.motion.last[i],0)<0)for(let i=0;i<4;i++)this.input[i]*=-1;
-  const moving=this.motion.update(this.input,time);
-  const angle=this.target.angleTo(rotation);
-  if(moving){if(angle>this.deadZone*.03)this.target.copy(rotation);this.hasCandidate=false;}
-  else if(angle>this.deadZone){
-   // Keep an anchored target so alternating noise cannot creep the pose.
-   // Interpolation below makes crossing the hold threshold smooth.
-   // Small threshold crossings need a second coherent observation. Isolated
-   // spikes and alternating noise stay anchored; large turns remain immediate.
-   if(angle>this.deadZone*3||(this.hasCandidate&&this.candidate.angleTo(rotation)<=this.deadZone)){
-    this.target.copy(rotation);this.hasCandidate=false;
-   }else{this.candidate.copy(rotation);this.hasCandidate=true;}
-  }else this.hasCandidate=false;
-  this.value.copy(this.filter.update(this.target,time));
+  if(!rotation||!Number.isFinite(time)||!axes.every(axis=>Number.isFinite(rotation[axis]))||rotation.lengthSq()<1e-12||(this.time!==null&&time<=this.time))return this.value.clone();
+  const raw=rotation.clone().normalize();
+  // Equivalent quaternion signs must use the same hemisphere before scalar
+  // filtering. Normalization is representation conversion, not another filter.
+  if(this.raw.dot(raw)<0)raw.set(-raw.x,-raw.y,-raw.z,-raw.w);
+  this.raw.copy(raw);this.time=time;
+  this.value.fromArray(axes.map((axis,i)=>this.filters[i].filter(raw[axis],time/1000))).normalize();
   return this.value.clone();
  }
 }

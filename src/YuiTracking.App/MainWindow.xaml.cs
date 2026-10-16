@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 using System.Reflection;
 using Microsoft.UI.Xaml;
@@ -378,12 +378,6 @@ public sealed partial class MainWindow : Window
                 case "performance":
                     performanceStatus = $" · 描画 {root.GetProperty("renderFps").GetDouble():F0} / 出力 {root.GetProperty("frameFps").GetDouble():F0}fps";
                     App.Log("Frame performance: " + root.GetRawText());
-                    break;
-                case "bodyTrace":
-                    // A short, bounded numeric trace to separate input jitter
-                    // from hold-gate decisions and rendered torso rotation.
-                    if (root.TryGetProperty("samples", out var samples) && samples.ValueKind == JsonValueKind.Array && samples.GetArrayLength() <= 20 && root.GetRawText().Length <= 24000)
-                        App.Log("Body trace: " + root.GetRawText());
                     break;
                 case "framingChanged":
                     var zoom = root.GetProperty("zoom").GetDouble();

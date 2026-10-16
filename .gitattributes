@@ -2,3 +2,6 @@
 *.png binary
 *.ico binary
 *.dll binary
+
+# Preserve the verified upstream source byte for byte.
+renderer/src/vendor/one-euro-filter.js -text
