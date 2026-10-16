@@ -5,7 +5,7 @@ import { bend, clamp, smoothingAlpha, safeTracking, calibratedBlink } from './ri
 import { placeAvatar } from './avatar-placement.js';
 import { avatarHeadRotation } from './head-rotation.js';
 import {bodyPose,relativeBodyPose,avatarBodyRotation} from './body-pose.js';
-import {fingerBones,palmBasis,fingerSegments,captureHandRest} from './hand-rig.js';
+import {fingerBones,palmBasis,fingerSegments,captureHandRest,shoulderWristTarget} from './hand-rig.js';
 import {LandmarkFilter} from './landmark-filter.js';
 import {BodyStabilizer} from './body-stabilizer.js';
 import {AutoCalibration} from './auto-calibration.js';
@@ -338,8 +338,17 @@ function rigHand(side,landmarks,alpha,worldLandmarks=null,poseLandmarks=null){
   lower.quaternion.slerp(restQ,alpha);hand.quaternion.slerp(restQ,alpha);
  }else{
   const wrist=landmarks[0];
-  // Fixed image-to-avatar conversion only; no shoulder-relative correction.
-  const target=new THREE.Vector3((.5-wrist.x)*1.7,1.85-wrist.y*1.5,.20);
+  // Map the observed wrist relative to the person's shoulders, scaled to
+  // this avatar's shoulder span. This changes placement, not noise filtering.
+  let target=null;
+  const leftShoulder=vrm?bone('leftUpperArm'):arms.left?.upper;
+  const rightShoulder=vrm?bone('rightUpperArm'):arms.right?.upper;
+  if(leftShoulder&&rightShoulder){
+   (vrm?.scene??demo).updateWorldMatrix(true,true);
+   const left=leftShoulder.getWorldPosition(new THREE.Vector3()),right=rightShoulder.getWorldPosition(new THREE.Vector3());
+   target=shoulderWristTarget(wrist,poseLandmarks,left.clone().add(right).multiplyScalar(.5),left.distanceTo(right),video?video.videoWidth/video.videoHeight:4/3);
+  }
+  target??=new THREE.Vector3((.5-wrist.x)*1.7,1.85-wrist.y*1.5,.20);
   upper.updateWorldMatrix(true,true);
   const shoulder=upper.getWorldPosition(new THREE.Vector3());
   const l1=shoulder.distanceTo(lower.getWorldPosition(new THREE.Vector3()));
