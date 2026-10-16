@@ -8,7 +8,7 @@ test('recognition timer keeps its cadence independently of rendering and cancels
   let next,interval,cleared=0,detected=0;
   const context={tracking:true,performance:{now:()=>100},detect(){detected++;},setTimeout(fn,ms){next=fn;interval=ms;return 1;},clearTimeout(){cleared++;}};
   runInNewContext(source.slice(source.indexOf('let detectionTimer=null;'),source.indexOf('let lastTrackingReceived')),context);
-  context.scheduleDetection();assert.equal(interval,48);next();assert.equal(detected,1);
+  context.scheduleDetection();assert.equal(interval,16);next();assert.equal(detected,1);
   context.tracking=false;context.scheduleDetection();assert.equal(cleared,1);
 });
 
@@ -36,4 +36,15 @@ for(const failed of [false,true])test('late '+(failed?'failed':'completed')+' ca
  if(failed)reject(new Error('Old camera closed'));else resolve({close(){closed++;}});
  await new Promise(done=>setImmediate(done));
  assert.equal(stopped,0);assert.equal(context.workerBusy,true);assert.equal(closed,failed?0:1);
+});
+
+test('recognition accepts consecutive 30fps camera frames and never queues while busy',async()=>{
+ let frames=0;
+ const context={workerBusy:false,tracking:true,video:{readyState:2,currentTime:1},lastVideoTime:0,lastDetect:0,trackingGeneration:1,
+  createImageBitmap:async()=>({close(){}}),trackingWorker:{postMessage(){frames++;}},stopTracking(){},post(){}};
+ runInNewContext(source.slice(source.indexOf('function detect(now)'),source.indexOf('function calibrateFace')),context);
+ context.detect(100);await Promise.resolve();assert.equal(frames,1);
+ context.video.currentTime=2;context.detect(134);await Promise.resolve();assert.equal(frames,1,'Busy worker must not accumulate frames');
+ context.workerBusy=false;context.detect(134);await Promise.resolve();assert.equal(frames,2,'Next 30fps frame should be eligible');
+ context.workerBusy=false;context.detect(167);await Promise.resolve();assert.equal(frames,2,'Never infer the same camera frame twice');
 });

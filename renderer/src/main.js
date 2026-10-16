@@ -137,7 +137,7 @@ const headStabilizer=new RotationStabilizer();
 const elbowFilters=Array.from({length:4},()=>new LandmarkFilter({minCutoff:1,beta:5}));
 const bodyLean=new BodyLean();
 const trackingPresence=new TrackingPresence();
-const handTransitions=Object.fromEntries(['left','right'].map(side=>[side,new TrackingTransition()]));
+const handTransitions=Object.fromEntries(['left','right'].map(side=>[side,new TrackingTransition({holdMs:600,recoveryMs:150,recoveryRate:20})]));
 const wristDepthFilters=Object.fromEntries(['left','right'].map(side=>[side,new WristDepth()]));
 const elbowTransitions=Object.fromEntries(['left','right'].map(side=>[side,new TrackingTransition()]));
 function resetArmTransitions(){for(const filter of Object.values(wristDepthFilters))filter.reset();for(const transition of [...Object.values(handTransitions),...Object.values(elbowTransitions)])transition.reset();}
@@ -238,7 +238,7 @@ let detectionTimer=null;
 function scheduleDetection(){
  if(detectionTimer!==null)clearTimeout(detectionTimer);
  detectionTimer=null;
- if(tracking)detectionTimer=setTimeout(()=>{detectionTimer=null;detect(performance.now());scheduleDetection();},48);
+ if(tracking)detectionTimer=setTimeout(()=>{detectionTimer=null;detect(performance.now());scheduleDetection();},16);
 }
 let lastTrackingReceived=0,trackingGapMs=0,trackingLatencyMs=0,trackingResults=0;
 async function ensureTasks(){
@@ -315,7 +315,7 @@ function stopTracking(){
  latestFace=latestHands=latestPose=null;bodyNeutral=null;haveFace=false;post('tracking',{active:false});status('カメラ停止中。待機ポーズを表示しています。');
 }
 function detect(now){
- if(workerBusy||!tracking||!video||video.readyState<2||video.currentTime===lastVideoTime||now-lastDetect<48)return;
+ if(workerBusy||!tracking||!video||video.readyState<2||video.currentTime===lastVideoTime||now-lastDetect<24)return;
  lastVideoTime=video.currentTime;lastDetect=now;workerBusy=true;
  const generation=trackingGeneration;
  createImageBitmap(video).then(bitmap=>{

@@ -31,3 +31,15 @@ test('leaving the desk bypasses holding and idle easing has the same elapsed-tim
  });
  assert.ok(Math.abs(remaining[0]-remaining[1])<1e-12);
 });
+
+test('fast-hand policy tolerates repeated short dropouts and quickly resumes without an idle detour',()=>{
+ const hand=new TrackingTransition({holdMs:600,recoveryMs:150,recoveryRate:20});
+ hand.update(true,0,0,1/60,1);
+ assert.equal(hand.update(true,200,200,1/60,1).alpha,1);
+ for(const now of [300,500,700])assert.equal(hand.update(false,undefined,now,1/60,1).mode,'hold');
+ const recovered=hand.update(true,750,750,1/60,1);
+ assert.equal(recovered.mode,'tracked');assert.ok(recovered.alpha>.25&&recovered.alpha<1,'Reacquisition follows quickly while retaining a smooth first frame');
+ assert.equal(hand.update(true,950,950,1/60,1).alpha,1);
+ assert.equal(hand.update(false,undefined,1550,1/60,1).mode,'idle','Genuinely absent hands still return to rest');
+ assert.equal(hand.update(false,undefined,1000,1/60,1,true).mode,'idle','Leaving the desk bypasses the longer hold');
+});
