@@ -4,7 +4,7 @@ import {Vector3} from 'three';
 import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
 import {LandmarkFilter} from '../src/landmark-filter.js';
-import {trackedElbowTarget,elbowPoleDirection} from '../src/hand-rig.js';
+import {trackedElbowTarget,elbowPoleDirection,keepElbowInFront} from '../src/hand-rig.js';
 const point=(x,y,z=0)=>({x,y,z,visibility:1});
 function pose(){
  const p=[];p[11]=point(.3,.5);p[12]=point(.7,.5);
@@ -15,7 +15,7 @@ const center=new Vector3(0,1.2,0);
 
 test('elbows follow matched wrists even when hands cross on screen',()=>{
  const p=pose(),left=trackedElbowTarget(p[15],p,center,.5),right=trackedElbowTarget(p[16],p,center,.5);
- assert.ok(left.x>0&&right.x<0);assert.ok(left.z>.15&&right.z<.15);
+ assert.ok(left.x>0&&right.x<0);assert.equal(left.z,.15);assert.equal(right.z,.15);
  [p[15],p[16]]=[p[16],p[15]];
  assert.ok(trackedElbowTarget(p[15],p,center,.5).distanceTo(left)<1e-12);
  assert.ok(trackedElbowTarget(p[16],p,center,.5).distanceTo(right)<1e-12);
@@ -46,4 +46,20 @@ test('only elbow and pose-wrist observations are filtered and missing arms reset
  const missing=pose();missing[13].visibility=.1;context.stabilizeElbows({landmarks:[missing]},200);
  assert.equal(elbowFilters[0].points,null);
  context.stabilizeElbows({landmarks:[]},300);assert.ok(elbowFilters.every(filter=>filter.points===null));
+});
+
+test('uncertain pose depth does not flip elbows inward behind the shoulder',()=>{
+ const p=pose(),reference=trackedElbowTarget(p[15],p,center,.5);
+ for(const z of [-100,-1,0,1,100]){
+  p[13].z=z;p[15].z=-z;
+  assert.ok(trackedElbowTarget(p[15],p,center,.5).distanceTo(reference)<1e-12);
+ }
+ for(const target of [new Vector3(.1,1,.15),new Vector3(-.1,.8,.15)]){
+  const shoulder=new Vector3(0,1.2,0),dir=target.clone().sub(shoulder).normalize();
+  const along=.2,height=.15;
+  const pole=elbowPoleDirection(new Vector3(0,1,-1),shoulder,dir,1);
+  keepElbowInFront(pole,dir,along,height);
+  const elbow=shoulder.clone().addScaledVector(dir,along).addScaledVector(pole,height);
+  assert.ok(elbow.z>=shoulder.z-1e-10);assert.ok(Math.abs(pole.dot(dir))<1e-10);assert.ok(Math.abs(pole.length()-1)<1e-10);
+ }
 });

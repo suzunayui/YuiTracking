@@ -64,12 +64,12 @@ export function trackedElbowTarget(wrist,pose,center,span,aspect=4/3){
  const candidates=[15,16].filter(i=>visible(pose?.[i])).map(i=>({i,d:Math.hypot((pose[i].x-wrist.x)*aspect,pose[i].y-wrist.y)})).sort((a,b)=>a.d-b.d);
  const match=candidates[0];
  if(!match||match.d>.18)return null;
- const elbow=pose[match.i-2],poseWrist=pose[match.i];
+ const elbow=pose[match.i-2];
  if(!visible(elbow))return null;
  const target=shoulderWristTarget(elbow,pose,center,span,aspect);
  if(!target)return null;
- const width=Math.hypot((pose[12].x-pose[11].x)*aspect,pose[12].y-pose[11].y);
- target.z-=(elbow.z-poseWrist.z)*aspect*Math.min(span/width,3);
+ // Webcam depth can reverse the bend plane. Use the observed screen direction;
+ // the arm solver selects the forward-facing solution instead of inferred Z.
  return target;
 }
 
@@ -82,4 +82,19 @@ export function elbowPoleDirection(elbowTarget,shoulder,armDirection,sign){
   if(pole.lengthSq()<1e-8)pole.crossVectors(armDirection,Math.abs(armDirection.y)<.9?new Vector3(0,1,0):new Vector3(1,0,0));
  }
  return pole.normalize();
+}
+
+export function keepElbowInFront(pole,direction,along,height){
+ // Elbow = shoulder + along * direction + height * pole. Select the closest
+ // point on that bend circle with elbow.z >= shoulder.z when reachable.
+ const front=new Vector3(0,0,1).addScaledVector(direction,-direction.z);
+ const length=front.length();
+ if(height<1e-8||length<1e-8)return pole;
+ front.divideScalar(length);
+ const minimum=Math.max(-1,Math.min(1,-along*direction.z/(height*length)));
+ const dot=pole.dot(front);
+ if(dot>=minimum)return pole;
+ const tangent=pole.clone().addScaledVector(front,-dot);
+ if(tangent.lengthSq()<1e-8)tangent.crossVectors(front,direction);
+ return pole.copy(front).multiplyScalar(minimum).addScaledVector(tangent.normalize(),Math.sqrt(Math.max(0,1-minimum*minimum))).normalize();
 }

@@ -6,7 +6,7 @@ import { placeAvatar } from './avatar-placement.js';
 import { avatarHeadRotation } from './head-rotation.js';
 import {linkedBodyRotation,headRotationInRoot,applyLinkedHeadRotation} from './head-linked-body.js';
 import {bodyPose,relativeBodyPose,avatarBodyRotation} from './body-pose.js';
-import {fingerBones,palmBasis,fingerSegments,captureHandRest,shoulderWristTarget,trackedElbowTarget,elbowPoleDirection} from './hand-rig.js';
+import {fingerBones,palmBasis,fingerSegments,captureHandRest,shoulderWristTarget,trackedElbowTarget,elbowPoleDirection,keepElbowInFront} from './hand-rig.js';
 import {LandmarkFilter} from './landmark-filter.js';
 import {BodyStabilizer} from './body-stabilizer.js';
 import {AutoCalibration} from './auto-calibration.js';
@@ -377,18 +377,27 @@ function rigHand(side,landmarks,alpha,worldLandmarks=null,poseLandmarks=null){
   const shoulder=upper.getWorldPosition(new THREE.Vector3());
   const l1=shoulder.distanceTo(lower.getWorldPosition(new THREE.Vector3()));
   const l2=lower.getWorldPosition(new THREE.Vector3()).distanceTo(hand.getWorldPosition(new THREE.Vector3()));
-  const dir=target.clone().sub(shoulder);const d=clamp(dir.length(),Math.abs(l1-l2)+.01,l1+l2-.01);dir.normalize();
+  const previousHandRotation=hand.getWorldQuaternion(new THREE.Quaternion());
+  // Smooth the wrist in position space first, then solve the complete arm.
+  // Independently slerping upper/lower joints makes elbow changes pull the wrist.
+  const displayedTarget=hand.getWorldPosition(new THREE.Vector3()).lerp(target,alpha);
+  const dir=displayedTarget.sub(shoulder);const d=clamp(dir.length(),Math.abs(l1-l2)+.01,l1+l2-.01);dir.normalize();
   const along=(l1*l1-l2*l2+d*d)/(2*d);
   const pole=elbowPoleDirection(elbowTarget,shoulder,dir,sign);
-  const elbow=shoulder.clone().addScaledVector(dir,along).addScaledVector(pole,Math.sqrt(Math.max(0,l1*l1-along*along)));
-  aim(upper,lower,elbow,alpha);upper.updateWorldMatrix(true,true);aim(lower,hand,shoulder.clone().addScaledVector(dir,d),alpha);
+  const currentPole=elbowPoleDirection(lower.getWorldPosition(new THREE.Vector3()),shoulder,dir,sign);
+  const turn=new THREE.Quaternion().setFromUnitVectors(currentPole,pole);
+  pole.copy(currentPole.applyQuaternion(new THREE.Quaternion().slerp(turn,alpha)));
+  const height=Math.sqrt(Math.max(0,l1*l1-along*along));
+  if(elbowTarget)keepElbowInFront(pole,dir,along,height);
+  const elbow=shoulder.clone().addScaledVector(dir,along).addScaledVector(pole,height);
+  aim(upper,lower,elbow,1);upper.updateWorldMatrix(true,true);aim(lower,hand,shoulder.clone().addScaledVector(dir,d),1);
   if(vrm&&worldLandmarks&&handRest[side]){
    const palm=palmBasis(worldLandmarks),rest=handRest[side];
    if(palm&&rest.palm){
     hand.parent.updateWorldMatrix(true,false);
     const worldTarget=palm.multiply(rest.palm.clone().invert());
     const parentRotation=hand.parent.getWorldQuaternion(new THREE.Quaternion());
-    hand.quaternion.slerp(parentRotation.invert().multiply(worldTarget),alpha);
+    hand.quaternion.copy(parentRotation.invert().multiply(previousHandRotation.slerp(worldTarget,alpha)));
    }
   }
  }
