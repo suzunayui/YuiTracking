@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
 import * as THREE from 'three';
 import {clamp,bend} from '../src/rig-math.js';
+import {TrackingTransition} from '../src/tracking-transition.js';
 import {fingerBones,palmBasis,fingerSegments,shoulderWristTarget,trackedElbowTarget,elbowPoleDirection,keepElbowInFront} from '../src/hand-rig.js';
 
 test('hand rendering reaches the shoulder-relative target and falls back only when pose shoulders are unavailable',()=>{
@@ -89,5 +90,41 @@ test('elbow changes with render smoothing do not pull a stationary wrist away fr
    assert.ok(error<1e-6,`Stationary wrist drifted ${error}m with alpha=${alpha}`);
    assert.ok(nodes[side+'LowerArm'].getWorldPosition(new THREE.Vector3()).z>=-1e-8);
   }
+ }
+});
+
+test('elbow loss and reappearance preserve wrist position and ease the bend instead of switching instantly',()=>{
+ const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
+ for(const side of ['left','right']){
+  const scene=new THREE.Group(),nodes={};
+  for(const [name,sign]of [['left',1],['right',-1]]){
+   const upper=new THREE.Bone(),lower=new THREE.Bone(),hand=new THREE.Bone();
+   upper.position.set(sign*.25,1.2,0);lower.position.x=sign*.27;hand.position.x=sign*.23;
+   scene.add(upper);upper.add(lower);lower.add(hand);
+   nodes[name+'UpperArm']=upper;nodes[name+'LowerArm']=lower;nodes[name+'Hand']=hand;
+  }
+  const landmarks=Array.from({length:21},()=>({x:.5,y:.2,z:0})),pose=[];
+  pose[11]={x:.3,y:.5,z:0,visibility:1};pose[12]={x:.7,y:.5,z:0,visibility:1};
+  pose[13]={x:.25,y:.3,z:0,visibility:1};pose[15]={x:.5,y:.2,z:0,visibility:1};pose[16]={x:.85,y:.7,z:0,visibility:1};
+  const elbowTransitions={left:new TrackingTransition(),right:new TrackingTransition()};
+  const context={THREE,clamp,bend,palmBasis,fingerSegments,fingerBones,shoulderWristTarget,trackedElbowTarget,elbowPoleDirection,keepElbowInFront,elbowTransitions,video:null,handRest:{},
+   vrm:{scene,humanoid:{getNormalizedBoneNode:name=>nodes[name]}}};
+  runInNewContext(source.slice(source.indexOf('function bone('),source.indexOf('function animate(')),context);
+  const step=now=>context.rigHand(side,landmarks,1,null,pose,{now,dt:1/60,poseTime:now});
+  const target=shoulderWristTarget(landmarks[0],pose,new THREE.Vector3(0,1.2,0),.5);
+  for(let i=0;i<=60;i++)step(i*1000/60);
+  const before=nodes[side+'LowerArm'].getWorldPosition(new THREE.Vector3());
+  pose[13].visibility=0;step(1100);
+  assert.ok(nodes[side+'LowerArm'].getWorldPosition(new THREE.Vector3()).distanceTo(before)<1e-7,'Brief elbow loss holds its bend');
+  for(let i=1;i<=100;i++){
+   step(1100+i*1000/60);
+   assert.ok(nodes[side+'Hand'].getWorldPosition(new THREE.Vector3()).distanceTo(target)<1e-6);
+  }
+  const relaxed=nodes[side+'LowerArm'].getWorldPosition(new THREE.Vector3());
+  assert.ok(relaxed.distanceTo(before)>.01,'Sustained elbow loss relaxes the bend');
+  pose[13]={x:.7,y:.55,z:0,visibility:1};step(2800);
+  const recovered=nodes[side+'LowerArm'].getWorldPosition(new THREE.Vector3());
+  assert.ok(recovered.distanceTo(relaxed)<.08,'Reacquisition must not snap to the new bend');
+  assert.ok(nodes[side+'Hand'].getWorldPosition(new THREE.Vector3()).distanceTo(target)<1e-6);
  }
 });

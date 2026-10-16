@@ -16,7 +16,8 @@ function fixture(smoothing=0){
  const nodes=Object.fromEntries(['spine','chest','upperChest','head'].map(name=>[name,new THREE.Object3D()]));
  const root=new THREE.Object3D();root.add(nodes.spine);nodes.spine.add(nodes.chest);nodes.chest.add(nodes.upperChest);nodes.upperChest.add(nodes.head);
  let rigUpdates=0,expressionUpdates=0,springUpdates=0;const order=[];
- const context={THREE,clamp,trackingPresence:{isAway:()=>false},smoothing,bodyFromHead:false,bodyLeanEnabled:true,bodyLean:{value:0,update(){}},linkedBodyRotation,headRotationInRoot,applyLinkedHeadRotation,smoothingAlpha,latestPose:{result:{worldLandmarks:[[]]},time:0},latestFace:null,latestHands:null,
+ const transition={update:(detected,time,now,dt,alpha)=>({mode:detected?'tracked':'idle',alpha}),reset(){}};
+ const context={THREE,clamp,handTransitions:{left:transition,right:transition},elbowTransitions:{left:transition,right:transition},trackingPresence:{isAway:()=>false},smoothing,bodyFromHead:false,bodyLeanEnabled:true,bodyLean:{value:0,update(){}},linkedBodyRotation,headRotationInRoot,applyLinkedHeadRotation,smoothingAlpha,latestPose:{result:{worldLandmarks:[[]]},time:0},latestFace:null,latestHands:null,
   safeTracking:value=>!!value,bodyPose:()=>body,relativeBodyPose,bodyNeutral:null,bodyStabilizer:{update:value=>value},avatarBodyRotation,avatarHeadRotation,
   headStabilizer:{value:head},bone:name=>nodes[name],mouthShapes:()=>({aa:0}),mouthSensitivity:1,mouthOpenStrength:1,
   blinkBaseline:{left:0,right:0},calibratedBlink:value=>value,

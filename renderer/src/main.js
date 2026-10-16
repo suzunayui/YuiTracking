@@ -14,6 +14,7 @@ import {mouthShapes} from './mouth-shapes.js';
 import {RotationStabilizer} from './rotation-stabilizer.js';
 import {BodyLean} from './body-lean.js';
 import {TrackingPresence} from './tracking-presence.js';
+import {TrackingTransition} from './tracking-transition.js';
 import {SpringStrength} from './spring-strength.js';
 import {browserCameraId} from './camera-selection.js';
 import {AvatarBackground} from './background.js';
@@ -135,6 +136,9 @@ const headStabilizer=new RotationStabilizer();
 const elbowFilters=Array.from({length:4},()=>new LandmarkFilter({minCutoff:1,beta:5}));
 const bodyLean=new BodyLean();
 const trackingPresence=new TrackingPresence();
+const handTransitions=Object.fromEntries(['left','right'].map(side=>[side,new TrackingTransition()]));
+const elbowTransitions=Object.fromEntries(['left','right'].map(side=>[side,new TrackingTransition()]));
+function resetArmTransitions(){for(const transition of [...Object.values(handTransitions),...Object.values(elbowTransitions)])transition.reset();}
 let handRest={};
 let mouthMorphBinds=[];
 const handFilters=Object.fromEntries(['Left','Right'].map(side=>[side,{screen:new LandmarkFilter({minCutoff:1,beta:5}),world:new LandmarkFilter({minCutoff:1,beta:5})}]));
@@ -168,7 +172,7 @@ function disposeAvatarScene(avatarScene){
  for(const image of images)image?.close?.();
 }
 function removeAvatar() {
- mouthMorphBinds=[];springControl=null;
+ mouthMorphBinds=[];springControl=null;resetArmTransitions();
  if(vrm){scene.remove(vrm.scene);disposeAvatarScene(vrm.scene);vrm=null;}
  if(demo){scene.remove(demo);demo.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});demo=null;}
  head=null;eyes=[];arms={};handRest={};renderer.renderLists.dispose();
@@ -293,13 +297,13 @@ async function startTracking(deviceId,cameraLabel){
   await video.play(); await listCameras();
   const input=track.getSettings();post('cameraInput',{deviceId:input.deviceId,width:input.width??video.videoWidth,height:input.height??video.videoHeight,fps:input.frameRate??0});
   track.onended=()=>{stopTracking();status('カメラが切断されました。待機ポーズに戻ります。');};
-  lastHandDetection=-1;lastTrackingReceived=0;trackingGapMs=trackingLatencyMs=trackingResults=0;tracking=true;restartRenderLoop();scheduleDetection();lastVideoTime=-1;lastPoseDetect=0;bodyNeutral=null;bodyLean.reset();trackingPresence.reset();calibration.identity();blinkBaseline={left:0,right:0};autoCalibration.start(performance.now());post('tracking',{active:true});status('正面を向いて目を開けてください。顔の検出が安定すると一度だけ自動でキャリブレーションします。');
+  lastHandDetection=-1;lastTrackingReceived=0;trackingGapMs=trackingLatencyMs=trackingResults=0;tracking=true;restartRenderLoop();scheduleDetection();lastVideoTime=-1;lastPoseDetect=0;bodyNeutral=null;bodyLean.reset();trackingPresence.reset();resetArmTransitions();calibration.identity();blinkBaseline={left:0,right:0};autoCalibration.start(performance.now());post('tracking',{active:true});status('正面を向いて目を開けてください。顔の検出が安定すると一度だけ自動でキャリブレーションします。');
  }catch(e){stopTracking();post('error',{text:'カメラを開始できません：'+e.message});}
  finally{initializing=false;}
 }
 function stopTracking(){
  autoCalibration.stop();
- bodyStabilizer.reset();headStabilizer.reset();bodyLean.reset();trackingPresence.reset();
+ bodyStabilizer.reset();headStabilizer.reset();bodyLean.reset();trackingPresence.reset();resetArmTransitions();
  for(const filter of elbowFilters)filter.reset();
  for(const filter of Object.values(handFilters)){filter.screen.reset();filter.world.reset();}
  trackingGeneration++;tracking=false;scheduleDetection();restartRenderLoop();stream?.getTracks().forEach(t=>{t.onended=null;t.stop();});stream=null;
@@ -324,7 +328,7 @@ function calibrateFace(automatic=false){
     autoCalibration.stop();
     const pose=safeTracking(latestPose,performance.now())?bodyPose(latestPose.result.worldLandmarks?.[0]):null;
     bodyNeutral=pose?{...pose}:null;
-    bodyStabilizer.reset();headStabilizer.reset();bodyLean.calibrate(matrix,latestFace.time);
+    bodyStabilizer.reset();headStabilizer.reset();bodyLean.calibrate(matrix,latestFace.time);resetArmTransitions();
     for(const filter of elbowFilters)filter.reset();
     const weights=Object.fromEntries((latestFace.result.faceBlendshapes?.[0]?.categories??[]).map(c=>[c.categoryName,c.score]));
     blinkBaseline={left:clamp(weights.eyeBlinkLeft??0,0,.95),right:clamp(weights.eyeBlinkRight??0,0,.95)};
@@ -346,7 +350,7 @@ function aim(node,child,target,alpha){
  const direction=child.position.clone().normalize();
  if(direction.lengthSq()>.1)node.quaternion.slerp(new THREE.Quaternion().setFromUnitVectors(direction,localTarget),alpha);
 }
-function rigHand(side,landmarks,alpha,worldLandmarks=null,poseLandmarks=null){
+function rigHand(side,landmarks,alpha,worldLandmarks=null,poseLandmarks=null,recovery=null){
  const sign=side==='left'?1:-1;
  const upper=vrm?bone(side+'UpperArm'):arms[side].upper;
  const lower=vrm?bone(side+'LowerArm'):arms[side].lower;
@@ -384,12 +388,17 @@ function rigHand(side,landmarks,alpha,worldLandmarks=null,poseLandmarks=null){
   const displayedTarget=hand.getWorldPosition(new THREE.Vector3()).lerp(target,alpha);
   const dir=displayedTarget.sub(shoulder);const d=clamp(dir.length(),Math.abs(l1-l2)+.01,l1+l2-.01);dir.normalize();
   const along=(l1*l1-l2*l2+d*d)/(2*d);
-  const pole=elbowPoleDirection(elbowTarget,shoulder,dir,sign);
   const currentPole=elbowPoleDirection(lower.getWorldPosition(new THREE.Vector3()),shoulder,dir,sign);
+  const elbowTransition=recovery?elbowTransitions[side].update(!!elbowTarget,recovery.poseTime,recovery.now,recovery.dt,alpha):{mode:'tracked',alpha};
+  // A brief missing elbow holds the bend plane. Sustained loss relaxes it
+  // toward a forward-facing bend, while the wrist continues following the hand.
+  const trackedElbow=elbowTransition.mode==='tracked'?elbowTarget:null;
+  const relaxed=recovery&&!trackedElbow?shoulder.clone().add(new THREE.Vector3(sign*.4,-1,.2)):null;
+  const pole=elbowTransition.mode==='hold'?currentPole.clone():elbowPoleDirection(trackedElbow??relaxed,shoulder,dir,sign);
   const turn=new THREE.Quaternion().setFromUnitVectors(currentPole,pole);
-  pole.copy(currentPole.applyQuaternion(new THREE.Quaternion().slerp(turn,alpha)));
+  pole.copy(currentPole.applyQuaternion(new THREE.Quaternion().slerp(turn,elbowTransition.alpha)));
   const height=Math.sqrt(Math.max(0,l1*l1-along*along));
-  if(elbowTarget)keepElbowInFront(pole,dir,along,height);
+  if(elbowTarget||recovery)keepElbowInFront(pole,dir,along,height);
   const elbow=shoulder.clone().addScaledVector(dir,along).addScaledVector(pole,height);
   aim(upper,lower,elbow,1);upper.updateWorldMatrix(true,true);aim(lower,hand,shoulder.clone().addScaledVector(dir,d),1);
   if(vrm&&worldLandmarks&&handRest[side]){
@@ -478,7 +487,10 @@ function animate(now,dt){
   const label=side==='left'?'Right':'Left';
   const index=hands?.handedness?.findIndex(h=>h[0]?.categoryName===label)??-1;
   const sample=index>=0?{landmarks:hands.landmarks[index],worldLandmarks:hands.worldLandmarks?.[index],time:latestHands.time,receivedAt:latestHands.receivedAt}:null;
-  rigHand(side,sample?.landmarks??null,alpha,sample?.worldLandmarks??null,poseLandmarks);
+  const transition=handTransitions[side].update(!!sample,sample?.time,now,dt,alpha,away);
+  const active=transition.mode==='tracked'?sample:null;
+  if(transition.mode==='idle')elbowTransitions[side].reset();
+  rigHand(side,active?.landmarks??null,transition.alpha,active?.worldLandmarks??null,poseLandmarks,{now,dt,poseTime:latestPose?.time});
  }
  // Strength also enlarges the model's morphs; detector weights alone cap at 1.
  const morphScale=mouthOpenStrength;
