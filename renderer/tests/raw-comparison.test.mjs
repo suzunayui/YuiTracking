@@ -17,7 +17,7 @@ function fixture(smoothing=0){
  const root=new THREE.Object3D();root.add(nodes.spine);nodes.spine.add(nodes.chest);nodes.chest.add(nodes.upperChest);nodes.upperChest.add(nodes.head);
  let rigUpdates=0,expressionUpdates=0,springUpdates=0;const order=[];
  const transition={update:(detected,time,now,dt,alpha)=>({mode:detected?'tracked':'idle',alpha}),reset(){}};
- const context={THREE,clamp,wristDepthFilters:{left:{reset(){}},right:{reset(){}}},handTransitions:{left:transition,right:transition},elbowTransitions:{left:transition,right:transition},trackingPresence:{isAway:()=>false},smoothing,bodyFromHead:false,bodyLeanEnabled:true,bodyLean:{value:0,update(){}},linkedBodyRotation,headRotationInRoot,applyLinkedHeadRotation,smoothingAlpha,latestPose:{result:{worldLandmarks:[[]]},time:0},latestFace:null,latestHands:null,
+ const context={THREE,clamp,sensitivity:1,wristDepthFilters:{left:{reset(){}},right:{reset(){}}},handTransitions:{left:transition,right:transition},elbowTransitions:{left:transition,right:transition},trackingPresence:{isAway:()=>false},smoothing,bodyFromHead:false,bodyLeanEnabled:true,bodyLean:{value:0,update(){}},linkedBodyRotation,headRotationInRoot,applyLinkedHeadRotation,smoothingAlpha,latestPose:{result:{worldLandmarks:[[]]},time:0},latestFace:null,latestHands:null,
   safeTracking:value=>!!value,bodyPose:()=>body,relativeBodyPose,bodyNeutral:null,bodyStabilizer:{update:value=>value},avatarBodyRotation,avatarHeadRotation,
   headStabilizer:{value:head},bone:name=>nodes[name],mouthShapes:()=>({aa:0}),mouthSensitivity:1,mouthOpenStrength:1,
   blinkBaseline:{left:0,right:0},calibratedBlink:value=>value,
@@ -147,4 +147,15 @@ test('sustained face loss returns head, body and hands smoothly to idle in both 
   assert.ok(nodes.spine.quaternion.angleTo(new THREE.Quaternion())<.001);
   assert.ok(headRotationInRoot(nodes.head,context.vrm.humanoid.normalizedHumanBonesRoot).angleTo(new THREE.Quaternion())<.001);
  }
+});
+
+test('face strength changes displayed head rotation while body response stays unchanged',()=>{
+ const bodies=[];
+ for(const gain of [.5,1,2]){
+  const {context,nodes,head}=fixture(0);context.bodyFromHead=true;context.sensitivity=gain;
+  context.animate(0,1/60);bodies.push(nodes.spine.quaternion.clone());
+  const displayed=headRotationInRoot(nodes.head,context.vrm.humanoid.normalizedHumanBonesRoot);
+  assert.ok(displayed.angleTo(avatarHeadRotation(head,gain,new THREE.Quaternion()))<1e-7);
+ }
+ assert.ok(bodies[0].angleTo(bodies[1])<1e-7&&bodies[1].angleTo(bodies[2])<1e-7);
 });

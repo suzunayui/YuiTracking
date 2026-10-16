@@ -127,7 +127,7 @@ const key=new THREE.DirectionalLight(0xffffff,Math.PI*.85); key.position.set(1,3
 let vrm=null,demo=null,head=null,eyes=[],arms={},loading=false,privacy=false,output=false;
 const bodyFromHead=true,bodyLeanEnabled=true;
 let springStrength=1,springControl=null;
-let smoothing=.65,mouthOpenStrength=1,mouthSensitivity=1.8,tracking=false,video,stream,initializing=false;
+let smoothing=.65,sensitivity=1,mouthOpenStrength=1,mouthSensitivity=1.8,tracking=false,video,stream,initializing=false;
 let latestFace=null,latestHands=null,frameNumber=0,lastVideoTime=-1,lastDetect=0,lastRender=0;
 let calibration=new THREE.Quaternion(),rawHead=new THREE.Quaternion(),haveFace=false;
 let blinkBaseline={left:0,right:0};
@@ -458,19 +458,20 @@ function animate(now,dt){
  const mat=face?.facialTransformationMatrixes?.[0]?.data;
  const away=trackingPresence.isAway(!!mat,latestFace?.time,now);
  if(away)alpha=1-Math.exp(-3*clamp(dt,0,.1));
- const target=avatarHeadRotation(headStabilizer.value,1,basis);haveFace=!!mat;
+ const target=avatarHeadRotation(headStabilizer.value,sensitivity,basis);haveFace=!!mat;
  if(mat){
   rawHead.setFromRotationMatrix(new THREE.Matrix4().fromArray(mat));
   const relative=calibration.clone().invert().multiply(rawHead);
-  target.copy(avatarHeadRotation(headStabilizer.update(relative,latestFace.time),1,basis));
+  target.copy(avatarHeadRotation(headStabilizer.update(relative,latestFace.time),sensitivity,basis));
   bodyLean.update(mat,latestFace.time);
  }
- if(away)target.identity();
+ const bodyHeadTarget=avatarHeadRotation(headStabilizer.value,1,basis);
+ if(away){target.identity();bodyHeadTarget.identity();}
  // Linked mode reads only the calibrated, One Euro filtered head rotation.
  // Pose landmarks remain available to the existing shoulder-relative hand IK.
  const pose=!bodyFromHead&&safeTracking(latestPose,now)?bodyPose(latestPose.result.worldLandmarks?.[0]):null;
  const body=bodyFromHead?null:bodyStabilizer.update(pose?relativeBodyPose(pose,bodyNeutral):null,latestPose?.time,now);
- const bodyTarget=away?new THREE.Quaternion():bodyFromHead?linkedBodyRotation(target,bodyLeanEnabled?bodyLean.value:0,basis):avatarBodyRotation(body,basis);
+ const bodyTarget=away?new THREE.Quaternion():bodyFromHead?linkedBodyRotation(bodyHeadTarget,bodyLeanEnabled?bodyLean.value:0,basis):avatarBodyRotation(body,basis);
  const headNode=vrm?bone('head'):head;
  const rigRoot=vrm?vrm.humanoid.normalizedHumanBonesRoot:scene;
  const previousHead=bodyFromHead&&headNode?headRotationInRoot(headNode,rigRoot):null;
@@ -586,7 +587,7 @@ host?.addEventListener('message',async e=>{
    try{if(await avatarBackground.set(m))post('backgroundLoaded',{requestId:m.requestId});}
    catch(err){post('backgroundFailed',{requestId:m.requestId,text:'背景画像を読み込めませんでした。'});}
    break;
-  case'settings':if(Number.isFinite(m.springStrength)){springStrength=clamp(m.springStrength,.3,5);springControl?.setStrength(springStrength);}smoothing=clamp(m.smoothing??.65,0,.95);mouthOpenStrength=clamp(m.mouthOpenStrength??1,.5,3);mouthSensitivity=clamp(m.mouthSensitivity??1.8,.5,3);break;
+  case'settings':if(Number.isFinite(m.sensitivity))sensitivity=clamp(m.sensitivity,.3,2);if(Number.isFinite(m.springStrength)){springStrength=clamp(m.springStrength,.3,5);springControl?.setStrength(springStrength);}smoothing=clamp(m.smoothing??.65,0,.95);mouthOpenStrength=clamp(m.mouthOpenStrength??1,.5,3);mouthSensitivity=clamp(m.mouthSensitivity??1.8,.5,3);break;
   case'privacy':privacy=!!m.value;break;
   case'output':output=!!m.value;restartRenderLoop();break;
  }

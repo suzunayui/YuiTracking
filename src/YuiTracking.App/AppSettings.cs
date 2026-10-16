@@ -40,6 +40,10 @@ internal static class AppSettings
     {
         var settings = Read(); settings["virtualCameraEnabled"] = enabled; Save(settings);
     }
+    public static double FaceSensitivity
+    {
+        get { var value = Read()["sensitivity"]?.GetValue<double>() ?? 1; return double.IsFinite(value) ? Math.Clamp(value, .3, 2) : 1; }
+    }
     public static double MouthOpenStrength
     {
         get
@@ -53,10 +57,10 @@ internal static class AppSettings
     {
         get { var settings = Read(); var value = settings["mouthSensitivity"]?.GetValue<double>() ?? settings["mouthOpenStrength"]?.GetValue<double>() ?? 1.8; return double.IsFinite(value) ? Math.Clamp(value, .5, 3) : 1.8; }
     }
-    public static void SaveMouthSettings(double opening, double sensitivity)
+    public static void SaveMouthSettings(double opening, double sensitivity, double faceSensitivity)
     {
-        if (!double.IsFinite(opening) || !double.IsFinite(sensitivity)) return;
-        var settings = Read(); settings["mouthOpenStrength"] = Math.Clamp(opening, .5, 3); settings["mouthSensitivity"] = Math.Clamp(sensitivity, .5, 3); Save(settings);
+        if (!double.IsFinite(opening) || !double.IsFinite(sensitivity) || !double.IsFinite(faceSensitivity)) return;
+        var settings = Read(); settings["mouthOpenStrength"] = Math.Clamp(opening, .5, 3); settings["mouthSensitivity"] = Math.Clamp(sensitivity, .5, 3); settings["sensitivity"] = Math.Clamp(faceSensitivity, .3, 2); Save(settings);
     }
     public record Framing(double Zoom, double X, double Y, double Z, double? TargetX = null, double? TargetY = null, double? TargetZ = null);
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
