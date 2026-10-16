@@ -6,15 +6,14 @@ export class BodyTrace {
  constructor(send){this.send=send;this.active=false;this.rows=[];}
  start(now){this.active=true;this.started=now;this.lastTime=null;this.lastMissing=-Infinity;this.rows=[];}
  flush(){if(this.rows.length){this.send({units:'radians',samples:this.rows});this.rows=[];}}
- observe(time,now,raw,relative,filtered,target,render,motion){
+ observe(time,now,raw,relative,filtered,target,render){
   if(!this.active)return;
   if(now-this.started>=20000){this.flush();this.active=false;return;}
   if(raw){if(time===this.lastTime)return;this.lastTime=time;}
   else{if(now-this.lastMissing<100)return;this.lastMissing=now;}
   this.rows.push({ms:Math.round(now-this.started),ageMs:Number.isFinite(time)?Math.round(now-time):null,
    raw:angles(raw),relative:angles(relative),filtered:angles(filtered),target:angles(target),
-   render:['x','y','z','w'].map(axis=>rounded(render[axis])),
-   yawIntent:{count:motion.count,moving:time<motion.until}});
+   render:['x','y','z','w'].map(axis=>rounded(render[axis]))});
   if(this.rows.length>=20)this.flush();
  }
 }

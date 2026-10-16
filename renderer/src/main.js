@@ -414,11 +414,11 @@ function animate(now,dt){
  if(vrm){
   const torso=['spine','chest','upperChest'].map(bone).filter(Boolean);
   for(const node of torso){
-   dampRotation(node,new THREE.Quaternion().slerp(bodyTarget,1/torso.length),dt);
+   node.quaternion.slerp(new THREE.Quaternion().slerp(bodyTarget,1/torso.length),alpha);
    bodyActual.multiply(node.quaternion);
   }
- }else if(demo){dampRotation(demo,bodyTarget,dt);bodyActual.copy(demo.quaternion);}
- if(tracking)bodyTrace.observe(latestPose?.time,now,pose,relativeBody,body,bodyStabilizer.target,bodyActual,bodyStabilizer.motion.yaw);
+ }else if(demo){demo.quaternion.slerp(bodyTarget,alpha);bodyActual.copy(demo.quaternion);}
+ if(tracking)bodyTrace.observe(latestPose?.time,now,pose,relativeBody,body,bodyStabilizer.target,bodyActual);
  const face=safeTracking(latestFace,now)?latestFace.result:null;
  const categories=face?.faceBlendshapes?.[0]?.categories??[];
  const weights=Object.fromEntries(categories.map(c=>[c.categoryName,c.score]));
