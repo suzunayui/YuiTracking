@@ -12,6 +12,8 @@ import {BodyStabilizer} from './body-stabilizer.js';
 import {AutoCalibration} from './auto-calibration.js';
 import {mouthShapes} from './mouth-shapes.js';
 import {RotationStabilizer} from './rotation-stabilizer.js';
+import {BodyLean} from './body-lean.js';
+import {SpringStrength} from './spring-strength.js';
 import {browserCameraId} from './camera-selection.js';
 import {AvatarBackground} from './background.js';
 import {FrameCapture} from './frame-capture.js';
@@ -118,7 +120,7 @@ renderer.domElement.addEventListener('wheel',event=>{
 scene.add(new THREE.HemisphereLight(0xffffff,0xffffff,.35));
 const key=new THREE.DirectionalLight(0xffffff,Math.PI*.85); key.position.set(1,3,3); scene.add(key);
 let vrm=null,demo=null,head=null,eyes=[],arms={},loading=false,privacy=false,output=false;
-let bodyFromHead=true;
+let bodyFromHead=true,bodyLeanEnabled=true,springStrength=1,springControl=null;
 let smoothing=.65,mouthOpenStrength=1,mouthSensitivity=1.8,tracking=false,video,stream,initializing=false;
 let latestFace=null,latestHands=null,frameNumber=0,lastVideoTime=-1,lastDetect=0,lastRender=0;
 let calibration=new THREE.Quaternion(),rawHead=new THREE.Quaternion(),haveFace=false;
@@ -128,6 +130,7 @@ let latestPose=null,lastPoseDetect=0,bodyNeutral=null;
 let lastHandDetection=-1;
 const bodyStabilizer=new BodyStabilizer();
 const headStabilizer=new RotationStabilizer();
+const bodyLean=new BodyLean();
 let handRest={};
 let mouthMorphBinds=[];
 const handFilters=Object.fromEntries(['Left','Right'].map(side=>[side,{screen:new LandmarkFilter({minCutoff:1,beta:5}),world:new LandmarkFilter({minCutoff:1,beta:5})}]));
@@ -161,7 +164,7 @@ function disposeAvatarScene(avatarScene){
  for(const image of images)image?.close?.();
 }
 function removeAvatar() {
- mouthMorphBinds=[];
+ mouthMorphBinds=[];springControl=null;
  if(vrm){scene.remove(vrm.scene);disposeAvatarScene(vrm.scene);vrm=null;}
  if(demo){scene.remove(demo);demo.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});demo=null;}
  head=null;eyes=[];arms={};handRest={};renderer.renderLists.dispose();
@@ -208,6 +211,7 @@ async function loadModel(requestId){
   removeAvatar();vrm=next;VRMUtils.rotateVRM0(vrm);scene.add(vrm.scene);
   mouthMorphBinds=['aa','ih','ou','ee','oh'].flatMap(name=>(vrm.expressionManager?.getExpression(name)?.binds??[]).filter(bind=>bind.primitives&&Number.isInteger(bind.index)).map(bind=>({bind,baseWeight:bind.weight})));
   placeAvatar(vrm);
+  springControl=new SpringStrength(vrm.springBoneManager);springControl.setStrength(springStrength);
   handRest={};
   for(const side of ['left','right']){
    const hand=bone(side+'Hand');if(!hand)continue;
@@ -274,13 +278,13 @@ async function startTracking(deviceId,cameraLabel){
   await video.play(); await listCameras();
   const input=track.getSettings();post('cameraInput',{deviceId:input.deviceId,width:input.width??video.videoWidth,height:input.height??video.videoHeight,fps:input.frameRate??0});
   track.onended=()=>{stopTracking();status('カメラが切断されました。待機ポーズに戻ります。');};
-  lastHandDetection=-1;lastTrackingReceived=0;trackingGapMs=trackingLatencyMs=trackingResults=0;tracking=true;restartRenderLoop();scheduleDetection();lastVideoTime=-1;lastPoseDetect=0;bodyNeutral=null;calibration.identity();blinkBaseline={left:0,right:0};autoCalibration.start(performance.now());post('tracking',{active:true});status('正面を向いて目を開けてください。顔の検出が安定すると一度だけ自動でキャリブレーションします。');
+  lastHandDetection=-1;lastTrackingReceived=0;trackingGapMs=trackingLatencyMs=trackingResults=0;tracking=true;restartRenderLoop();scheduleDetection();lastVideoTime=-1;lastPoseDetect=0;bodyNeutral=null;bodyLean.reset();calibration.identity();blinkBaseline={left:0,right:0};autoCalibration.start(performance.now());post('tracking',{active:true});status('正面を向いて目を開けてください。顔の検出が安定すると一度だけ自動でキャリブレーションします。');
  }catch(e){stopTracking();post('error',{text:'カメラを開始できません：'+e.message});}
  finally{initializing=false;}
 }
 function stopTracking(){
  autoCalibration.stop();
- bodyStabilizer.reset();headStabilizer.reset();
+ bodyStabilizer.reset();headStabilizer.reset();bodyLean.reset();
  for(const filter of Object.values(handFilters)){filter.screen.reset();filter.world.reset();}
  trackingGeneration++;tracking=false;scheduleDetection();restartRenderLoop();stream?.getTracks().forEach(t=>{t.onended=null;t.stop();});stream=null;
  // Stopped tracking should release all three WASM recognition engines.
@@ -304,7 +308,7 @@ function calibrateFace(automatic=false){
     autoCalibration.stop();
     const pose=safeTracking(latestPose,performance.now())?bodyPose(latestPose.result.worldLandmarks?.[0]):null;
     bodyNeutral=pose?{...pose}:null;
-    bodyStabilizer.reset();headStabilizer.reset();
+    bodyStabilizer.reset();headStabilizer.reset();bodyLean.calibrate(matrix,latestFace.time);
     const weights=Object.fromEntries((latestFace.result.faceBlendshapes?.[0]?.categories??[]).map(c=>[c.categoryName,c.score]));
     blinkBaseline={left:clamp(weights.eyeBlinkLeft??0,0,.95),right:clamp(weights.eyeBlinkRight??0,0,.95)};
     if(vrm){vrm.expressionManager?.setValue('blinkLeft',0);vrm.expressionManager?.setValue('blinkRight',0);}
@@ -406,12 +410,13 @@ function animate(now,dt){
   rawHead.setFromRotationMatrix(new THREE.Matrix4().fromArray(mat));
   const relative=calibration.clone().invert().multiply(rawHead);
   target.copy(avatarHeadRotation(headStabilizer.update(relative,latestFace.time),1,basis));
+  bodyLean.update(mat,latestFace.time);
  }
  // Linked mode reads only the calibrated, One Euro filtered head rotation.
  // Pose landmarks remain available to the existing shoulder-relative hand IK.
  const pose=!bodyFromHead&&safeTracking(latestPose,now)?bodyPose(latestPose.result.worldLandmarks?.[0]):null;
  const body=bodyFromHead?null:bodyStabilizer.update(pose?relativeBodyPose(pose,bodyNeutral):null,latestPose?.time,now);
- const bodyTarget=bodyFromHead?linkedBodyRotation(target):avatarBodyRotation(body,basis);
+ const bodyTarget=bodyFromHead?linkedBodyRotation(target,bodyLeanEnabled?bodyLean.value:0,basis):avatarBodyRotation(body,basis);
  const headNode=vrm?bone('head'):head;
  const rigRoot=vrm?vrm.humanoid.normalizedHumanBonesRoot:scene;
  const previousHead=bodyFromHead&&headNode?headRotationInRoot(headNode,rigRoot):null;
@@ -447,10 +452,11 @@ function animate(now,dt){
  // Strength also enlarges the model's morphs; detector weights alone cap at 1.
  const morphScale=mouthOpenStrength;
  for(const {bind,baseWeight}of mouthMorphBinds)bind.weight=baseWeight*morphScale;
- // Comparison baseline: synchronize the rig/expressions only. Do not run
- // look-at, node constraints or spring-bone physics that add model motion.
+ // Synchronize tracked bones before simulating model-authored spring bones.
+ // Look-at and node constraints stay out of the tracking path.
  if(vrm){
   vrm.humanoid.update();vrm.expressionManager?.update();
+  vrm.springBoneManager?.update(Math.min(Math.max(dt,0),1/30));
   for(const material of vrm.materials??[])material.update?.(dt);
  }
 }
@@ -523,7 +529,7 @@ host?.addEventListener('message',async e=>{
    try{if(await avatarBackground.set(m))post('backgroundLoaded',{requestId:m.requestId});}
    catch(err){post('backgroundFailed',{requestId:m.requestId,text:'背景画像を読み込めませんでした。'});}
    break;
-  case'settings':if(typeof m.bodyFromHead==='boolean'&&m.bodyFromHead!==bodyFromHead){bodyFromHead=m.bodyFromHead;bodyStabilizer.reset();}smoothing=clamp(m.smoothing??.65,0,.95);mouthOpenStrength=clamp(m.mouthOpenStrength??1,.5,3);mouthSensitivity=clamp(m.mouthSensitivity??1.8,.5,3);break;
+  case'settings':if(Number.isFinite(m.springStrength)){springStrength=clamp(m.springStrength,.3,3);springControl?.setStrength(springStrength);}if(typeof m.bodyLeanEnabled==='boolean')bodyLeanEnabled=m.bodyLeanEnabled;if(typeof m.bodyFromHead==='boolean'&&m.bodyFromHead!==bodyFromHead){bodyFromHead=m.bodyFromHead;bodyStabilizer.reset();}smoothing=clamp(m.smoothing??.65,0,.95);mouthOpenStrength=clamp(m.mouthOpenStrength??1,.5,3);mouthSensitivity=clamp(m.mouthSensitivity??1.8,.5,3);break;
   case'privacy':privacy=!!m.value;break;
   case'output':output=!!m.value;restartRenderLoop();break;
  }

@@ -110,7 +110,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        try { BodyFromHead.IsOn = AppSettings.BodyFromHead; }
+        try { BodyFromHead.IsOn = AppSettings.BodyFromHead; BodyLeanEnabled.IsOn = AppSettings.BodyLeanEnabled; }
         catch (Exception ex) { App.Log(ex.Message); }
         Root.AddHandler(UIElement.KeyDownEvent, new Microsoft.UI.Xaml.Input.KeyEventHandler((_, e) =>
         {
@@ -602,6 +602,13 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex) { Report(ex); }
     }
+    private void BodyLeanEnabled_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!ready) return;
+        try { AppSettings.SaveBodyLeanEnabled(BodyLeanEnabled.IsOn); }
+        catch (Exception ex) { App.Log(ex.Message); }
+        SendSettings();
+    }
     private void BodyFromHead_Changed(object sender, RoutedEventArgs e)
     {
         if (!ready) return;
@@ -612,7 +619,7 @@ public sealed partial class MainWindow : Window
     private void SendSettings()
     {
         if (!ready) return;
-        Send(new { type = "settings", bodyFromHead = BodyFromHead.IsOn, smoothing = Smoothness.Value, sensitivity = Sensitivity.Value, mouthOpenStrength = MouthStrength.Value, mouthSensitivity = MouthSensitivity.Value, springStrength = SpringStrength.Value, background = backgroundColor });
+        Send(new { type = "settings", bodyFromHead = BodyFromHead.IsOn, bodyLeanEnabled = BodyLeanEnabled.IsOn, smoothing = Smoothness.Value, sensitivity = Sensitivity.Value, mouthOpenStrength = MouthStrength.Value, mouthSensitivity = MouthSensitivity.Value, springStrength = SpringStrength.Value, background = backgroundColor });
     }
     private void Privacy_Click(object sender, RoutedEventArgs e)
     {

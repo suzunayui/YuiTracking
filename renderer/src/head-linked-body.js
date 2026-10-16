@@ -1,9 +1,13 @@
-import {Quaternion} from 'three';
+import {Quaternion,Vector3} from 'three';
 
 // Independent implementation inspired by head-driven body motion in VTubing
 // tools. Reuse the filtered head; do not add another filter or motion gate.
-export function linkedBodyRotation(headRotation){
- return new Quaternion().slerp(headRotation,.2);
+export function linkedBodyRotation(headRotation,lean=0,basis=new Quaternion()){
+ const body=new Quaternion().slerp(headRotation,.2);
+ if(lean===0)return body;
+ // Positive world X bends the upper body toward the default camera (+Z).
+ const pitch=new Quaternion().setFromAxisAngle(new Vector3(1,0,0),lean);
+ return basis.clone().invert().multiply(pitch).multiply(basis).multiply(body);
 }
 
 export function headRotationInRoot(head,root){

@@ -13,8 +13,8 @@ test('manual calibration sets face/body/eye references and clears filter history
  const points=[];
  points[11]={x:-.2,y:-.5,z:-.1};points[12]={x:.2,y:-.4,z:.1};
  points[23]={x:-.15,y:0,z:0};points[24]={x:.15,y:0,z:0};
- let bodyResets=0,headResets=0,cancelled=0;
- const context={THREE,bodyPose,safeTracking,clamp,performance:{now:()=>1100},
+ let bodyResets=0,headResets=0,cancelled=0,leanCalibration=null;
+ const context={bodyLean:{calibrate(matrix){leanCalibration=matrix;}},THREE,bodyPose,safeTracking,clamp,performance:{now:()=>1100},
   latestFace:{time:1000,result:{facialTransformationMatrixes:[{data:matrix}],faceBlendshapes:[{categories:[
    {categoryName:'eyeBlinkLeft',score:.15},{categoryName:'eyeBlinkRight',score:.2}]}]}},
   latestPose:{time:1000,result:{worldLandmarks:[points]}},calibration:new THREE.Quaternion(),
@@ -27,6 +27,7 @@ test('manual calibration sets face/body/eye references and clears filter history
  assert.deepEqual(relativeBodyPose(bodyPose(points),context.bodyNeutral),{pitch:0,yaw:0,roll:0});
  assert.equal(context.blinkBaseline.left,.15);assert.equal(context.blinkBaseline.right,.2);
  assert.equal(bodyResets,1);assert.equal(headResets,1);assert.equal(cancelled,1);
+ assert.equal(leanCalibration,matrix);
  assert.equal(relativeBodyPose({pitch:2,yaw:2,roll:2},null).yaw,2,'Calibration must not reintroduce angle limits');
  context.latestFace.time=0;
  assert.equal(context.calibrateFace(),false,'Stale input must not replace the references');

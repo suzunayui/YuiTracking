@@ -14,28 +14,29 @@ function fixture(smoothing=0){
  const head=new THREE.Quaternion().setFromEuler(new THREE.Euler(.8,.7,.6));
  const nodes=Object.fromEntries(['spine','chest','upperChest','head'].map(name=>[name,new THREE.Object3D()]));
  const root=new THREE.Object3D();root.add(nodes.spine);nodes.spine.add(nodes.chest);nodes.chest.add(nodes.upperChest);nodes.upperChest.add(nodes.head);
- let rigUpdates=0,expressionUpdates=0;
- const context={THREE,smoothing,bodyFromHead:false,linkedBodyRotation,headRotationInRoot,applyLinkedHeadRotation,smoothingAlpha,latestPose:{result:{worldLandmarks:[[]]},time:0},latestFace:null,latestHands:null,
+ let rigUpdates=0,expressionUpdates=0,springUpdates=0;const order=[];
+ const context={THREE,smoothing,bodyFromHead:false,bodyLeanEnabled:true,bodyLean:{value:0,update(){}},linkedBodyRotation,headRotationInRoot,applyLinkedHeadRotation,smoothingAlpha,latestPose:{result:{worldLandmarks:[[]]},time:0},latestFace:null,latestHands:null,
   safeTracking:value=>!!value,bodyPose:()=>body,relativeBodyPose,bodyNeutral:null,bodyStabilizer:{update:value=>value},avatarBodyRotation,avatarHeadRotation,
   headStabilizer:{value:head},bone:name=>nodes[name],mouthShapes:()=>({aa:0}),mouthSensitivity:1,mouthOpenStrength:1,
   blinkBaseline:{left:0,right:0},calibratedBlink:value=>value,
   video:null,mouthMorphBinds:[],rigHand(){},demo:null,
-  vrm:{humanoid:{normalizedHumanBonesRoot:root,update(){rigUpdates++;}},
-   expressionManager:{getValue:()=>0,setValue(){},update(){expressionUpdates++;}},materials:[],
-   update(){throw new Error('Whole-model update would add physics and constraints');}},
+  vrm:{humanoid:{normalizedHumanBonesRoot:root,update(){rigUpdates++;order.push('rig');}},
+   expressionManager:{getValue:()=>0,setValue(){},update(){expressionUpdates++;order.push('expression');}},springBoneManager:{update(dt){assert.ok(dt>=0&&dt<=1/30);springUpdates++;order.push('spring');}},materials:[],
+   update(){throw new Error('Whole-model update would add look-at and constraints');}},
  };
  runInNewContext(source.slice(source.indexOf('function animate('),source.indexOf('async function sendFrame()')),context);
- return {context,nodes,body,head,updates:()=>({rigUpdates,expressionUpdates})};
+ return {context,nodes,body,head,updates:()=>({rigUpdates,expressionUpdates,springUpdates}),order};
 }
 
-test('zero interpolation retains the approved direct pose without joint mixing or added physics',()=>{
- const {context,nodes,body,head,updates}=fixture();
+test('zero interpolation retains direct tracked pose while restoring model springs after rig updates',()=>{
+ const {context,nodes,body,head,updates,order}=fixture();
  context.animate(0,1/60);
  assert.ok(nodes.spine.quaternion.angleTo(avatarBodyRotation(body,new THREE.Quaternion()))<1e-7);
  assert.ok(nodes.head.quaternion.angleTo(avatarHeadRotation(head,1,new THREE.Quaternion()))<1e-7);
  assert.ok(nodes.chest.quaternion.angleTo(new THREE.Quaternion())<1e-7);
  assert.ok(nodes.upperChest.quaternion.angleTo(new THREE.Quaternion())<1e-7);
- assert.deepEqual(updates(),{rigUpdates:1,expressionUpdates:1});
+ assert.deepEqual(updates(),{rigUpdates:1,expressionUpdates:1,springUpdates:1});
+ assert.deepEqual(order,['rig','expression','spring']);
 });
 
 test('render interpolation converges continuously without overshoot and retains the authored target',()=>{
@@ -112,4 +113,17 @@ test('head compensation handles rotated model roots and intermediate neck bones'
  torso.quaternion.copy(linkedBodyRotation(target));
  applyLinkedHeadRotation(head,root,before,target,.3);
  assert.ok(headRotationInRoot(head,root).angleTo(before.clone().slerp(target,.3))<1e-7);
+});
+
+test('forward leaning affects torso pitch while preserving head direction and the off switch',()=>{
+ const {context,nodes}=fixture(0);context.bodyFromHead=true;context.headStabilizer.value.identity();context.bodyLean.value=.15;
+ context.animate(0,1/60);
+ const up=new THREE.Vector3(0,1,0).applyQuaternion(nodes.spine.quaternion);
+ assert.ok(up.z>0,'Closer to camera must lean toward the default camera');
+ assert.ok(Math.abs(nodes.spine.quaternion.y)<1e-12&&Math.abs(nodes.spine.quaternion.z)<1e-12);
+ assert.ok(headRotationInRoot(nodes.head,context.vrm.humanoid.normalizedHumanBonesRoot).angleTo(new THREE.Quaternion())<1e-7);
+ context.bodyLeanEnabled=false;context.animate(100,1/60);
+ assert.ok(nodes.spine.quaternion.angleTo(new THREE.Quaternion())<1e-7);
+ context.bodyFromHead=false;context.bodyLeanEnabled=true;context.animate(200,1/60);
+ assert.ok(nodes.spine.quaternion.angleTo(avatarBodyRotation({pitch:.9,yaw:1.1,roll:.8},new THREE.Quaternion()))<1e-7);
 });

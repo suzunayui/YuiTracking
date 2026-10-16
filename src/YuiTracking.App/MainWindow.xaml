@@ -78,6 +78,7 @@
       <ScrollViewer x:Name="MotionSettings" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
       <StackPanel Spacing="4">
        <ToggleSwitch x:Name="BodyFromHead" Header="体の動かし方" OnContent="頭に連動" OffContent="体を直接認識" IsOn="True" Toggled="BodyFromHead_Changed" ToolTipService.ToolTip="オン：頭の動きから控えめな体の動きを作ります。体だけのひねりは反映されません。&#10;オフ：肩から体の向きを認識します（従来の方式）。"/>
+       <ToggleSwitch x:Name="BodyLeanEnabled" Header="前後移動で体を傾ける" OnContent="オン（頭に連動する方式で有効）" OffContent="オフ" IsOn="True" Toggled="BodyLeanEnabled_Changed" ToolTipService.ToolTip="カメラへ近づくと前傾し、離れると少し反ります。&#10;普段の姿勢でキャリブレーションすると、その距離が基準になります。"/>
        <StackPanel Background="Transparent" ToolTipService.ToolTip="認識結果の間を滑らかにつなぎます。&#10;0%：補間なし（比較用）&#10;大きいほど滑らかになり、追従はゆっくりになります。">
         <TextBlock x:Name="SmoothnessLabel" Text="滑らかさ：65%" Foreground="#9DA7C0"/>
         <Slider x:Name="Smoothness" ToolTipService.ToolTip="認識結果の間を滑らかにつなぎます。&#10;0%：補間なし（比較用）&#10;大きいほど滑らかになり、追従はゆっくりになります。" Minimum="0" Maximum="0.95" Value="0.65" StepFrequency="0.05" ValueChanged="Settings_Changed"/>
@@ -90,9 +91,9 @@
         <TextBlock x:Name="MouthSensitivityLabel" Text="口の感度：1.8倍" Foreground="#9DA7C0"/>
         <Slider x:Name="MouthSensitivity" ToolTipService.ToolTip="自分の口の動きを拾う感度を調整します。&#10;大きく：小さな動きでも口が開きやすい&#10;小さく：しっかり口を動かすと反応する" Minimum="0.5" Maximum="3" Value="1.8" StepFrequency="0.1" ValueChanged="MouthStrength_Changed"/>
        </StackPanel>
-       <StackPanel Background="Transparent" ToolTipService.ToolTip="比較版では髪・服などの物理揺れを無効にしています。">
+       <StackPanel Background="Transparent" ToolTipService.ToolTip="モデルに設定された胸・髪・服などの揺れを調整します。">
         <TextBlock x:Name="SpringStrengthLabel" Text="揺れものの強さ：1.0倍" Foreground="#9DA7C0"/>
-        <Slider IsEnabled="False" x:Name="SpringStrength" Minimum="0.3" Maximum="3" Value="1" StepFrequency="0.1" ToolTipService.ToolTip="比較版では髪・服などの物理揺れを無効にしています。" ValueChanged="SpringStrength_Changed"/>
+        <Slider x:Name="SpringStrength" Minimum="0.3" Maximum="3" Value="1" StepFrequency="0.1" ToolTipService.ToolTip="モデルに設定された胸・髪・服などの揺れを調整します。" ValueChanged="SpringStrength_Changed"/>
        </StackPanel>
        <StackPanel Background="Transparent" ToolTipService.ToolTip="補正なし比較版のため、顔の動きは1倍固定です。">
         <TextBlock x:Name="SensitivityLabel" Text="顔の動きの強さ：1.0倍" Foreground="#9DA7C0"/>
