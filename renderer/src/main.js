@@ -4,6 +4,7 @@ import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
 import { bend, clamp, smoothingAlpha, safeTracking, calibratedBlink } from './rig-math.js';
 import { placeAvatar } from './avatar-placement.js';
 import { avatarHeadRotation } from './head-rotation.js';
+import {linkedBodyRotation,headRotationInRoot,applyLinkedHeadRotation} from './head-linked-body.js';
 import {bodyPose,relativeBodyPose,avatarBodyRotation} from './body-pose.js';
 import {fingerBones,palmBasis,fingerSegments,captureHandRest,shoulderWristTarget} from './hand-rig.js';
 import {LandmarkFilter} from './landmark-filter.js';
@@ -117,6 +118,7 @@ renderer.domElement.addEventListener('wheel',event=>{
 scene.add(new THREE.HemisphereLight(0xffffff,0xffffff,.35));
 const key=new THREE.DirectionalLight(0xffffff,Math.PI*.85); key.position.set(1,3,3); scene.add(key);
 let vrm=null,demo=null,head=null,eyes=[],arms={},loading=false,privacy=false,output=false;
+let bodyFromHead=true;
 let smoothing=.65,mouthOpenStrength=1,mouthSensitivity=1.8,tracking=false,video,stream,initializing=false;
 let latestFace=null,latestHands=null,frameNumber=0,lastVideoTime=-1,lastDetect=0,lastRender=0;
 let calibration=new THREE.Quaternion(),rawHead=new THREE.Quaternion(),haveFace=false;
@@ -392,14 +394,7 @@ function animate(now,dt){
  // Interpolate the already-filtered pose only. Zero reproduces the direct
  // rendering baseline; no prediction, motion gate or additional damping.
  const alpha=smoothing===0?1:smoothingAlpha(smoothing,dt);
- const pose=safeTracking(latestPose,now)?bodyPose(latestPose.result.worldLandmarks?.[0]):null;
- const body=bodyStabilizer.update(pose?relativeBodyPose(pose,bodyNeutral):null,latestPose?.time,now);
  const basis=vrm?vrm.humanoid.normalizedHumanBonesRoot.getWorldQuaternion(new THREE.Quaternion()):new THREE.Quaternion();
- const bodyTarget=avatarBodyRotation(body,basis);
- if(vrm){
-  const torso=bone('spine')??bone('chest')??bone('hips');
-  if(torso)torso.quaternion.slerp(bodyTarget,alpha);
- }else if(demo)demo.quaternion.slerp(bodyTarget,alpha);
  const face=safeTracking(latestFace,now)?latestFace.result:null;
  const categories=face?.faceBlendshapes?.[0]?.categories??[];
  const weights=Object.fromEntries(categories.map(c=>[c.categoryName,c.score]));
@@ -412,8 +407,21 @@ function animate(now,dt){
   const relative=calibration.clone().invert().multiply(rawHead);
   target.copy(avatarHeadRotation(headStabilizer.update(relative,latestFace.time),1,basis));
  }
+ // Linked mode reads only the calibrated, One Euro filtered head rotation.
+ // Pose landmarks remain available to the existing shoulder-relative hand IK.
+ const pose=!bodyFromHead&&safeTracking(latestPose,now)?bodyPose(latestPose.result.worldLandmarks?.[0]):null;
+ const body=bodyFromHead?null:bodyStabilizer.update(pose?relativeBodyPose(pose,bodyNeutral):null,latestPose?.time,now);
+ const bodyTarget=bodyFromHead?linkedBodyRotation(target):avatarBodyRotation(body,basis);
+ const headNode=vrm?bone('head'):head;
+ const rigRoot=vrm?vrm.humanoid.normalizedHumanBonesRoot:scene;
+ const previousHead=bodyFromHead&&headNode?headRotationInRoot(headNode,rigRoot):null;
  if(vrm){
-  const headNode=bone('head');if(headNode)headNode.quaternion.slerp(target,alpha);
+  const torso=bone('spine')??bone('chest')??bone('hips');
+  if(torso)torso.quaternion.slerp(bodyTarget,alpha);
+ }else if(demo)demo.quaternion.slerp(bodyTarget,alpha);
+ if(bodyFromHead&&headNode)applyLinkedHeadRotation(headNode,rigRoot,previousHead,target,alpha);
+ if(vrm){
+  if(!bodyFromHead&&headNode)headNode.quaternion.slerp(target,alpha);
   const expr=vrm.expressionManager;
   const vowels=mouthShapes(weights,mouthSensitivity,face?.faceLandmarks?.[0],video?.videoWidth&&video?.videoHeight?video.videoWidth/video.videoHeight:16/9);
   for(const [name,value]of Object.entries({blinkLeft,blinkRight,...vowels,happy:((weights.mouthSmileLeft??0)+(weights.mouthSmileRight??0))*.5})){
@@ -423,7 +431,7 @@ function animate(now,dt){
    }
   }
  }else if(head){
-  head.quaternion.slerp(target,alpha);eyes.forEach((eye,i)=>eye.scale.y=1-clamp(i?blinkRight:blinkLeft,0,.93));
+  if(!bodyFromHead)head.quaternion.slerp(target,alpha);eyes.forEach((eye,i)=>eye.scale.y=1-clamp(i?blinkRight:blinkLeft,0,.93));
   const amount=Object.values(mouthShapes(weights,mouthSensitivity)).reduce((sum,value)=>sum+value,0);
   head.getObjectByName('mouth').scale.y=1+(8/1.4)*mouthOpenStrength*amount;
  }
@@ -515,7 +523,7 @@ host?.addEventListener('message',async e=>{
    try{if(await avatarBackground.set(m))post('backgroundLoaded',{requestId:m.requestId});}
    catch(err){post('backgroundFailed',{requestId:m.requestId,text:'背景画像を読み込めませんでした。'});}
    break;
-  case'settings':smoothing=clamp(m.smoothing??.65,0,.95);mouthOpenStrength=clamp(m.mouthOpenStrength??1,.5,3);mouthSensitivity=clamp(m.mouthSensitivity??1.8,.5,3);break;
+  case'settings':if(typeof m.bodyFromHead==='boolean'&&m.bodyFromHead!==bodyFromHead){bodyFromHead=m.bodyFromHead;bodyStabilizer.reset();}smoothing=clamp(m.smoothing??.65,0,.95);mouthOpenStrength=clamp(m.mouthOpenStrength??1,.5,3);mouthSensitivity=clamp(m.mouthSensitivity??1.8,.5,3);break;
   case'privacy':privacy=!!m.value;break;
   case'output':output=!!m.value;restartRenderLoop();break;
  }

@@ -77,6 +77,7 @@
       </ScrollViewer>
       <ScrollViewer x:Name="MotionSettings" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
       <StackPanel Spacing="4">
+       <ToggleSwitch x:Name="BodyFromHead" Header="体の動かし方" OnContent="頭に連動" OffContent="体を直接認識" IsOn="True" Toggled="BodyFromHead_Changed" ToolTipService.ToolTip="オン：頭の動きから控えめな体の動きを作ります。体だけのひねりは反映されません。&#10;オフ：肩から体の向きを認識します（従来の方式）。"/>
        <StackPanel Background="Transparent" ToolTipService.ToolTip="認識結果の間を滑らかにつなぎます。&#10;0%：補間なし（比較用）&#10;大きいほど滑らかになり、追従はゆっくりになります。">
         <TextBlock x:Name="SmoothnessLabel" Text="滑らかさ：65%" Foreground="#9DA7C0"/>
         <Slider x:Name="Smoothness" ToolTipService.ToolTip="認識結果の間を滑らかにつなぎます。&#10;0%：補間なし（比較用）&#10;大きいほど滑らかになり、追従はゆっくりになります。" Minimum="0" Maximum="0.95" Value="0.65" StepFrequency="0.05" ValueChanged="Settings_Changed"/>
