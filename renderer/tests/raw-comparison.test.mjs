@@ -7,6 +7,7 @@ import {relativeBodyPose,avatarBodyRotation} from '../src/body-pose.js';
 import {scaledBodyLean} from '../src/body-lean.js';
 import {avatarHeadRotation} from '../src/head-rotation.js';
 import {smoothingAlpha,handSmoothingAlpha,clamp} from '../src/rig-math.js';
+import {applyBodyTurn} from '../src/body-turn.js';
 import {TrackingPresence} from '../src/tracking-presence.js';
 import {linkedBodyRotation,headRotationInRoot,applyLinkedHeadRotation} from '../src/head-linked-body.js';
 
@@ -18,7 +19,7 @@ function fixture(smoothing=0){
  const root=new THREE.Object3D();root.add(nodes.spine);nodes.spine.add(nodes.chest);nodes.chest.add(nodes.upperChest);nodes.upperChest.add(nodes.head);
  let rigUpdates=0,expressionUpdates=0,springUpdates=0;const order=[];
  const transition={update:(detected,time,now,dt,alpha)=>({mode:detected?'tracked':'idle',alpha}),reset(){}};
- const context={THREE,clamp,handSmoothingAlpha,sensitivity:1,bodyStrength:1,forwardLeanStrength:1,backwardLeanStrength:1,scaledBodyLean,wristDepthFilters:{left:{reset(){}},right:{reset(){}}},handTransitions:{left:transition,right:transition},elbowTransitions:{left:transition,right:transition},trackingPresence:{isAway:()=>false},smoothing,bodyFromHead:false,bodyLeanEnabled:true,bodyLean:{value:0,update(){}},linkedBodyRotation,headRotationInRoot,applyLinkedHeadRotation,smoothingAlpha,latestPose:{result:{worldLandmarks:[[]]},time:0},latestFace:null,latestHands:null,
+ const context={THREE,clamp,applyBodyTurn,handSmoothingAlpha,sensitivity:1,bodyStrength:1,forwardLeanStrength:1,backwardLeanStrength:1,scaledBodyLean,wristDepthFilters:{left:{reset(){}},right:{reset(){}}},handTransitions:{left:transition,right:transition},elbowTransitions:{left:transition,right:transition},trackingPresence:{isAway:()=>false},smoothing,bodyFromHead:false,bodyLeanEnabled:true,bodyLean:{value:0,update(){}},linkedBodyRotation,headRotationInRoot,applyLinkedHeadRotation,smoothingAlpha,latestPose:{result:{worldLandmarks:[[]]},time:0},latestFace:null,latestHands:null,
   safeTracking:value=>!!value,bodyPose:()=>body,relativeBodyPose,bodyNeutral:null,bodyStabilizer:{update:value=>value},avatarBodyRotation,avatarHeadRotation,
   headStabilizer:{value:head},bone:name=>nodes[name],mouthShapes:()=>({aa:0}),mouthSensitivity:1,mouthOpenStrength:1,
   blinkBaseline:{left:0,right:0},calibratedBlink:value=>value,
@@ -198,4 +199,17 @@ test('rendering applies directional lean strength independently of head and tors
   assert.ok(nodes.spine.quaternion.angleTo(expected)<1e-7);
   assert.ok(headRotationInRoot(nodes.head,context.vrm.humanoid.normalizedHumanBonesRoot).angleTo(avatarHeadRotation(head,4,new THREE.Quaternion()))<1e-7);
  }
+});
+
+
+test('rendering turns hips and legs with a backward torso while preserving the tracked head',()=>{
+ const {context,nodes,head}=fixture(0),root=context.vrm.humanoid.normalizedHumanBonesRoot;
+ const hips=new THREE.Object3D(),leg=new THREE.Object3D();root.add(hips);hips.add(nodes.spine,leg);nodes.hips=hips;
+ context.bodyFromHead=true;context.sensitivity=4;context.bodyStrength=40/3;head.setFromEuler(new THREE.Euler(0,Math.PI/4,0));
+ context.animate(0,1/60);
+ const back=new THREE.Quaternion().setFromEuler(new THREE.Euler(0,Math.PI,0));
+ assert.ok(hips.quaternion.angleTo(back)<1e-7);
+ assert.ok(nodes.spine.quaternion.angleTo(new THREE.Quaternion())<1e-7,'No 180 degree twist left at the waist');
+ assert.ok(leg.getWorldQuaternion(new THREE.Quaternion()).angleTo(back)<1e-7);
+ assert.ok(headRotationInRoot(nodes.head,root).angleTo(back)<1e-7);
 });

@@ -4,6 +4,7 @@ import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
 import { bend, clamp, smoothingAlpha, handSmoothingAlpha, safeTracking, calibratedBlink } from './rig-math.js';
 import { placeAvatar } from './avatar-placement.js';
 import { avatarHeadRotation } from './head-rotation.js';
+import {applyBodyTurn} from './body-turn.js';
 import {linkedBodyRotation,headRotationInRoot,applyLinkedHeadRotation} from './head-linked-body.js';
 import {bodyPose,relativeBodyPose,avatarBodyRotation} from './body-pose.js';
 import {fingerBones,palmBasis,fingerSegments,captureHandRest,shoulderWristTarget,handWristTarget,wristDepthRatio,trackedElbowTarget,elbowPoleDirection,keepElbowInFront} from './hand-rig.js';
@@ -363,8 +364,9 @@ function armTrackingFrame(){
  const rotation=new THREE.Quaternion(),origin=new THREE.Vector3();
  if(torso){
   torso.updateWorldMatrix(true,false);torso.getWorldPosition(origin);
-  const parent=torso.parent?.getWorldQuaternion(new THREE.Quaternion())??new THREE.Quaternion();
-  rotation.copy(parent).multiply(torso.quaternion).multiply(parent.clone().invert());
+  const root=vrm?(vrm.humanoid.normalizedHumanBonesRoot??vrm.scene):torso.parent;
+  const basis=root?.getWorldQuaternion(new THREE.Quaternion())??new THREE.Quaternion();
+  rotation.copy(torso.getWorldQuaternion(new THREE.Quaternion())).multiply(basis.invert());
  }
  const inverse=rotation.clone().invert();
  return {rotation,toLocal:p=>p.clone().sub(origin).applyQuaternion(inverse).add(origin),toWorld:p=>p.clone().sub(origin).applyQuaternion(rotation).add(origin)};
@@ -491,7 +493,7 @@ function animate(now,dt){
  const previousHead=bodyFromHead&&headNode?headRotationInRoot(headNode,rigRoot):null;
  if(vrm){
   const torso=bone('spine')??bone('chest')??bone('hips');
-  if(torso)torso.quaternion.slerp(bodyTarget,alpha);
+  applyBodyTurn(torso,bone('hips'),rigRoot,bodyTarget,alpha);
  }else if(demo)demo.quaternion.slerp(bodyTarget,alpha);
  if(bodyFromHead&&headNode)applyLinkedHeadRotation(headNode,rigRoot,previousHead,target,alpha);
  if(vrm){

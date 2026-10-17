@@ -5,6 +5,7 @@ import {runInNewContext} from 'node:vm';
 import * as THREE from 'three';
 import {clamp,bend} from '../src/rig-math.js';
 import {TrackingTransition} from '../src/tracking-transition.js';
+import {applyBodyTurn} from '../src/body-turn.js';
 import {WristDepth} from '../src/wrist-depth.js';
 import {avatarFaceAnchor,faceRelativeWristTarget} from '../src/face-hand-placement.js';
 import {fingerBones,palmBasis,fingerSegments,shoulderWristTarget,handWristTarget,wristDepthRatio,trackedElbowTarget,elbowPoleDirection,keepElbowInFront} from '../src/hand-rig.js';
@@ -207,7 +208,7 @@ test('covering the mouth uses the avatar face height instead of leaving the hand
 
 test('tracked wrists elbows palms fingers and idle arms follow torso turns through 180 degrees',()=>{
  const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
- const scene=new THREE.Group(),torso=new THREE.Bone(),nodes={spine:torso};scene.add(torso);torso.position.set(.2,.8,.1);
+ const scene=new THREE.Group(),hips=new THREE.Bone(),torso=new THREE.Bone(),nodes={hips,spine:torso};scene.add(hips);hips.add(torso);hips.position.set(.2,.8,.1);
  for(const [side,sign]of [['left',1],['right',-1]]){
   const upper=new THREE.Bone(),lower=new THREE.Bone(),hand=new THREE.Bone(),finger=new THREE.Bone();
   upper.position.set(sign*.25,.4,0);lower.position.x=sign*.27;hand.position.x=sign*.23;finger.position.x=sign*.03;
@@ -223,13 +224,13 @@ test('tracked wrists elbows palms fingers and idle arms follow torso turns throu
  const context={THREE,clamp,bend,palmBasis,fingerSegments,fingerBones,shoulderWristTarget,handWristTarget,wristDepthRatio,trackedElbowTarget,elbowPoleDirection,keepElbowInFront,video:null,
   handRest:Object.fromEntries(['left','right'].map(side=>[side,{palm:new THREE.Quaternion(),directions:{IndexProximal:new THREE.Vector3(1,0,0)}}])),vrm:{scene,humanoid:{getNormalizedBoneNode:name=>nodes[name]}}};
  runInNewContext(source.slice(source.indexOf('function bone('),source.indexOf('function animate(')),context);
- const origin=torso.position.clone();
+ const origin=hips.position.clone();
  for(const active of [true,false])for(const side of ['left','right']){
-  torso.quaternion.identity();context.rigHand(side,active?landmarks:null,1,active?world:null,pose);scene.updateMatrixWorld(true);
+  hips.quaternion.identity();torso.quaternion.identity();context.rigHand(side,active?landmarks:null,1,active?world:null,pose);scene.updateMatrixWorld(true);
   const names=['UpperArm','LowerArm','Hand','IndexProximal'].map(name=>side+name);
   const baseline=names.map(name=>({position:nodes[name].getWorldPosition(new THREE.Vector3()),rotation:nodes[name].getWorldQuaternion(new THREE.Quaternion())}));
   for(const yaw of [-Math.PI,-Math.PI/2,Math.PI/2,Math.PI]){
-   const rotation=new THREE.Quaternion().setFromEuler(new THREE.Euler(.15,yaw,.1,'YXZ'));torso.quaternion.copy(rotation);
+   const rotation=new THREE.Quaternion().setFromEuler(new THREE.Euler(.15,yaw,.1,'YXZ'));applyBodyTurn(torso,hips,scene,rotation,1);
    context.rigHand(side,active?landmarks:null,1,active?world:null,pose);scene.updateMatrixWorld(true);
    names.forEach((name,i)=>{
     const expected=baseline[i].position.clone().sub(origin).applyQuaternion(rotation).add(origin);
