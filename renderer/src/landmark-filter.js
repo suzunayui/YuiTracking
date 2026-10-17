@@ -1,5 +1,7 @@
 import {OneEuroFilter} from './vendor/one-euro-filter.js';
 const axes=['x','y','z'];
+// Keep the stationary cutoff; open the official filter faster during movement.
+export const handFilterOptions=Object.freeze({minCutoff:1,beta:12});
 export class LandmarkFilter {
  constructor({minCutoff=1,beta=5}={}){this.minCutoff=minCutoff;this.beta=beta;this.reset();}
  reset(){this.points=null;this.filters=[];this.time=null;}

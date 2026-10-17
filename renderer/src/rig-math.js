@@ -14,6 +14,11 @@ export function bend(a,b,c) {
 export function smoothingAlpha(smoothing, dt) {
   return 1-Math.exp(-clamp(dt,0,0.1)* (5+55*(1-clamp(smoothing,0,0.95))));
 }
+// Hands already receive One Euro filtering. Use a faster display response so
+// rendering does not add the same delay used for head/body smoothing.
+export function handSmoothingAlpha(smoothing,dt){
+  return smoothing===0?1:smoothingAlpha(smoothing*.5,dt);
+}
 export function safeTracking(result, now, maxAge=500) {
   return !!result && now-result.time>=0 && now-result.time<maxAge;
 }

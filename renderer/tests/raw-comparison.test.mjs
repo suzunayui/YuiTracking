@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import {relativeBodyPose,avatarBodyRotation} from '../src/body-pose.js';
 import {scaledBodyLean} from '../src/body-lean.js';
 import {avatarHeadRotation} from '../src/head-rotation.js';
-import {smoothingAlpha,clamp} from '../src/rig-math.js';
+import {smoothingAlpha,handSmoothingAlpha,clamp} from '../src/rig-math.js';
 import {TrackingPresence} from '../src/tracking-presence.js';
 import {linkedBodyRotation,headRotationInRoot,applyLinkedHeadRotation} from '../src/head-linked-body.js';
 
@@ -18,7 +18,7 @@ function fixture(smoothing=0){
  const root=new THREE.Object3D();root.add(nodes.spine);nodes.spine.add(nodes.chest);nodes.chest.add(nodes.upperChest);nodes.upperChest.add(nodes.head);
  let rigUpdates=0,expressionUpdates=0,springUpdates=0;const order=[];
  const transition={update:(detected,time,now,dt,alpha)=>({mode:detected?'tracked':'idle',alpha}),reset(){}};
- const context={THREE,clamp,sensitivity:1,bodyStrength:1,forwardLeanStrength:1,backwardLeanStrength:1,scaledBodyLean,wristDepthFilters:{left:{reset(){}},right:{reset(){}}},handTransitions:{left:transition,right:transition},elbowTransitions:{left:transition,right:transition},trackingPresence:{isAway:()=>false},smoothing,bodyFromHead:false,bodyLeanEnabled:true,bodyLean:{value:0,update(){}},linkedBodyRotation,headRotationInRoot,applyLinkedHeadRotation,smoothingAlpha,latestPose:{result:{worldLandmarks:[[]]},time:0},latestFace:null,latestHands:null,
+ const context={THREE,clamp,handSmoothingAlpha,sensitivity:1,bodyStrength:1,forwardLeanStrength:1,backwardLeanStrength:1,scaledBodyLean,wristDepthFilters:{left:{reset(){}},right:{reset(){}}},handTransitions:{left:transition,right:transition},elbowTransitions:{left:transition,right:transition},trackingPresence:{isAway:()=>false},smoothing,bodyFromHead:false,bodyLeanEnabled:true,bodyLean:{value:0,update(){}},linkedBodyRotation,headRotationInRoot,applyLinkedHeadRotation,smoothingAlpha,latestPose:{result:{worldLandmarks:[[]]},time:0},latestFace:null,latestHands:null,
   safeTracking:value=>!!value,bodyPose:()=>body,relativeBodyPose,bodyNeutral:null,bodyStabilizer:{update:value=>value},avatarBodyRotation,avatarHeadRotation,
   headStabilizer:{value:head},bone:name=>nodes[name],mouthShapes:()=>({aa:0}),mouthSensitivity:1,mouthOpenStrength:1,
   blinkBaseline:{left:0,right:0},calibratedBlink:value=>value,
@@ -72,7 +72,7 @@ test('recognized hands are passed to arm and finger rendering with screen and wo
  context.animate(0,1/60);
  const active=calls.find(call=>call.landmarks);
  assert.equal(active.side,'right');assert.equal(active.landmarks,screen);assert.equal(active.worldLandmarks,world);
- assert.ok(active.alpha>0&&active.alpha<1);
+ assert.ok(active.alpha>smoothingAlpha(.65,1/60)&&active.alpha<1,'Hands must use the faster response while head/body retain the original smoothing');
 });
 
 test('head-linked mode ignores noisy shoulders and keeps displayed head direction unchanged',()=>{

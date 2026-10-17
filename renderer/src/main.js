@@ -1,13 +1,13 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
-import { bend, clamp, smoothingAlpha, safeTracking, calibratedBlink } from './rig-math.js';
+import { bend, clamp, smoothingAlpha, handSmoothingAlpha, safeTracking, calibratedBlink } from './rig-math.js';
 import { placeAvatar } from './avatar-placement.js';
 import { avatarHeadRotation } from './head-rotation.js';
 import {linkedBodyRotation,headRotationInRoot,applyLinkedHeadRotation} from './head-linked-body.js';
 import {bodyPose,relativeBodyPose,avatarBodyRotation} from './body-pose.js';
 import {fingerBones,palmBasis,fingerSegments,captureHandRest,shoulderWristTarget,handWristTarget,wristDepthRatio,trackedElbowTarget,elbowPoleDirection,keepElbowInFront} from './hand-rig.js';
-import {LandmarkFilter} from './landmark-filter.js';
+import {LandmarkFilter,handFilterOptions} from './landmark-filter.js';
 import {BodyStabilizer} from './body-stabilizer.js';
 import {AutoCalibration} from './auto-calibration.js';
 import {mouthShapes} from './mouth-shapes.js';
@@ -146,7 +146,7 @@ const elbowTransitions=Object.fromEntries(['left','right'].map(side=>[side,new T
 function resetArmTransitions(){handIdentity.reset();for(const filter of Object.values(wristDepthFilters))filter.reset();for(const transition of [...Object.values(handTransitions),...Object.values(elbowTransitions)])transition.reset();}
 let handRest={};
 let mouthMorphBinds=[];
-const handFilters=Object.fromEntries(['Left','Right'].map(side=>[side,{screen:new LandmarkFilter({minCutoff:1,beta:5}),world:new LandmarkFilter({minCutoff:1,beta:5})}]));
+const handFilters=Object.fromEntries(['Left','Right'].map(side=>[side,{screen:new LandmarkFilter(handFilterOptions),world:new LandmarkFilter(handFilterOptions)}]));
 function stabilizeHands(result,time){
  const seen=new Set();
  for(let i=0;i<(result.landmarks?.length??0);i++){
@@ -516,7 +516,7 @@ function animate(now,dt){
   const label=side==='left'?'Right':'Left';
   const index=hands?.handedness?.findIndex(h=>h[0]?.categoryName===label)??-1;
   const sample=index>=0?{landmarks:hands.landmarks[index],worldLandmarks:hands.worldLandmarks?.[index],time:latestHands.time,receivedAt:latestHands.receivedAt,poseWristIndex:hands.poseWristIndices?.[index]}:null;
-  const transition=handTransitions[side].update(!!sample,sample?.time,now,dt,alpha,away);
+  const transition=handTransitions[side].update(!!sample,sample?.time,now,dt,handSmoothingAlpha(smoothing,dt),away);
   const active=transition.mode==='tracked'?sample:null;
   if(transition.mode==='idle'){elbowTransitions[side].reset();wristDepthFilters[side].reset();}
   rigHand(side,active?.landmarks??null,transition.alpha,active?.worldLandmarks??null,poseLandmarks,{now,dt,poseTime:latestPose?.time,poseWorld:safeTracking(latestPose,now)?latestPose.result.worldLandmarks?.[0]:null,poseWristIndex:active?.poseWristIndex,faceLandmarks:face?.faceLandmarks?.[0]});
