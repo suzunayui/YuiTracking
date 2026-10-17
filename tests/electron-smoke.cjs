@@ -13,7 +13,7 @@ const assert=require('node:assert/strict');
   app=await launch();let page=await app.firstWindow();
   await page.waitForFunction(()=>document.querySelector('[data-sample=Y]')?.getAttribute('aria-pressed')==='true');
   if(process.argv.includes('--gpu-recognition')){
-   await page.locator('#motion-tab').click();
+   await page.locator('#avatar-tab').click();
    await page.waitForFunction(()=>document.querySelector('#recognition-device option[value=GPU]'));
    const before=await page.evaluate(()=>window.yuiDesktop.getRecognitionSettings());assert.equal(before.current,'CPU');
    await page.locator('#recognition-device').selectOption('GPU');await page.locator('#save-recognition').click();
