@@ -18,7 +18,6 @@ import {TrackingPresence} from './tracking-presence.js';
 import {TrackingTransition} from './tracking-transition.js';
 import {WristDepth} from './wrist-depth.js';
 import {HandIdentity} from './hand-identity.js';
-import {avatarFaceAnchor,faceRelativeWristTarget,captureFaceSurface,clearHandFromFace} from './face-hand-placement.js';
 import {SpringStrength} from './spring-strength.js';
 import {browserCameraId} from './camera-selection.js';
 import {AvatarBackground} from './background.js';
@@ -225,7 +224,6 @@ async function loadModel(requestId){
   removeAvatar();vrm=next;VRMUtils.rotateVRM0(vrm);scene.add(vrm.scene);
   mouthMorphBinds=['aa','ih','ou','ee','oh'].flatMap(name=>(vrm.expressionManager?.getExpression(name)?.binds??[]).filter(bind=>bind.primitives&&Number.isInteger(bind.index)).map(bind=>({bind,baseWeight:bind.weight})));
   placeAvatar(vrm);
-  const faceHead=bone('head');if(faceHead)faceHead.userData.yuiFaceSurface=captureFaceSurface(vrm);
   springControl=new SpringStrength(vrm.springBoneManager);springControl.setStrength(springStrength);
   handRest={};
   for(const side of ['left','right']){
@@ -379,7 +377,6 @@ function rigHand(side,landmarks,alpha,worldLandmarks=null,poseLandmarks=null,rec
  const hand=vrm?bone(side+'Hand'):arms[side].hand;
  if(!upper||!lower||!hand)return;
  const frame=armTrackingFrame();
- let finishFaceContact=null;
  if(!landmarks){
   // VRM normalized arms start in T pose; lower them to an idle pose.
   if(vrm){
@@ -391,89 +388,52 @@ function rigHand(side,landmarks,alpha,worldLandmarks=null,poseLandmarks=null,rec
   const wrist=landmarks[0];
   // Map the observed wrist relative to the person's shoulders, scaled to
   // this avatar's shoulder span. This changes placement, not noise filtering.
-  let target=null,elbowTarget=null,faceAnchor=null,shoulderSpan=.4;
+  let target=null,elbowTarget=null;
   const leftShoulder=vrm?bone('leftUpperArm'):arms.left?.upper;
   const rightShoulder=vrm?bone('rightUpperArm'):arms.right?.upper;
   if(leftShoulder&&rightShoulder){
    (vrm?.scene??demo).updateWorldMatrix(true,true);
    const left=frame.toLocal(leftShoulder.getWorldPosition(new THREE.Vector3())),right=frame.toLocal(rightShoulder.getWorldPosition(new THREE.Vector3()));
    const center=left.clone().add(right).multiplyScalar(.5),span=left.distanceTo(right),aspect=video?video.videoWidth/video.videoHeight:4/3;
-   shoulderSpan=span;
    const rawDepth=recovery?wristDepthRatio(wrist,poseLandmarks,recovery.poseWorld,aspect,recovery.poseWristIndex):null;
    const depth=recovery?wristDepthFilters[side].update(rawDepth,recovery.poseTime,recovery.now,recovery.dt):null;
    target=handWristTarget(wrist,poseLandmarks,center,span,aspect,depth)??new THREE.Vector3((.5-wrist.x)*1.7,1.85-wrist.y*1.5,.20);
-   if(recovery?.faceLandmarks){
-    const anchor=avatarFaceAnchor(vrm?bone('head'):head,vrm?bone('leftEye'):null,vrm?bone('rightEye'):null,span);
-    if(anchor){
-     anchor.mouth=frame.toLocal(anchor.mouth);
-     const inverse=frame.rotation.clone().invert();
-     for(const key of ['forward','up','right'])anchor[key]?.applyQuaternion(inverse);
-     faceAnchor=anchor;
-    }
-    target=faceRelativeWristTarget(target,landmarks,recovery.faceLandmarks,anchor,aspect);
-   }
    elbowTarget=trackedElbowTarget(wrist,poseLandmarks,center,span,aspect,recovery?.poseWristIndex);
   }
   target??=new THREE.Vector3((.5-wrist.x)*1.7,1.85-wrist.y*1.5,.20);
-  const solve=(target,alpha,orientPalm=true)=>{
-   upper.updateWorldMatrix(true,true);
-   const shoulder=frame.toLocal(upper.getWorldPosition(new THREE.Vector3()));
-   const l1=shoulder.distanceTo(frame.toLocal(lower.getWorldPosition(new THREE.Vector3())));
-   const l2=lower.getWorldPosition(new THREE.Vector3()).distanceTo(hand.getWorldPosition(new THREE.Vector3()));
-   const previousHandRotation=hand.getWorldQuaternion(new THREE.Quaternion());
-   // Smooth the wrist in position space first, then solve the complete arm.
-   // Independently slerping upper/lower joints makes elbow changes pull the wrist.
-   const displayedTarget=frame.toLocal(hand.getWorldPosition(new THREE.Vector3())).lerp(target,alpha);
-   displayedTarget.z=Math.max(displayedTarget.z,shoulder.z+.03);
-   const dir=displayedTarget.sub(shoulder);const d=clamp(dir.length(),Math.abs(l1-l2)+.01,l1+l2-.01);dir.normalize();
-   const along=(l1*l1-l2*l2+d*d)/(2*d);
-   const currentPole=elbowPoleDirection(frame.toLocal(lower.getWorldPosition(new THREE.Vector3())),shoulder,dir,sign);
-   const elbowTransition=recovery?elbowTransitions[side].update(!!elbowTarget,recovery.poseTime,recovery.now,recovery.dt,alpha):{mode:'tracked',alpha};
-   // A brief missing elbow holds the bend plane. Sustained loss relaxes it
-   // toward a forward-facing bend, while the wrist continues following the hand.
-   const trackedElbow=elbowTransition.mode==='tracked'?elbowTarget:null;
-   const relaxed=recovery&&!trackedElbow?shoulder.clone().add(new THREE.Vector3(sign*.4,-1,.2)):null;
-   const pole=elbowTransition.mode==='hold'?currentPole.clone():elbowPoleDirection(trackedElbow??relaxed,shoulder,dir,sign);
-   const turn=new THREE.Quaternion().setFromUnitVectors(currentPole,pole);
-   pole.copy(currentPole.applyQuaternion(new THREE.Quaternion().slerp(turn,elbowTransition.alpha)));
-   const height=Math.sqrt(Math.max(0,l1*l1-along*along));
-   if(elbowTarget||recovery)keepElbowInFront(pole,dir,along,height);
-   const elbow=shoulder.clone().addScaledVector(dir,along).addScaledVector(pole,height);
-   aim(upper,lower,frame.toWorld(elbow),1);upper.updateWorldMatrix(true,true);aim(lower,hand,frame.toWorld(shoulder.clone().addScaledVector(dir,d)),1);
-   if(orientPalm&&vrm&&worldLandmarks&&handRest[side]){
-    const palm=palmBasis(worldLandmarks),rest=handRest[side];
-    if(palm&&rest.palm){
-     hand.parent.updateWorldMatrix(true,false);
-     const worldTarget=frame.rotation.clone().multiply(palm).multiply(rest.palm.clone().invert());
-     const parentRotation=hand.parent.getWorldQuaternion(new THREE.Quaternion());
-     hand.quaternion.copy(parentRotation.invert().multiply(previousHandRotation.slerp(worldTarget,alpha)));
-    }
+  upper.updateWorldMatrix(true,true);
+  const shoulder=frame.toLocal(upper.getWorldPosition(new THREE.Vector3()));
+  const l1=shoulder.distanceTo(frame.toLocal(lower.getWorldPosition(new THREE.Vector3())));
+  const l2=lower.getWorldPosition(new THREE.Vector3()).distanceTo(hand.getWorldPosition(new THREE.Vector3()));
+  const previousHandRotation=hand.getWorldQuaternion(new THREE.Quaternion());
+  // Smooth the wrist in position space first, then solve the complete arm.
+  // Independently slerping upper/lower joints makes elbow changes pull the wrist.
+  const displayedTarget=frame.toLocal(hand.getWorldPosition(new THREE.Vector3())).lerp(target,alpha);
+  displayedTarget.z=Math.max(displayedTarget.z,shoulder.z+.03);
+  const dir=displayedTarget.sub(shoulder);const d=clamp(dir.length(),Math.abs(l1-l2)+.01,l1+l2-.01);dir.normalize();
+  const along=(l1*l1-l2*l2+d*d)/(2*d);
+  const currentPole=elbowPoleDirection(frame.toLocal(lower.getWorldPosition(new THREE.Vector3())),shoulder,dir,sign);
+  const elbowTransition=recovery?elbowTransitions[side].update(!!elbowTarget,recovery.poseTime,recovery.now,recovery.dt,alpha):{mode:'tracked',alpha};
+  // A brief missing elbow holds the bend plane. Sustained loss relaxes it
+  // toward a forward-facing bend, while the wrist continues following the hand.
+  const trackedElbow=elbowTransition.mode==='tracked'?elbowTarget:null;
+  const relaxed=recovery&&!trackedElbow?shoulder.clone().add(new THREE.Vector3(sign*.4,-1,.2)):null;
+  const pole=elbowTransition.mode==='hold'?currentPole.clone():elbowPoleDirection(trackedElbow??relaxed,shoulder,dir,sign);
+  const turn=new THREE.Quaternion().setFromUnitVectors(currentPole,pole);
+  pole.copy(currentPole.applyQuaternion(new THREE.Quaternion().slerp(turn,elbowTransition.alpha)));
+  const height=Math.sqrt(Math.max(0,l1*l1-along*along));
+  if(elbowTarget||recovery)keepElbowInFront(pole,dir,along,height);
+  const elbow=shoulder.clone().addScaledVector(dir,along).addScaledVector(pole,height);
+  aim(upper,lower,frame.toWorld(elbow),1);upper.updateWorldMatrix(true,true);aim(lower,hand,frame.toWorld(shoulder.clone().addScaledVector(dir,d)),1);
+  if(vrm&&worldLandmarks&&handRest[side]){
+   const palm=palmBasis(worldLandmarks),rest=handRest[side];
+   if(palm&&rest.palm){
+    hand.parent.updateWorldMatrix(true,false);
+    const worldTarget=frame.rotation.clone().multiply(palm).multiply(rest.palm.clone().invert());
+    const parentRotation=hand.parent.getWorldQuaternion(new THREE.Quaternion());
+    hand.quaternion.copy(parentRotation.invert().multiply(previousHandRotation.slerp(worldTarget,alpha)));
    }
-  };
-  solve(target,alpha);
-  if(faceAnchor)finishFaceContact=()=>{
-   hand.updateWorldMatrix(true,true);
-   const wrist=frame.toLocal(hand.getWorldPosition(new THREE.Vector3())),points=[wrist];
-   if(vrm)for(const names of fingerBones)for(const [j,name]of names.entries()){
-    const node=bone(side+name);if(!node)continue;
-    const position=node.getWorldPosition(new THREE.Vector3());points.push(frame.toLocal(position));
-    if(j===names.length-1){
-     const previous=bone(side+names[j-1]);
-     if(previous){
-      const length=position.distanceTo(previous.getWorldPosition(new THREE.Vector3()))*.8;
-      const direction=handRest[side]?.directions[name]?.clone().applyQuaternion(node.getWorldQuaternion(new THREE.Quaternion()))??position.clone().sub(previous.getWorldPosition(new THREE.Vector3())).normalize();
-      points.push(frame.toLocal(position.clone().addScaledVector(direction,length)));
-     }
-    }
-   }
-   else for(const finger of arms[side].fingers)points.push(frame.toLocal(finger.getWorldPosition(new THREE.Vector3())));
-   const shoulder=frame.toLocal(upper.getWorldPosition(new THREE.Vector3()));
-   const reach=shoulder.distanceTo(frame.toLocal(lower.getWorldPosition(new THREE.Vector3())))+lower.getWorldPosition(new THREE.Vector3()).distanceTo(hand.getWorldPosition(new THREE.Vector3()))-.01;
-   const safe=clearHandFromFace(wrist,points,faceAnchor,Math.max(.012,shoulderSpan*.035),shoulder,reach);
-   if(safe.distanceToSquared(wrist)<1e-12)return;
-   const orientation=hand.getWorldQuaternion(new THREE.Quaternion());solve(safe,1,false);
-   hand.quaternion.copy(hand.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(orientation));
-  };
+  }
  }
  const names=['Thumb','Index','Middle','Ring','Little'];
  const segments=worldLandmarks?fingerSegments(worldLandmarks):null;
@@ -494,7 +454,6 @@ function rigHand(side,landmarks,alpha,worldLandmarks=null,poseLandmarks=null,rec
    }
   }else arms[side].fingers[i].rotation.x=THREE.MathUtils.lerp(arms[side].fingers[i].rotation.x,-amount,alpha);
  }
- finishFaceContact?.();
 }
 function animate(now,dt){
  // Interpolate the already-filtered pose only. Zero reproduces the direct
@@ -556,7 +515,7 @@ function animate(now,dt){
   const transition=handTransitions[side].update(!!sample,sample?.time,now,dt,handSmoothingAlpha(smoothing,dt),away);
   const active=transition.mode==='tracked'?sample:null;
   if(transition.mode==='idle'){elbowTransitions[side].reset();wristDepthFilters[side].reset();}
-  rigHand(side,active?.landmarks??null,transition.alpha,active?.worldLandmarks??null,poseLandmarks,{now,dt,poseTime:latestPose?.time,poseWorld:safeTracking(latestPose,now)?latestPose.result.worldLandmarks?.[0]:null,poseWristIndex:active?.poseWristIndex,faceLandmarks:face?.faceLandmarks?.[0]});
+  rigHand(side,active?.landmarks??null,transition.alpha,active?.worldLandmarks??null,poseLandmarks,{now,dt,poseTime:latestPose?.time,poseWorld:safeTracking(latestPose,now)?latestPose.result.worldLandmarks?.[0]:null,poseWristIndex:active?.poseWristIndex});
  }
  // Strength also enlarges the model's morphs; detector weights alone cap at 1.
  const morphScale=mouthOpenStrength;
