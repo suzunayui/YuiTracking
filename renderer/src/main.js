@@ -19,7 +19,7 @@ import {TrackingTransition} from './tracking-transition.js';
 import {WristDepth} from './wrist-depth.js';
 import {HandIdentity} from './hand-identity.js';
 import {SpringStrength} from './spring-strength.js';
-import {openCameraStream} from './camera-selection.js';
+import {openCameraStream,selectableCameras} from './camera-selection.js';
 import {AvatarBackground} from './background.js';
 import {FrameCapture} from './frame-capture.js';
 import {avatarTextures} from './avatar-textures.js';
@@ -286,16 +286,17 @@ function stabilizeElbows(result,time){
  }
  return {...result,landmarks:[filtered,...result.landmarks.slice(1)]};
 }
-async function listCameras(devices){
+async function listCameras(devices,selectionReady=false){
  devices??=await navigator.mediaDevices.enumerateDevices();
- post('cameras',{labelsAvailable:devices.filter(d=>d.kind==='videoinput').every(d=>!!d.label),items:devices.filter(d=>d.kind==='videoinput'&&!/YuiTracking Camera|HoloTrack Avatar Camera|Unity Video Capture|OBS Virtual Camera|WarudoCam/i.test(d.label)).map((d,i)=>({deviceId:d.deviceId,label:d.label||`カメラ ${i+1}`}))});
+ const cameras=selectableCameras(devices);
+ post('cameras',{selectionReady,labelsAvailable:cameras.some(d=>!!d.label),items:cameras.map((d,i)=>({deviceId:d.deviceId,label:d.label||`カメラ ${i+1}`}))});
 }
 async function startTracking(deviceId,cameraLabel,singleNativeCamera=false){
  if(initializing||tracking)return;initializing=true;
  try{
   await ensureTasks();
   // No audio capture, no display capture, and no automatic start on launch.
-  stream=await openCameraStream(navigator.mediaDevices,deviceId,cameraLabel,listCameras,{singleNativeCamera});
+  stream=await openCameraStream(navigator.mediaDevices,deviceId,cameraLabel,devices=>listCameras(devices,true),{singleNativeCamera});
   const track=stream.getVideoTracks()[0];
   await listCameras();
   if(/YuiTracking Camera|HoloTrack Avatar Camera|Unity Video Capture|OBS Virtual Camera|WarudoCam/i.test(track.label))throw new Error('入力に実際のWebカメラを選択してください。');

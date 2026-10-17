@@ -38,6 +38,25 @@ const assert=require('node:assert/strict');
     media.getUserMedia=async options=>{window.cameraOpenCalls++;return open(options);};
    });
   }
+  if(process.argv.includes('--camera-reselect')){
+   await page.evaluate(()=>{nativeLabels=['macOS camera label'];browserLabels=false;document.querySelector('#cameras').replaceChildren(new Option('macOS camera label','native:0'));});
+   const frame=page.frames().find(f=>f.url().includes('/renderer/'));
+   await frame.evaluate(()=>{
+    const media=navigator.mediaDevices,enumerate=media.enumerateDevices.bind(media),open=media.getUserMedia.bind(media);
+    window.cameraOpenCalls=0;
+    media.enumerateDevices=async()=>{
+     const list=await enumerate();
+     if(!window.cameraOpenCalls)return list.map(d=>({kind:d.kind,deviceId:'',label:''}));
+     return [...list.map(d=>({kind:d.kind,deviceId:d.deviceId,label:''})),{kind:'videoinput',deviceId:'second-camera',label:''}];
+    };
+    media.getUserMedia=async options=>{window.cameraOpenCalls++;return open(options);};
+   });
+   await page.locator('#tracking').click();
+   await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('カメラ一覧を更新しました'),null,{timeout:60000});
+   const options=await page.locator('#cameras option').evaluateAll(items=>items.map(item=>item.value));
+   assert.equal(options.length,2);assert.ok(options.every(id=>id&&!id.startsWith('native:')),'Error must expose browser IDs instead of restoring the native list');
+   await page.locator('#cameras').selectOption(options[0]);
+  }
   await page.locator('#tracking').click();
   await page.waitForFunction(()=>document.querySelector('#tracking').textContent==='カメラを停止',null,{timeout:60000});
   await page.waitForFunction(()=>window.smokeTrackingResults.length>0,null,{timeout:60000});
@@ -46,9 +65,14 @@ const assert=require('node:assert/strict');
    assert.equal(await frame.evaluate(()=>window.cameraOpenCalls),1,'Mismatched single-camera labels must reuse one acquired stream');
    console.log('PASS native/browser label mismatch: recognition starts with one camera open and no stop/reopen');
   }
+  if(process.argv.includes('--camera-reselect')){
+   const frame=page.frames().find(f=>f.url().includes('/renderer/'));
+   assert.equal(await frame.evaluate(()=>window.cameraOpenCalls),2,'Reselection opens exactly the selected ID after releasing the probe');
+   console.log('PASS camera reselection: multiple hidden labels preserve browser IDs and recognition starts on retry');
+  }
   await page.locator('#tracking').click();
   await page.waitForFunction(()=>document.querySelector('#tracking').textContent==='カメラを開始');
-  await page.locator('#privacy').click();
+  if(await page.locator('#privacy').getAttribute('aria-pressed')!=='true')await page.locator('#privacy').click();
   if(process.platform==='darwin'){
    await page.locator('#avatar-tab').click();await page.locator('#syphon').click();
    await page.waitForFunction(()=>document.querySelector('#output-status').textContent.includes('送信中'));
