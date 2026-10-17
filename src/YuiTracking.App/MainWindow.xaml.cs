@@ -11,6 +11,42 @@ namespace YuiTracking;
 public sealed partial class MainWindow : Window
 {
     private bool ready, tracking, closing;
+    private string recognitionDelegate = "CPU";
+    private GpuCatalog.Device? recognitionGpu;
+    public record RecognitionDeviceItem(string Label, string Delegate, object? Device = null)
+    { internal GpuCatalog.Device? Adapter => Device as GpuCatalog.Device; }
+    private void InitializeRecognitionDevices()
+    {
+        var items = new List<RecognitionDeviceItem> { new("CPU", "CPU") };
+        try
+        {
+            var devices = GpuCatalog.Enumerate();
+            for (var i = 0; i < devices.Count; i++)
+            {
+                var device = devices[i];
+                items.Add(new($"{device.Name} · {device.MemoryBytes / 1073741824.0:0.#} GB（候補{i + 1}）", "GPU", device));
+            }
+            var saved = AppSettings.RecognitionDevice;
+            recognitionGpu = saved.Delegate == "GPU" ? devices.FirstOrDefault(d => d.Id == saved.AdapterId && d.Name == saved.AdapterName) : null;
+            recognitionDelegate = recognitionGpu == null ? "CPU" : "GPU";
+            RecognitionStatus.Text = saved.Delegate == "GPU" && recognitionGpu == null
+                ? "保存したGPUが見つからないため、今回はCPUを使います。GPUを選び直して保存してください。"
+                : "現在の認識設定：" + (recognitionGpu?.Name ?? "CPU");
+        }
+        catch (Exception ex) { recognitionDelegate = "CPU"; recognitionGpu = null; RecognitionStatus.Text = "GPU一覧を取得できないためCPUを使います。"; App.Log(ex.ToString()); }
+        RecognitionDevice.ItemsSource = items;
+        RecognitionDevice.SelectedItem = items.FirstOrDefault(i => i.Adapter == recognitionGpu) ?? items[0];
+    }
+    private void SaveRecognition_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (RecognitionDevice.SelectedItem is not RecognitionDeviceItem item) return;
+            AppSettings.SaveRecognitionDevice(new(item.Delegate, item.Adapter?.Id, item.Adapter?.Name));
+            RecognitionStatus.Text = "保存しました。アプリを再起動すると反映します。現在：" + (recognitionGpu?.Name ?? "CPU");
+        }
+        catch (Exception ex) { Report(ex); }
+    }
     private CalibrationShortcut? calibrationShortcut;
     private bool restoreOutputPending;
     private VirtualCamera? output;
@@ -28,6 +64,7 @@ public sealed partial class MainWindow : Window
     private byte[]? modelBytes;
     private int modelRequestId;
     private string? pendingModelPath;
+    private string? currentVrmPath;
     private string? pendingSample;
     private string? selectedSample;
     private int statusTicks;
@@ -53,7 +90,7 @@ public sealed partial class MainWindow : Window
     {
         springTimer.Stop();
         if (!pendingSpringStrength) return;
-        try { AppSettings.SaveSpringStrength(SpringStrength.Value); pendingSpringStrength = false; }
+        try { AppSettings.SaveSpringStrength(SpringStrength.Value, ChestSpringStrength.Value); pendingSpringStrength = false; }
         catch (Exception ex) { App.Log(ex.Message); }
     }
     private bool pendingMouthSettings;
@@ -61,7 +98,7 @@ public sealed partial class MainWindow : Window
     {
         mouthTimer.Stop();
         if (!pendingMouthSettings) return;
-        try { AppSettings.SaveMouthSettings(MouthStrength.Value, MouthSensitivity.Value); pendingMouthSettings = false; }
+        try { AppSettings.SaveMotionSettings(MouthStrength.Value, MouthSensitivity.Value, Sensitivity.Value, BodyStrength.Value, ForwardLeanStrength.Value, BackwardLeanStrength.Value, SelectedGazeMode, GazeStrength.Value, GazeRange.Value); pendingMouthSettings = false; }
         catch (Exception ex) { App.Log(ex.Message); }
     }
     private AppSettings.Framing? pendingFraming;
@@ -110,6 +147,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        InitializeRecognitionDevices();
         Root.AddHandler(UIElement.KeyDownEvent, new Microsoft.UI.Xaml.Input.KeyEventHandler((_, e) =>
         {
             if (e.Key == Windows.System.VirtualKey.Escape && previewMaximized)
@@ -125,10 +163,11 @@ public sealed partial class MainWindow : Window
         mouthTimer.Tick += (_, _) => SaveMouthStrength();
         springTimer = DispatcherQueue.CreateTimer(); springTimer.Interval = TimeSpan.FromMilliseconds(250);
         springTimer.Tick += (_, _) => SaveSpringStrength();
-        try { SpringStrength.Value = AppSettings.SpringStrength; }
+        try { SpringStrength.Value = AppSettings.SpringStrength; ChestSpringStrength.Value = AppSettings.ChestSpringStrength; }
         catch (Exception ex) { App.Log(ex.Message); }
         SpringStrengthLabel.Text = $"揺れものの強さ：{SpringStrength.Value:0.0}倍";
-        try { MouthStrength.Value = AppSettings.MouthOpenStrength; MouthSensitivity.Value = AppSettings.MouthSensitivity; }
+        ChestSpringStrengthLabel.Text = $"胸の揺れやすさ：{ChestSpringStrength.Value:0.0}倍";
+        try { MouthStrength.Value = AppSettings.MouthOpenStrength; MouthSensitivity.Value = AppSettings.MouthSensitivity; Sensitivity.Value = AppSettings.FaceSensitivity; BodyStrength.Value = AppSettings.BodyStrength; ForwardLeanStrength.Value = AppSettings.ForwardLeanStrength; BackwardLeanStrength.Value = AppSettings.BackwardLeanStrength; GazeStrength.Value = AppSettings.GazeStrength; GazeRange.Value = AppSettings.GazeRange; GazeMode.SelectedIndex = AppSettings.GazeMode switch { "camera" => 1, "fixed" => 2, _ => 0 }; UpdateMotionLabels(); }
         catch (Exception ex) { App.Log(ex.Message); }
         MouthStrengthLabel.Text = $"口の開き具合：{MouthStrength.Value:0.0}倍";
         MouthSensitivityLabel.Text = $"口の感度：{MouthSensitivity.Value:0.0}倍";
@@ -179,6 +218,7 @@ public sealed partial class MainWindow : Window
         {
             var profile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "YuiTracking", "WebView");
             var options = new CoreWebView2EnvironmentOptions { AdditionalBrowserArguments = "--disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows --disable-features=CalculateNativeWinOcclusion" };
+            if (recognitionGpu != null) options.AdditionalBrowserArguments += GpuCatalog.BrowserArguments(recognitionGpu);
             var env = await CoreWebView2Environment.CreateWithOptionsAsync(null, profile, options);
             await Viewport.EnsureCoreWebView2Async(env);
             var core = Viewport.CoreWebView2;
@@ -348,6 +388,7 @@ public sealed partial class MainWindow : Window
                     }
                     catch (Exception ex) { frameStream = null; App.Log("Frame transport fallback: " + ex.Message); }
                     TrackingStatus.Text = "準備完了";
+                    Send(new { type = "recognitionConfig", @delegate = recognitionDelegate, expectedRenderer = recognitionGpu?.Name ?? "" });
                     SendSettings(); App.Log("Renderer ready");
                     try
                     {
@@ -379,10 +420,19 @@ public sealed partial class MainWindow : Window
                     performanceStatus = $" · 描画 {root.GetProperty("renderFps").GetDouble():F0} / 出力 {root.GetProperty("frameFps").GetDouble():F0}fps";
                     App.Log("Frame performance: " + root.GetRawText());
                     break;
+                case "recognitionReady":
+                    RecognitionStatus.Text = "認識中：" + root.GetProperty("delegate").GetString();
+                    if (root.TryGetProperty("renderer", out var rendererName)) RecognitionStatus.Text += " / " + rendererName.GetString();
+                    App.Log("Recognition backend: " + root.GetRawText());
+                    break;
+                case "springCapabilities":
+                    ChestSpringStrength.IsEnabled = root.GetProperty("chestJoints").GetInt32() > 0;
+                    ChestSpringAvailability.Text = ChestSpringStrength.IsEnabled ? "胸の揺れ設定を検出しました。" : "このモデルには対応する胸の揺れ設定がありません。";
+                    break;
                 case "framingChanged":
                     var zoom = root.GetProperty("zoom").GetDouble();
                     var x = root.GetProperty("x").GetDouble(); var y = root.GetProperty("y").GetDouble(); var z = root.GetProperty("z").GetDouble();
-                    if (!double.IsFinite(zoom) || zoom < .5 || zoom > 4 || !double.IsFinite(x) || !double.IsFinite(y) || !double.IsFinite(z)) break;
+                    if (!double.IsFinite(zoom) || zoom < .5 || zoom > 20 || !double.IsFinite(x) || !double.IsFinite(y) || !double.IsFinite(z)) break;
                     double? Coordinate(string name) => root.TryGetProperty(name, out var item) && item.TryGetDouble(out var value) && double.IsFinite(value) ? value : null;
                     pendingFraming = new(zoom, x, y, z, Coordinate("targetX"), Coordinate("targetY"), Coordinate("targetZ"));
                     framingTimer.Stop(); framingTimer.Start();
@@ -393,6 +443,7 @@ public sealed partial class MainWindow : Window
                     App.Log("VRM loaded: " + pendingModelPath);
                     ModelButton.IsEnabled = true;
                     SelectSample(pendingSample);
+                    currentVrmPath = pendingSample == null ? pendingModelPath : null;
                     if (pendingSample != null) AppSettings.SaveDefaultSample(pendingSample);
                     else AppSettings.SaveDefaultVrm(pendingModelPath);
                     pendingModelPath = null;
@@ -423,6 +474,7 @@ public sealed partial class MainWindow : Window
                 case "error": TrackingStatus.Text = root.GetProperty("text").GetString(); App.Log(TrackingStatus.Text ?? "Renderer error"); break;
                 case "tracking":
                     cameraStarting = false; tracking = root.GetProperty("active").GetBoolean(); UpdateTrackingPowerPolicy();
+                    HandDetectionStatus.Text = tracking ? "手：認識を準備中…" : "手：カメラ停止中";
                     TrackButton.Content = tracking ? "カメラを停止" : "カメラを開始";
                     ToolTipService.SetToolTip(TrackButton, tracking
                         ? "カメラでの顔・手・体の認識を停止します。\nアバターの動きへの反映も止まります。"
@@ -433,6 +485,10 @@ public sealed partial class MainWindow : Window
                         Cameras.SelectedItem = Cameras.Items.OfType<CameraItem>().FirstOrDefault(c => c.Id == activeDevice.GetString()) ?? Cameras.SelectedItem;
                     CameraInputStatus.Text = $"カメラ入力：{root.GetProperty("width").GetInt32()} × {root.GetProperty("height").GetInt32()} / {root.GetProperty("fps").GetDouble():0.#}fps";
                     App.Log("Camera input: " + root.GetRawText());
+                    break;
+                case "handDetection":
+                    if (root.TryGetProperty("count", out var count) && count.TryGetInt32(out var handCount) && handCount >= 0 && handCount <= 2)
+                        HandDetectionStatus.Text = handCount == 0 ? "手：未検出" : $"手：{handCount}つ検出";
                     break;
                 case "cameras":
                     var selected = Cameras.SelectedItem as CameraItem;
@@ -456,9 +512,11 @@ public sealed partial class MainWindow : Window
         if (!ready) return;
         try
         {
-            var picker = new FileOpenPicker(); WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
-            picker.FileTypeFilter.Add(".vrm"); var file = await picker.PickSingleFileAsync(); if (file == null) return;
-            await LoadModelAsync(file.Path);
+            string? lastVrm = null;
+            try { lastVrm = AppSettings.DefaultVrmPath; } catch (Exception ex) { App.Log(ex.Message); }
+            using var picker = new VrmFilePicker(VrmFilePicker.InitialFolder(currentVrmPath, lastVrm));
+            var file = picker.Show(WinRT.Interop.WindowNative.GetWindowHandle(this)); if (file == null) return;
+            await LoadModelAsync(file);
         }
         catch (Exception ex) { Report(ex); }
     }
@@ -489,7 +547,7 @@ public sealed partial class MainWindow : Window
         SelectSample(selectedSample);
         if (!ready || closing) return;
         modelRequestId++; pendingModelPath = pendingSample = null; ModelButton.IsEnabled = true;
-        ModelLabel.Text = "内蔵ロボット"; Send(new { type = "demo" }); SelectSample("robot"); RestoreOutput();
+        currentVrmPath = null; ModelLabel.Text = "内蔵ロボット"; Send(new { type = "demo" }); SelectSample("robot"); RestoreOutput();
         try { AppSettings.SaveDefaultSample("robot"); } catch (Exception ex) { Report(ex); }
     }
     private Task LoadSampleAsync(string sample) => LoadModelAsync(
@@ -511,10 +569,24 @@ public sealed partial class MainWindow : Window
     }
     private void Calibrate_Click(object sender, RoutedEventArgs e) => Send(new { type = "calibrate" });
     private void ResetFraming_Click(object sender, RoutedEventArgs e) => Send(new { type = "resetFraming" });
+    private string SelectedGazeMode => (GazeMode?.SelectedItem as ComboBoxItem)?.Tag as string ?? "tracking";
+    private void GazeMode_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        UpdateMotionLabels();
+        if (!ready || closing) return;
+        pendingMouthSettings = true; mouthTimer.Stop(); mouthTimer.Start(); SendSettings();
+    }
     private void UpdateMotionLabels()
     {
+        if (GazeRange != null) GazeRange.IsEnabled = SelectedGazeMode != "fixed";
+        if (GazeRangeLabel != null && GazeRange != null) GazeRangeLabel.Text = $"目の可動範囲：{GazeRange.Value:0.0}倍";
+        if (GazeStrength != null) GazeStrength.IsEnabled = SelectedGazeMode == "tracking";
+        if (GazeStrengthLabel != null && GazeStrength != null) GazeStrengthLabel.Text = $"目線の追従感度：{GazeStrength.Value:0.0}倍";
         // XAML ValueChanged can fire before all named controls are created.
         if (SmoothnessLabel != null && Smoothness != null) SmoothnessLabel.Text = $"滑らかさ：{Smoothness.Value * 100:0}%";
+        if (ForwardLeanStrengthLabel != null && ForwardLeanStrength != null) ForwardLeanStrengthLabel.Text = $"前傾の強さ：{ForwardLeanStrength.Value:0.0}倍";
+        if (BackwardLeanStrengthLabel != null && BackwardLeanStrength != null) BackwardLeanStrengthLabel.Text = $"反りの強さ：{BackwardLeanStrength.Value:0.0}倍";
+        if (BodyStrengthLabel != null && BodyStrength != null) BodyStrengthLabel.Text = $"体の動きの強さ：{BodyStrength.Value:0.0}倍";
         if (SensitivityLabel != null && Sensitivity != null) SensitivityLabel.Text = $"顔の動きの強さ：{Sensitivity.Value:0.0}倍";
     }
     private void SettingsTab_Click(object sender, RoutedEventArgs e)
@@ -526,10 +598,17 @@ public sealed partial class MainWindow : Window
     }
     private void Settings_Changed(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
     { UpdateMotionLabels(); SendSettings(); }
+    private void FaceSensitivity_Changed(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+    {
+        UpdateMotionLabels();
+        if (!ready || closing) return;
+        pendingMouthSettings = true; mouthTimer.Stop(); mouthTimer.Start(); SendSettings();
+    }
     private void SpringStrength_Changed(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
     {
         if (!ready || closing) return;
         SpringStrengthLabel.Text = $"揺れものの強さ：{SpringStrength.Value:0.0}倍";
+        ChestSpringStrengthLabel.Text = $"胸の揺れやすさ：{ChestSpringStrength.Value:0.0}倍";
         pendingSpringStrength = true; springTimer.Stop(); springTimer.Start(); SendSettings();
     }
     private void MouthStrength_Changed(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
@@ -598,7 +677,7 @@ public sealed partial class MainWindow : Window
     private void SendSettings()
     {
         if (!ready) return;
-        Send(new { type = "settings", smoothing = Smoothness.Value, sensitivity = Sensitivity.Value, mouthOpenStrength = MouthStrength.Value, mouthSensitivity = MouthSensitivity.Value, springStrength = SpringStrength.Value, background = backgroundColor });
+        Send(new { type = "settings", gazeMode = SelectedGazeMode, gazeStrength = GazeStrength.Value, gazeRange = GazeRange.Value, smoothing = Smoothness.Value, sensitivity = Sensitivity.Value, bodyStrength = BodyStrength.Value, forwardLeanStrength = ForwardLeanStrength.Value, backwardLeanStrength = BackwardLeanStrength.Value, mouthOpenStrength = MouthStrength.Value, mouthSensitivity = MouthSensitivity.Value, springStrength = SpringStrength.Value, chestSpringStrength = ChestSpringStrength.Value, background = backgroundColor });
     }
     private void Privacy_Click(object sender, RoutedEventArgs e)
     {

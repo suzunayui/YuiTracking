@@ -1,7 +1,7 @@
 {
   "name": "yuitracking-desktop",
   "productName": "YuiTracking",
-  "version": "2026.1015.8",
+  "version": "2026.1017.49",
   "private": true,
   "author": "suzunayui",
   "description": "YuiTracking Electron desktop",
@@ -34,6 +34,10 @@
       "!**/*.map"
     ],
     "extraResources": [
+      {
+        "from": "../LICENSE",
+        "to": "LICENSE"
+      },
       {
         "from": "../src/YuiTracking.App/Assets/Branding/YuiTracking.png",
         "to": "icon.png"
@@ -74,6 +78,7 @@
       "entitlements": "entitlements.mac.plist",
       "entitlementsInherit": "entitlements.mac.plist",
       "extendInfo": {
+        "NSCameraUseContinuityCameraDeviceType": true,
         "NSCameraUsageDescription": "顔・体・手を認識し、VRMアバターを動かすためにカメラを使います。映像は端末内で処理します。"
       }
     },

@@ -9,10 +9,15 @@ export function bend(a,b,c) {
   const u=[a.x-b.x,a.y-b.y,a.z-b.z], v=[c.x-b.x,c.y-b.y,c.z-b.z];
   const den=Math.hypot(...u)*Math.hypot(...v);
   if (den<1e-8) return 0;
-  return clamp(Math.PI-Math.acos(clamp(u.reduce((s,x,i)=>s+x*v[i],0)/den,-1,1)),0,1.7);
+  return Math.PI-Math.acos(clamp(u.reduce((s,x,i)=>s+x*v[i],0)/den,-1,1));
 }
 export function smoothingAlpha(smoothing, dt) {
   return 1-Math.exp(-clamp(dt,0,0.1)* (5+55*(1-clamp(smoothing,0,0.95))));
+}
+// Hands already receive One Euro filtering. Use a faster display response so
+// rendering does not add the same delay used for head/body smoothing.
+export function handSmoothingAlpha(smoothing,dt){
+  return smoothing===0?1:smoothingAlpha(smoothing*.5,dt);
 }
 export function safeTracking(result, now, maxAge=500) {
   return !!result && now-result.time>=0 && now-result.time<maxAge;

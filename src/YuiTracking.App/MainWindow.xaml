@@ -19,7 +19,7 @@
       <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
       <Grid ColumnSpacing="6">
        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-       <Button Content="キャリブレーション" HorizontalAlignment="Stretch" ToolTipService.ToolTip="今の顔の向きを正面として合わせます。&#10;正面を向いて実行してください。&#10;ショートカット：右Ctrl／右Shift&#10;どちらかを単独で押して離すと実行します。" Click="Calibrate_Click"/>
+       <Button Content="キャリブレーション" HorizontalAlignment="Stretch" ToolTipService.ToolTip="今の顔・体の向きと目の開き具合を基準に合わせます。&#10;正面を向いて実行してください。&#10;ショートカット：右Ctrl／右Shift" Click="Calibrate_Click"/>
        <Button Grid.Column="1" Content="初期位置に戻す" Click="ResetFraming_Click" ToolTipService.ToolTip="拡大率・移動位置・カメラの回転を、&#10;最初の状態に戻します。"/>
        <Button Grid.Column="2" Content="最大化" Click="MaximizePreview_Click" ToolTipService.ToolTip="プレビューを最大化します。&#10;Esc：元に戻す&#10;ダブルクリックでも切り替えられます。"/>
        <ToggleButton x:Name="Privacy" Grid.Column="3" VerticalAlignment="Center" Content="待機画面" ToolTipService.ToolTip="待機画面に切り替えます。&#10;オンの間はアバターの代わりに待機画面を出力します。" Click="Privacy_Click"/>
@@ -38,6 +38,7 @@
     <StackPanel Spacing="6">
      <Grid ColumnSpacing="6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><ComboBox x:Name="Cameras" ToolTipService.ToolTip="トラッキングに使うカメラを選びます。&#10;「カメラを開始」を押すと映像の認識を始めます。" PlaceholderText="カメラを選択" HorizontalAlignment="Stretch" DisplayMemberPath="Label"/><Button x:Name="TrackButton" ToolTipService.ToolTip="選択したカメラで顔・手・体の認識を開始します。&#10;認識した動きをアバターに反映します。" Grid.Column="1" Content="カメラを開始" Click="Track_Click" IsEnabled="False"/></Grid>
      <TextBlock x:Name="CameraInputStatus" Text="カメラ入力：720p / 最大30fps" Foreground="#9DA7C0" FontSize="12" TextWrapping="Wrap"/>
+     <TextBlock x:Name="HandDetectionStatus" Text="手：カメラ停止中" Foreground="#9DA7C0" FontSize="12"/>
     </StackPanel>
     <Grid Grid.Row="1" RowSpacing="0">
      <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
@@ -72,13 +73,31 @@
        </Grid>
        <Button x:Name="OutputButton" Content="仮想カメラ出力を開始" Click="Output_Click" HorizontalAlignment="Stretch" IsEnabled="False" ToolTipService.ToolTip="アバター映像を仮想カメラへ出力します。&#10;OBSで「映像キャプチャデバイス」を追加し、&#10;「YuiTracking Camera」を選択してください。"/>
        <Button x:Name="RegisterButton" ToolTipService.ToolTip="OBSなどから使える仮想カメラを登録します。&#10;初回のみ実行してください。" Content="仮想カメラを登録（初回）" Click="Register_Click" HorizontalAlignment="Stretch"/>
+       <TextBlock Text="認識に使うデバイス" Foreground="#9DA7C0"/>
+       <ComboBox x:Name="RecognitionDevice" DisplayMemberPath="Label" HorizontalAlignment="Stretch"/>
+       <Button Content="認識デバイスを保存" Click="SaveRecognition_Click" HorizontalAlignment="Stretch"/>
+       <TextBlock Text="変更はアプリの再起動後に反映します。GPUを選ぶと描画も同じGPUを使います。" TextWrapping="Wrap" FontSize="12" Foreground="#9DA7C0"/>
+       <TextBlock x:Name="RecognitionStatus" TextWrapping="Wrap" FontSize="12" Foreground="#9DA7C0"/>
       </StackPanel>
       </ScrollViewer>
       <ScrollViewer x:Name="MotionSettings" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
       <StackPanel Spacing="4">
-       <StackPanel Background="Transparent" ToolTipService.ToolTip="動きの揺れを抑える強さを調整します。&#10;大きく：滑らかになる／反応はゆっくり&#10;小さく：素早く反応する／細かな揺れが出やすい">
+        <TextBlock Text="目線モード" Foreground="#9DA7C0"/>
+        <ComboBox x:Name="GazeMode" SelectedIndex="0" HorizontalAlignment="Stretch" SelectionChanged="GazeMode_Changed">
+         <ComboBoxItem Content="自分の目に追従" Tag="tracking"/>
+         <ComboBoxItem Content="常にカメラ目線" Tag="camera"/>
+         <ComboBoxItem Content="正面固定" Tag="fixed"/>
+        </ComboBox>
+        <TextBlock x:Name="GazeStrengthLabel" Text="目線の追従感度：1.0倍" Foreground="#9DA7C0"/>
+        <Slider x:Name="GazeStrength" Minimum="0" Maximum="3" Value="1" StepFrequency="0.1" ValueChanged="FaceSensitivity_Changed"/>
+        <TextBlock x:Name="GazeRangeLabel" Text="目の可動範囲：1.0倍" Foreground="#9DA7C0"/>
+        <Slider x:Name="GazeRange" Minimum="1" Maximum="5" Value="1" StepFrequency="0.1" ValueChanged="FaceSensitivity_Changed"/>
+        <TextBlock Text="追従感度は「自分の目に追従」のときに使います。可動範囲はカメラ目線でも使えます。1倍でモデル標準、5倍まで拡大できます（目ボーンは最大45度、表情式は表情の最大量まで）。VRMファイルは変更しません。" TextWrapping="Wrap" FontSize="12" Foreground="#9DA7C0"/>
+        <TextBlock Text="目線対応のVRMで使えます。追従時はカメラを見てキャリブレーションしてください。" TextWrapping="Wrap" FontSize="12" Foreground="#9DA7C0"/>
+
+       <StackPanel Background="Transparent" ToolTipService.ToolTip="認識結果の間を滑らかにつなぎます。&#10;0%：補間なし（比較用）&#10;大きいほど滑らかになり、追従はゆっくりになります。">
         <TextBlock x:Name="SmoothnessLabel" Text="滑らかさ：65%" Foreground="#9DA7C0"/>
-        <Slider x:Name="Smoothness" ToolTipService.ToolTip="動きの揺れを抑える強さを調整します。&#10;大きく：滑らかになる／反応はゆっくり&#10;小さく：素早く反応する／細かな揺れが出やすい" Minimum="0" Maximum="0.95" Value="0.65" StepFrequency="0.05" ValueChanged="Settings_Changed"/>
+        <Slider x:Name="Smoothness" ToolTipService.ToolTip="認識結果の間を滑らかにつなぎます。&#10;0%：補間なし（比較用）&#10;大きいほど滑らかになり、追従はゆっくりになります。" Minimum="0" Maximum="0.95" Value="0.65" StepFrequency="0.05" ValueChanged="Settings_Changed"/>
        </StackPanel>
        <StackPanel Background="Transparent" ToolTipService.ToolTip="認識した口の開きに対する、アバターの変形量です。&#10;大きく：アバターの口が大きく開く&#10;小さく：アバターの口の開きが控えめになる">
         <TextBlock x:Name="MouthStrengthLabel" Text="口の開き具合：1.0倍" Foreground="#9DA7C0"/>
@@ -88,13 +107,22 @@
         <TextBlock x:Name="MouthSensitivityLabel" Text="口の感度：1.8倍" Foreground="#9DA7C0"/>
         <Slider x:Name="MouthSensitivity" ToolTipService.ToolTip="自分の口の動きを拾う感度を調整します。&#10;大きく：小さな動きでも口が開きやすい&#10;小さく：しっかり口を動かすと反応する" Minimum="0.5" Maximum="3" Value="1.8" StepFrequency="0.1" ValueChanged="MouthStrength_Changed"/>
        </StackPanel>
-       <StackPanel Background="Transparent" ToolTipService.ToolTip="髪・服などの揺れやすさを調整します。&#10;1.0倍：モデル標準&#10;大きく：揺れやすくなる&#10;小さく：揺れが控えめになる">
+       <StackPanel Background="Transparent" ToolTipService.ToolTip="モデルに設定された胸・髪・服などの揺れを調整します。">
         <TextBlock x:Name="SpringStrengthLabel" Text="揺れものの強さ：1.0倍" Foreground="#9DA7C0"/>
-        <Slider x:Name="SpringStrength" Minimum="0.3" Maximum="3" Value="1" StepFrequency="0.1" ToolTipService.ToolTip="髪・服などの揺れやすさを調整します。&#10;1.0倍：モデル標準&#10;大きく：揺れやすくなる&#10;小さく：揺れが控えめになる" ValueChanged="SpringStrength_Changed"/>
+        <Slider x:Name="SpringStrength" Minimum="0.3" Maximum="5" Value="1" StepFrequency="0.1" ToolTipService.ToolTip="モデルに設定された胸・髪・服などの揺れを調整します。" ValueChanged="SpringStrength_Changed"/>
        </StackPanel>
-       <StackPanel Background="Transparent" ToolTipService.ToolTip="顔の向きや傾きを反映する強さを調整します。&#10;大きく：アバターの顔の動きが大きくなる&#10;小さく：アバターの顔の動きが控えめになる">
+       <TextBlock x:Name="ChestSpringStrengthLabel" Text="胸の揺れやすさ：1.0倍" Foreground="#9DA7C0"/>
+       <Slider x:Name="ChestSpringStrength" Minimum="0.3" Maximum="20" Value="1" StepFrequency="0.1" IsEnabled="False" ToolTipService.ToolTip="胸専用の揺れ設定があるモデルで使えます。1倍：現在の揺れ。大きくすると胸だけ揺れが残りやすくなります。全体の揺れものの強さと組み合わせて使います。" ValueChanged="SpringStrength_Changed"/>
+       <TextBlock x:Name="ChestSpringAvailability" Text="胸の揺れ設定を確認中です。" TextWrapping="Wrap" FontSize="12" Foreground="#9DA7C0"/>
+       <StackPanel Background="Transparent" ToolTipService.ToolTip="頭の向き・傾きを反映する強さです。&#10;1倍：今までと同じ／4倍：顔45度でアバターの顔180度。回転は180度まで。体の強さとは別に調整できます。">
         <TextBlock x:Name="SensitivityLabel" Text="顔の動きの強さ：1.0倍" Foreground="#9DA7C0"/>
-        <Slider x:Name="Sensitivity" ToolTipService.ToolTip="顔の向きや傾きを反映する強さを調整します。&#10;大きく：アバターの顔の動きが大きくなる&#10;小さく：アバターの顔の動きが控えめになる" Minimum="0.3" Maximum="2" Value="1" StepFrequency="0.1" ValueChanged="Settings_Changed"/>
+        <Slider x:Name="Sensitivity" ToolTipService.ToolTip="頭の向き・傾きを反映する強さです。&#10;1倍：今までと同じ／4倍：顔45度でアバターの顔180度。回転は180度まで。体の強さとは別に調整できます。" Minimum="0.3" Maximum="5" Value="1" StepFrequency="0.1" ValueChanged="FaceSensitivity_Changed"/>
+        <TextBlock x:Name="BodyStrengthLabel" Text="体の動きの強さ：1.0倍" Foreground="#9DA7C0"/>
+        <Slider x:Name="BodyStrength" Minimum="0" Maximum="20" Value="1" StepFrequency="0.1" ToolTipService.ToolTip="頭に連動する体の左右のひねりを調整します。&#10;1倍：今までと同じ／20倍：顔30度で体180度（左右180度まで）。0倍：左右のひねりなし。頭の向き・前後の傾きは変わりません。" ValueChanged="FaceSensitivity_Changed"/>
+        <TextBlock x:Name="ForwardLeanStrengthLabel" Text="前傾の強さ：1.0倍" Foreground="#9DA7C0"/>
+        <Slider x:Name="ForwardLeanStrength" Minimum="0" Maximum="3" Value="1" StepFrequency="0.1" ToolTipService.ToolTip="カメラとの距離による体の傾きを調整します。1倍：今までと同じ／0倍：この方向の傾きなし。" ValueChanged="FaceSensitivity_Changed"/>
+        <TextBlock x:Name="BackwardLeanStrengthLabel" Text="反りの強さ：1.0倍" Foreground="#9DA7C0"/>
+        <Slider x:Name="BackwardLeanStrength" Minimum="0" Maximum="3" Value="1" StepFrequency="0.1" ToolTipService.ToolTip="カメラとの距離による体の傾きを調整します。1倍：今までと同じ／0倍：この方向の傾きなし。" ValueChanged="FaceSensitivity_Changed"/>
        </StackPanel>
       </StackPanel>
       </ScrollViewer>

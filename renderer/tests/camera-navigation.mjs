@@ -18,6 +18,18 @@ try{
  await page.evaluate(()=>{window.commands=null;window.messages=[];window.yuiHost={postMessage:m=>window.messages.push(m),addEventListener:(_,fn)=>window.commands=fn};});
  await page.addScriptTag({content:bundle.outputFiles[0].text});
  const initial=await page.evaluate(()=>cameraState());
+ await page.locator('canvas').evaluate(canvas=>{for(let i=0;i<5;i++)canvas.dispatchEvent(new WheelEvent('wheel',{deltaY:-720,cancelable:true}));});
+ assert.equal((await page.evaluate(()=>cameraState())).zoom,20);
+ await page.evaluate(()=>commands({data:{type:'restoreFraming',zoom:20,x:0,y:1.35,z:3.1,targetX:0,targetY:1.1,targetZ:0}}));
+ assert.equal((await page.evaluate(()=>cameraState())).zoom,20,'Saved close-up framing must restore at full zoom');
+ await page.evaluate(()=>commands({data:{type:'resetFraming'}}));
+ await page.evaluate(()=>commands({data:{type:'navigationMode',pan:true}}));
+ await page.mouse.move(150,150);await page.mouse.wheel(20,30);
+ await page.waitForFunction(()=>cameraState().position[0]!==0);
+ const scrolled=await page.evaluate(()=>cameraState());
+ assert.notDeepEqual(scrolled.target,initial.target);assert.equal(scrolled.zoom,initial.zoom);
+ await page.evaluate(()=>commands({data:{type:'resetFraming'}}));
+ await page.evaluate(()=>commands({data:{type:'navigationMode',pan:false}}));
  await page.mouse.move(150,150);await page.mouse.wheel(0,-120);
  await page.waitForFunction(()=>cameraState().zoom>1);
  await page.mouse.down({button:'right'});await page.mouse.move(230,190,{steps:5});await page.mouse.up({button:'right'});
@@ -27,11 +39,16 @@ try{
  await page.mouse.down({button:'middle'});await page.mouse.move(250,205,{steps:3});await page.mouse.up({button:'middle'});
  const moved=await page.evaluate(()=>cameraState());assert.notDeepEqual(moved.target,orbit.target);
  assert.ok(Math.abs(radius(moved)-radius(initial))<1e-9);
+ await page.mouse.down({button:'left'});await page.mouse.move(270,230,{steps:3});await page.mouse.up({button:'left'});
+ const dragged=await page.evaluate(()=>cameraState());
+ assert.notDeepEqual(dragged.target,moved.target,'Primary drag used by macOS three-finger drag must pan');
+ assert.equal(dragged.zoom,moved.zoom);assert.ok(Math.abs(radius(dragged)-radius(initial))<1e-9);
+ await page.mouse.move(280,240);assert.deepEqual(await page.evaluate(()=>cameraState()),dragged,'Panning must end on release');
  await page.evaluate(()=>commands({data:{type:'resetFraming'}}));assert.deepEqual(await page.evaluate(()=>cameraState()),initial);
  await page.evaluate(m=>commands({data:{type:'restoreFraming',zoom:m.zoom,x:m.position[0],y:m.position[1],z:m.position[2],targetX:m.target[0],targetY:m.target[1],targetZ:m.target[2]}}),moved);
  assert.deepEqual(await page.evaluate(()=>cameraState()),moved);
  await page.evaluate(()=>commands({data:{type:'restoreFraming',zoom:1,x:.2,y:1.5,z:3.1}}));
  assert.deepEqual((await page.evaluate(()=>cameraState())).target,[.2,1.25,0]);
  assert.ok(await page.evaluate(()=>robotReach())<.08);
- console.log('PASS: wheel without Ctrl, right-drag orbit, middle-drag pan, reset, saved orbit restoration, legacy framing, robot hand reaches face');
+ console.log('PASS: wheel, right-drag orbit, middle/primary drag pan, release, reset, saved orbit restoration, legacy framing, robot hand reaches face');
 }finally{await browser.close();}

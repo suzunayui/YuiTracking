@@ -38,7 +38,7 @@ try {
     $staging = Join-Path $projectRoot ('dist\msix\staging\' + [guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Force $staging | Out-Null
     Copy-Item -Path 'dist/YuiTracking/*' -Destination $staging -Recurse
-    foreach ($notice in @('README.md', 'THIRD-PARTY-NOTICES.txt')) { Copy-Item -LiteralPath $notice -Destination $staging }
+    foreach ($notice in @('README.md', 'THIRD-PARTY-NOTICES.txt', 'LICENSE')) { Copy-Item -LiteralPath $notice -Destination $staging }
     # Packaged WinUI loads its primary XAML resource index as resources.pri.
     # Keep the original index too, since the EXE build uses YuiTracking.pri.
     Copy-Item -LiteralPath (Join-Path $staging 'YuiTracking.pri') -Destination (Join-Path $staging 'resources.pri')

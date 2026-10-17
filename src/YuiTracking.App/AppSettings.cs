@@ -5,6 +5,13 @@ namespace YuiTracking;
 
 internal static class AppSettings
 {
+    public record RecognitionSelection(string Delegate, string? AdapterId = null, string? AdapterName = null);
+    public static RecognitionSelection RecognitionDevice => Read()["recognitionDevice"]?.Deserialize<RecognitionSelection>() ?? new("CPU");
+    public static void SaveRecognitionDevice(RecognitionSelection selection)
+    {
+        if (selection.Delegate is not ("CPU" or "GPU")) throw new ArgumentException("Invalid recognition device.");
+        var settings = Read(); settings["recognitionDevice"] = JsonSerializer.SerializeToNode(selection); Save(settings);
+    }
     public static string FilePath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "YuiTracking", "settings.json");
 
@@ -28,17 +35,42 @@ internal static class AppSettings
     }
     public static double SpringStrength
     {
-        get { var value = Read()["springStrength"]?.GetValue<double>() ?? 1; return double.IsFinite(value) ? Math.Clamp(value, .3, 3) : 1; }
+        get { var value = Read()["springStrength"]?.GetValue<double>() ?? 1; return double.IsFinite(value) ? Math.Clamp(value, .3, 5) : 1; }
     }
-    public static void SaveSpringStrength(double value)
+    public static double ChestSpringStrength
     {
-        if (!double.IsFinite(value)) return;
-        var settings = Read(); settings["springStrength"] = Math.Clamp(value, .3, 3); Save(settings);
+        get { var value = Read()["chestSpringStrength"]?.GetValue<double>() ?? 1; return double.IsFinite(value) ? Math.Clamp(value, .3, 20) : 1; }
+    }
+    public static void SaveSpringStrength(double value, double chestValue)
+    {
+        if (!double.IsFinite(value) || !double.IsFinite(chestValue)) return;
+        var settings = Read(); settings["springStrength"] = Math.Clamp(value, .3, 5); settings["chestSpringStrength"] = Math.Clamp(chestValue, .3, 20); Save(settings);
     }
     public static bool VirtualCameraEnabled => Read()["virtualCameraEnabled"]?.GetValue<bool>() ?? false;
     public static void SaveVirtualCameraEnabled(bool enabled)
     {
         var settings = Read(); settings["virtualCameraEnabled"] = enabled; Save(settings);
+    }
+    public static double BodyStrength
+    {
+        get { var value = Read()["bodyStrength"]?.GetValue<double>() ?? 1; return double.IsFinite(value) ? Math.Clamp(value, 0, 20) : 1; }
+    }
+    public static double ForwardLeanStrength => ReadLeanStrength("forwardLeanStrength");
+    public static double BackwardLeanStrength => ReadLeanStrength("backwardLeanStrength");
+    private static double ReadLeanStrength(string key)
+    {
+        var value = Read()[key]?.GetValue<double>() ?? 1;
+        return double.IsFinite(value) ? Math.Clamp(value, 0, 3) : 1;
+    }
+    public static string GazeMode => Read()["gazeMode"]?.GetValue<string>() is string mode && mode is "tracking" or "camera" or "fixed" ? mode : "tracking";
+    public static double GazeStrength => ReadLeanStrength("gazeStrength");
+    public static double GazeRange
+    {
+        get { var value = Read()["gazeRange"]?.GetValue<double>() ?? 1; return double.IsFinite(value) ? Math.Clamp(value, 1, 5) : 1; }
+    }
+    public static double FaceSensitivity
+    {
+        get { var value = Read()["sensitivity"]?.GetValue<double>() ?? 1; return double.IsFinite(value) ? Math.Clamp(value, .3, 5) : 1; }
     }
     public static double MouthOpenStrength
     {
@@ -53,10 +85,11 @@ internal static class AppSettings
     {
         get { var settings = Read(); var value = settings["mouthSensitivity"]?.GetValue<double>() ?? settings["mouthOpenStrength"]?.GetValue<double>() ?? 1.8; return double.IsFinite(value) ? Math.Clamp(value, .5, 3) : 1.8; }
     }
-    public static void SaveMouthSettings(double opening, double sensitivity)
+    public static void SaveMotionSettings(double opening, double sensitivity, double faceSensitivity, double bodyStrength, double forwardLeanStrength, double backwardLeanStrength, string gazeMode, double gazeStrength, double gazeRange)
     {
-        if (!double.IsFinite(opening) || !double.IsFinite(sensitivity)) return;
-        var settings = Read(); settings["mouthOpenStrength"] = Math.Clamp(opening, .5, 3); settings["mouthSensitivity"] = Math.Clamp(sensitivity, .5, 3); Save(settings);
+        if (!double.IsFinite(opening) || !double.IsFinite(sensitivity) || !double.IsFinite(faceSensitivity) || !double.IsFinite(bodyStrength) || !double.IsFinite(forwardLeanStrength) || !double.IsFinite(backwardLeanStrength)) return;
+        if (!double.IsFinite(gazeRange) || !double.IsFinite(gazeStrength) || gazeMode is not ("tracking" or "camera" or "fixed")) return;
+        var settings = Read(); settings["gazeRange"] = Math.Clamp(gazeRange, 1, 5); settings["gazeMode"] = gazeMode; settings["gazeStrength"] = Math.Clamp(gazeStrength, 0, 3); settings["mouthOpenStrength"] = Math.Clamp(opening, .5, 3); settings["mouthSensitivity"] = Math.Clamp(sensitivity, .5, 3); settings["sensitivity"] = Math.Clamp(faceSensitivity, .3, 5); settings["bodyStrength"] = Math.Clamp(bodyStrength, 0, 20); settings["forwardLeanStrength"] = Math.Clamp(forwardLeanStrength, 0, 3); settings["backwardLeanStrength"] = Math.Clamp(backwardLeanStrength, 0, 3); Save(settings);
     }
     public record Framing(double Zoom, double X, double Y, double Z, double? TargetX = null, double? TargetY = null, double? TargetZ = null);
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase };

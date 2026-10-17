@@ -55,3 +55,73 @@ export function shoulderWristTarget(wrist,pose,center,span,aspect=4/3){
  const scale=Math.min(span/width,3);
  return new Vector3(center.x+((left.x+right.x)/2-wrist.x)*aspect*scale,center.y+((left.y+right.y)/2-wrist.y)*scale,center.z+.15);
 }
+
+export function matchedPoseWrist(wrist,pose,aspect=4/3,preferred=null){
+ if(!valid(wrist))return null;
+ const visible=p=>valid(p)&&(p.visibility??1)>=.6;
+ // Match the hand's wrist to pose wrists instead of relying on the two
+ // detectors having identical handedness conventions or screen ordering.
+ const indices=preferred===15||preferred===16?[preferred]:[15,16];
+ const candidates=indices.filter(i=>visible(pose?.[i])).map(i=>({i,d:Math.hypot((pose[i].x-wrist.x)*aspect,pose[i].y-wrist.y)})).sort((a,b)=>a.d-b.d);
+ const match=candidates[0];
+ if(!match||match.d>.18)return null;
+ return match.i;
+}
+
+export function wristDepthRatio(wrist,pose,world,aspect=4/3,preferred=null){
+ const index=matchedPoseWrist(wrist,pose,aspect,preferred);
+ if(index===null||![11,12,index].every(i=>valid(world?.[i])&&(pose?.[i]?.visibility??0)>=.6))return null;
+ const left=world[11],right=world[12],width=new Vector3(left.x-right.x,left.y-right.y,left.z-right.z).length();
+ if(width<.08)return null;
+ // Pose world landmarks share a body origin. Hand-local world landmarks do
+ // not supply the hand's distance from the torso.
+ const ratio=((left.z+right.z)/2-world[index].z)/width;
+ return Math.max(-.25,Math.min(1.5,ratio));
+}
+
+export function handWristTarget(wrist,pose,center,span,aspect=4/3,depthRatio=null){
+ const target=shoulderWristTarget(wrist,pose,center,span,aspect);
+ if(!target)return null;
+ const clearance=Math.max(.18,span*.45);
+ target.z=center.z+clearance+(Number.isFinite(depthRatio)?Math.max(0,depthRatio)*span:0);
+ return target;
+}
+
+export function trackedElbowTarget(wrist,pose,center,span,aspect=4/3,preferred=null){
+ const index=matchedPoseWrist(wrist,pose,aspect,preferred);
+ if(index===null)return null;
+ const elbow=pose[index-2];
+ const visible=p=>valid(p)&&(p.visibility??1)>=.6;
+ if(!visible(elbow))return null;
+ const target=shoulderWristTarget(elbow,pose,center,span,aspect);
+ if(!target)return null;
+ // Webcam depth can reverse the bend plane. Use the observed screen direction;
+ // the arm solver selects the forward-facing solution instead of inferred Z.
+ return target;
+}
+
+export function elbowPoleDirection(elbowTarget,shoulder,armDirection,sign){
+ const fallback=new Vector3(sign*.4,-1,-.2);
+ const pole=elbowTarget?elbowTarget.clone().sub(shoulder):fallback.clone();
+ pole.addScaledVector(armDirection,-pole.dot(armDirection));
+ if(pole.lengthSq()<1e-8){
+  pole.copy(fallback).addScaledVector(armDirection,-fallback.dot(armDirection));
+  if(pole.lengthSq()<1e-8)pole.crossVectors(armDirection,Math.abs(armDirection.y)<.9?new Vector3(0,1,0):new Vector3(1,0,0));
+ }
+ return pole.normalize();
+}
+
+export function keepElbowInFront(pole,direction,along,height){
+ // Elbow = shoulder + along * direction + height * pole. Select the closest
+ // point on that bend circle with elbow.z >= shoulder.z when reachable.
+ const front=new Vector3(0,0,1).addScaledVector(direction,-direction.z);
+ const length=front.length();
+ if(height<1e-8||length<1e-8)return pole;
+ front.divideScalar(length);
+ const minimum=Math.max(-1,Math.min(1,-along*direction.z/(height*length)));
+ const dot=pole.dot(front);
+ if(dot>=minimum)return pole;
+ const tangent=pole.clone().addScaledVector(front,-dot);
+ if(tangent.lengthSq()<1e-8)tangent.crossVectors(front,direction);
+ return pole.copy(front).multiplyScalar(minimum).addScaledVector(tangent.normalize(),Math.sqrt(Math.max(0,1-minimum*minimum))).normalize();
+}

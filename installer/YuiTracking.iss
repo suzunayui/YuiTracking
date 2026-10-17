@@ -26,6 +26,10 @@ SolidCompression=yes
 WizardStyle=modern
 AppMutex=Local\YuiTracking.App.SingleInstance,Local\HoloTrack.App.SingleInstance
 CloseApplications=yes
+; The native camera DLL is retained unchanged (onlyifdoesntexist below).
+; OBS/Chrome can keep it loaded while the producer application is updated.
+; Keep checking the application and all other DLLs for actual update locks.
+CloseApplicationsFilterExcludes=UnityCaptureFilter64.dll
 RestartApplications=no
 UninstallLogMode=append
 VersionInfoVersion={#AppVersion}.0

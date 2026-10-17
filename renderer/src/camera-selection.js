@@ -2,24 +2,42 @@ export function normalizedCameraLabel(label) {
  return label.trim().replace(/\s*\([0-9a-f]{4}:[0-9a-f]{4}\)\s*$/i,'').replace(/\s*\(built-in\)\s*$/i,'').toLowerCase();
 }
 
-export function resolveNamedCamera(devices,label) {
- const name=normalizedCameraLabel(label);
- const matches=devices.filter(d=>d.kind==='videoinput' && d.deviceId && normalizedCameraLabel(d.label)===name);
- if(matches.length===1)return matches[0].deviceId;
- if(matches.length>1)throw new Error('同名のカメラが複数あります。更新された一覧からカメラを選び直してください。');
- throw new Error('選択したカメラが見つかりません。接続を確認し、一覧から選び直してください。');
+export function selectableCameras(devices){
+ return devices.filter(d=>d.kind==='videoinput'&&d.deviceId&&!/YuiTracking Camera|HoloTrack Avatar Camera|Unity Video Capture|OBS Virtual Camera|WarudoCam/i.test(d.label));
 }
 
-// Native Windows IDs and browser device IDs are different namespaces.
-// Acquire browser labels only after the user explicitly starts the camera.
-export async function browserCameraId(mediaDevices,deviceId,label,onDiscovered) {
- if(deviceId || !label)return deviceId;
- let devices=await mediaDevices.enumerateDevices();
- if(!devices.some(d=>d.kind==='videoinput' && d.label)) {
-  const probe=await mediaDevices.getUserMedia({video:true,audio:false});
-  try { devices=await mediaDevices.enumerateDevices(); }
-  finally { probe.getTracks().forEach(t=>t.stop()); }
- }
- await onDiscovered(devices);
- return resolveNamedCamera(devices,label);
+export function resolveNamedCamera(devices,label,{singleNativeCamera=false}={}) {
+ const name=normalizedCameraLabel(label);
+ const cameras=selectableCameras(devices);
+ const matches=cameras.filter(d=>normalizedCameraLabel(d.label)===name);
+ if(matches.length===1)return matches[0].deviceId;
+ if(matches.length>1)throw new Error('同名のカメラが複数あります。更新された一覧からカメラを選び直してください。');
+ if(singleNativeCamera&&cameras.length===1)return cameras[0].deviceId;
+ throw new Error('カメラ一覧を更新しました。表示名が異なるか、接続が変わった可能性があります。一覧から使用するカメラを選び直してください。');
+}
+
+// A probe is opened only after an explicit Start. Reuse its stream when it is
+// already the selected camera, avoiding a stop/reopen cycle on macOS.
+export async function openCameraStream(mediaDevices,deviceId,label,onDiscovered,selection={}){
+ const preferred={width:{ideal:1280},height:{ideal:720},aspectRatio:{ideal:16/9},frameRate:{ideal:30,max:30}};
+ const open=id=>mediaDevices.getUserMedia({video:{...(id?{deviceId:{exact:id}}:{}),...preferred},audio:false});
+ if(deviceId||!label)return open(deviceId);
+ let probe=null;
+ try{
+  let devices=await mediaDevices.enumerateDevices();
+  let resolved=false;
+  try{resolveNamedCamera(devices,label,selection);resolved=true;}catch{}
+  // Partial permission may expose the running webcam but hide the iPhone.
+  // Probe on an explicit Start for an unresolved name even if some labels exist.
+  if(!resolved){
+   probe=await open();devices=await mediaDevices.enumerateDevices();
+  }
+  await onDiscovered(devices);
+  const selected=resolveNamedCamera(devices,label,selection);
+  if(probe&&probe.getVideoTracks()[0]?.getSettings().deviceId===selected){
+   const stream=probe;probe=null;return stream;
+  }
+  if(probe){probe.getTracks().forEach(t=>t.stop());probe=null;}
+  return await open(selected);
+ }finally{probe?.getTracks().forEach(t=>t.stop());}
 }

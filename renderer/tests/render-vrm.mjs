@@ -7,11 +7,15 @@ import {build} from 'esbuild';
 const assets=path.resolve(import.meta.dirname,'../../src/YuiTracking.App/Assets/Renderer');
 const model=await fs.readFile(process.argv[2]);
 let bodyTestScript;
-if(process.argv.includes('--check-body')||process.argv.includes('--check-hands')||process.argv.includes('--check-mouth')||process.argv.includes('--check-springs')){
+if(process.argv.includes('--check-gaze')||process.argv.includes('--check-body')||process.argv.includes('--check-hands')||process.argv.includes('--check-mouth')||process.argv.includes('--check-springs')){
  let source=await fs.readFile(path.resolve(import.meta.dirname,'../src/main.js'),'utf8');
  if(process.argv.includes('--check-mouth'))source=source.replace('function animate(now,dt){','function animate(now,dt){ if(window.testMouthWeights)latestFace={time:now,result:{faceBlendshapes:[{categories:Object.entries(window.testMouthWeights).map(([categoryName,score])=>({categoryName,score}))}]}};');
  const bundle=await build({stdin:{contents:source+`
- window.readTestSprings=()=>[...vrm.springBoneManager.joints].map(j=>({settings:{stiffness:j.settings.stiffness,drag:j.settings.dragForce},rotation:j.bone.quaternion.toArray()}));
+ window.setTestRange=value=>{gazeRange=value;};
+ window.setTestGaze=(mode,x=0,y=0)=>{gazeMode=mode;eyeGaze.update=()=>({x,y});};
+ window.readTestGaze=()=>({yaw:vrm.lookAt?.yaw,pitch:vrm.lookAt?.pitch,eyes:['leftEye','rightEye'].map(n=>vrm.humanoid.getRawBoneNode(n)?.quaternion.toArray()),head:bone('head').quaternion.toArray(),ranges:['HorizontalInner','HorizontalOuter','VerticalDown','VerticalUp'].map(name=>vrm.lookAt.applier['rangeMap'+name].outputScale)});
+ window.moveTestCamera=x=>{camera.position.x=x;camera.updateMatrixWorld();};
+ window.readTestSprings=()=>[...vrm.springBoneManager.joints].map(j=>({name:j.bone.name,chest:springControl.joints.find(item=>item.joint===j).chest,settings:{stiffness:j.settings.stiffness,drag:j.settings.dragForce},rotation:j.bone.quaternion.toArray()}));
  window.setTestMouth=weights=>{window.testMouthWeights=weights;};
  window.readTestMouthMorph=(name='aa')=>vrm.expressionManager.getExpression(name).binds.flatMap(bind=>bind.primitives?.map(mesh=>mesh.morphTargetInfluences[bind.index])??[]);
  window.readTestMouth=()=>Object.fromEntries(['aa','ih','ou','ee','oh','happy'].map(name=>[name,vrm.expressionManager.getValue(name)]));
@@ -89,6 +93,31 @@ try{
 
 
  }
+ if(process.argv.includes('--check-gaze')){
+  await page.evaluate(()=>window.setTestGaze('fixed'));await page.waitForTimeout(150);
+  const neutral=await page.evaluate(()=>window.readTestGaze());assert.ok(Number.isFinite(neutral.yaw));
+  await page.evaluate(()=>window.setTestGaze('tracking',.5,.5));await page.waitForTimeout(150);
+  const moved=await page.evaluate(()=>window.readTestGaze());assert.ok(moved.yaw>0&&moved.pitch>0);assert.notDeepEqual(moved.eyes,neutral.eyes);assert.deepEqual(moved.head,neutral.head);
+  const angle=(a,b)=>2*Math.acos(Math.min(1,Math.abs(a.reduce((sum,v,i)=>sum+v*b[i],0))));
+  await page.evaluate(()=>window.setTestRange(4));await page.waitForTimeout(150);
+  const wider=await page.evaluate(()=>window.readTestGaze());
+  for(let i=0;i<2;i++)assert.ok(angle(wider.eyes[i],neutral.eyes[i])>angle(moved.eyes[i],neutral.eyes[i])*2,'Tracking range must visibly increase eye rotation');
+  assert.deepEqual(wider.head,neutral.head);
+  await page.evaluate(()=>window.setTestRange(1));await page.waitForTimeout(150);
+  assert.deepEqual((await page.evaluate(()=>window.readTestGaze())).eyes,moved.eyes);
+  await page.evaluate(()=>window.setTestGaze('fixed'));await page.waitForTimeout(150);
+  assert.deepEqual((await page.evaluate(()=>window.readTestGaze())).eyes,neutral.eyes);
+  await page.evaluate(()=>{window.setTestGaze('camera');window.moveTestCamera(.5);});await page.waitForTimeout(150);
+  const right=await page.evaluate(()=>window.readTestGaze());
+  await page.evaluate(()=>window.setTestRange(4));await page.waitForTimeout(150);
+  const widerCamera=await page.evaluate(()=>window.readTestGaze());
+  for(let i=0;i<2;i++)assert.ok(angle(widerCamera.eyes[i],neutral.eyes[i])>angle(right.eyes[i],neutral.eyes[i])*2,'Camera mode must also use wider range');
+  await page.evaluate(()=>window.setTestRange(1));await page.waitForTimeout(150);
+  assert.deepEqual((await page.evaluate(()=>window.readTestGaze())).ranges,neutral.ranges);
+  await page.evaluate(()=>window.moveTestCamera(-.5));await page.waitForTimeout(150);
+  const left=await page.evaluate(()=>window.readTestGaze());assert.ok(right.yaw*left.yaw<0);assert.notDeepEqual(left.eyes,right.eyes);assert.deepEqual(left.head,neutral.head);
+  console.log('PASS real VRM eye bones: tracking, fixed reset, camera movement without webcam, unchanged head');
+ }
  if(process.argv.includes('--check-springs')){
   const original=await page.evaluate(()=>window.readTestSprings());assert.ok(original.length>0);
   await page.evaluate(()=>window.hostListener({data:{type:'settings',springStrength:3,smoothing:.65,sensitivity:1,background:'#00ff00'}}));await page.waitForTimeout(1500);
@@ -98,6 +127,19 @@ try{
   await page.evaluate(()=>window.hostListener({data:{type:'settings',springStrength:1,smoothing:.65,sensitivity:1,background:'#00ff00'}}));await page.waitForTimeout(300);
   assert.deepEqual((await page.evaluate(()=>window.readTestSprings())).map(j=>j.settings),original.map(j=>j.settings));
   console.log('PASS real VRM spring strength changes, finite rotations and restored physics');
+  const beforeChest=await page.evaluate(()=>window.readTestSprings());
+  await page.evaluate(()=>window.hostListener({data:{type:'settings',chestSpringStrength:20}}));await page.waitForTimeout(1500);
+  const afterChest=await page.evaluate(()=>window.readTestSprings());
+  for(let i=0;i<afterChest.length;i++){
+   assert.ok(afterChest[i].rotation.every(Number.isFinite));
+   if(beforeChest[i].chest)assert.ok(afterChest[i].settings.stiffness<beforeChest[i].settings.stiffness);
+   else assert.deepEqual(afterChest[i].settings,beforeChest[i].settings,'Chest slider must preserve hair and cloth');
+  }
+  await page.evaluate(()=>window.hostListener({data:{type:'settings',springStrength:5,chestSpringStrength:20}}));await page.waitForTimeout(1000);
+  assert.ok((await page.evaluate(()=>window.readTestSprings())).every(joint=>joint.rotation.every(Number.isFinite)),'Combined maximum must keep finite rotations');
+  await page.evaluate(()=>window.hostListener({data:{type:'settings',springStrength:1,chestSpringStrength:1}}));
+  assert.deepEqual((await page.evaluate(()=>window.readTestSprings())).map(s=>s.settings),beforeChest.map(s=>s.settings));
+  console.log('PASS chest-only adjustment and restore: '+beforeChest.filter(s=>s.chest).length+' authored joints');
  }
  if(process.argv.includes('--check-body')){
   const points=[];

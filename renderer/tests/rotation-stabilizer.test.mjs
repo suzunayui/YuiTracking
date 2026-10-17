@@ -2,46 +2,38 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {Euler,Quaternion} from 'three';
 import {RotationStabilizer} from '../src/rotation-stabilizer.js';
-const rotation=(x,y=0,z=0)=>new Quaternion().setFromEuler(new Euler(x,y,z,'YXZ'));
-test('slow head motion starts before the static boundary and continues without repeated holds',()=>{
- const filter=new RotationStabilizer();let previous=0;
- for(let i=0;i<=40;i++){
-  const angle=filter.update(rotation(i*.0025),i*50).angleTo(new Quaternion());
-  if(i===4)assert.ok(angle>.001,'A slow turn must already move within 200ms');
-  if(i>=7)assert.ok(angle-previous>.001,'Do not re-enter the static hold during a continuous turn');
-  previous=angle;
+const rotation=y=>new Quaternion().setFromEuler(new Euler(0,y,0));
+test('small slow head movement contributes on every observation without a hold threshold',()=>{
+ const filter=new RotationStabilizer();filter.update(rotation(0),0);let previous=0;
+ for(let i=1;i<=80;i++){
+  const angle=filter.update(rotation(i*.001),i*50).angleTo(rotation(0));
+  assert.ok(angle>previous&&angle<=i*.001+1e-7);previous=angle;
  }
+ assert.ok(previous>.075);
 });
-test('head motion returns to a stationary anchor after stopping',()=>{
- const filter=new RotationStabilizer();for(let i=0;i<=40;i++)filter.update(rotation(i*.0025),i*50);
- for(let i=41;i<=80;i++)filter.update(rotation(.1),i*50);
- const held=filter.value.clone();
- for(let i=81;i<=110;i++)assert.ok(filter.update(rotation(.1+(i%2?.003:-.003)),i*50).angleTo(held)<1e-6);
+test('equivalent head quaternion signs and 180 degree wrapping do not cause flips',()=>{
+ const filter=new RotationStabilizer();filter.update(rotation(Math.PI-.02),0);
+ for(let i=1;i<=80;i++){
+  const q=rotation(Math.PI+.02);if(i%2)q.set(-q.x,-q.y,-q.z,-q.w);
+  const result=filter.update(q,i*50);
+  assert.ok(Math.abs(result.length()-1)<1e-10);
+  assert.ok(result.angleTo(rotation(Math.PI))<.021);
+ }
+ assert.ok(filter.value.angleTo(rotation(Math.PI+.02))<1e-6);
 });
-test('isolated threshold crossings and alternating head spikes stay still',()=>{
- const filter=new RotationStabilizer();filter.update(rotation(0),0);
- for(let i=1;i<30;i++)assert.ok(filter.update(rotation(i%3===0?0:i%2?.04:-.04),i*50).angleTo(new Quaternion())<1e-7);
+test('head observation filtering reduces noise while following a deliberate turn',()=>{
+ const filter=new RotationStabilizer();filter.update(rotation(0),0);let energy=0;
+ for(let i=1;i<=100;i++){
+  const angle=filter.update(rotation(i%2?.01:-.01),i*50).angleTo(rotation(0));
+  if(i>50)energy+=angle**2;
+ }
+ assert.ok(Math.sqrt(energy/50)<.004);
+ filter.update(rotation(.4),5100);filter.update(rotation(.4),5150);
+ assert.ok(filter.update(rotation(.4),5200).angleTo(rotation(.4))<.1);
 });
-test('a sustained small head movement is accepted on the next observation',()=>{
- const filter=new RotationStabilizer();filter.update(rotation(0),0);
- assert.ok(filter.update(rotation(.04),50).angleTo(new Quaternion())<1e-7);
- assert.ok(filter.update(rotation(.04),100).angleTo(new Quaternion())>.02);
-});
-test('stationary head noise stays still and deliberate turns remain responsive',()=>{
- const filter=new RotationStabilizer();
- for(let i=0;i<50;i++)assert.ok(filter.update(rotation((i%2?1:-1)*.008,.009,-.006),i*60).angleTo(new Quaternion())<1e-7);
- assert.ok(filter.update(rotation(.3,-.4,.2),3100).angleTo(rotation(.3,-.4,.2))<.06);
-});
-test('small noise is held around a turned head and render ticks do not refilter',()=>{
- const filter=new RotationStabilizer();
- for(let i=0;i<80;i++)filter.update(rotation(.3,.4,.1),i*60);
- const held=filter.update(rotation(.3,.4,.1),4800);
- for(let i=1;i<30;i++)assert.ok(filter.update(rotation(.3+(i%2?1:-1)*.003,.4,.1),4800+i*60).angleTo(held)<1e-6);
- assert.deepEqual(filter.update(rotation(-.4),6540),filter.update(rotation(.6),6540));
- filter.reset();assert.ok(filter.update(rotation(0),7000).angleTo(new Quaternion())<1e-7);
-});
-test('slow intentional head movement accumulates beyond the hold region',()=>{
- const filter=new RotationStabilizer();
- for(let i=0;i<=40;i++)filter.update(rotation(i*.002),i*60);
- assert.ok(filter.value.angleTo(new Quaternion())>.04);
+test('head reset and rejected observations keep finite normalized state',()=>{
+ const filter=new RotationStabilizer();filter.update(rotation(0),0);const value=filter.update(rotation(.2),100);
+ assert.deepEqual(filter.update(rotation(1),100),value);assert.deepEqual(filter.update(rotation(1),50),value);
+ assert.deepEqual(filter.update(new Quaternion(0,0,0,0),200),value);
+ filter.reset();assert.ok(filter.update(rotation(.3),300).angleTo(rotation(.3))<1e-7);
 });

@@ -8,6 +8,7 @@
    <div class="preview-actions">
     <button id="calibrate" title="今の顔の向きを正面として合わせます。&#10;Macの共通ショートカット：⌘⇧C&#10;アプリが前面なら右Control／右Shift単独でも実行します。">キャリブレーション</button>
     <button id="reset" title="拡大率・移動位置・カメラの回転を最初の状態に戻します。">初期位置に戻す</button>
+    <button id="pan-mode" aria-pressed="false" title="オンの間、プレビュー上の2本指スクロールで上下左右へ移動します。ピンチで拡大・縮小できます。">移動</button>
     <button id="maximize" title="プレビューを最大化します。&#10;Escで元に戻します。ダブルクリックでも切り替えられます。">最大化</button>
     <button id="privacy" aria-pressed="false" title="オンの間はアバターの代わりに待機画面を出力します。">待機画面</button>
    </div>
@@ -15,7 +16,7 @@
   </div>
  </section>
  <aside>
-  <div class="camera-section"><div class="camera-row"><select id="cameras" title="トラッキングに使うカメラを選びます。"></select><button id="tracking" disabled title="選択したカメラで顔・手・体の認識を開始します。">カメラを開始</button></div><p id="input">カメラ入力：720p / 最大30fps</p></div>
+  <div class="camera-section"><div class="camera-row"><select id="cameras" title="トラッキングに使うカメラを選びます。"></select><button id="refresh-cameras" title="Macとブラウザーのカメラ一覧を再取得します。">更新</button></div><button id="tracking" class="wide" disabled title="選択したカメラで顔・手・体の認識を開始します。">カメラを開始</button><p id="input">カメラ入力：720p / 最大30fps</p><p id="camera-note" aria-live="polite"></p><p id="camera-permission" aria-live="polite"></p></div>
   <div class="settings">
    <div class="tabs" role="tablist"><button id="avatar-tab" role="tab" aria-selected="true" aria-controls="avatar-settings" title="アバター・背景と、OBS向けの出力を設定します。">アバター・出力</button><button id="motion-tab" role="tab" aria-selected="false" aria-controls="motion-settings" title="動きの滑らかさや顔・口・揺れものの反応を調整します。">動きの調整</button></div>
    <div class="tab-content">
@@ -29,15 +30,30 @@
       <button data-background="#ff0000" aria-pressed="false" title="背景をレッドにします。">レッド</button><button data-background="#0000ff" aria-pressed="false" title="背景をブルーにします。">ブルー</button><button data-background="#000000" aria-pressed="false" title="背景をブラックにします。">ブラック</button>
      </div>
      <button id="syphon" class="wide output-button" disabled title="アバターと背景だけをSyphonへ送信します。&#10;OBS → Syphonクライアント → YuiTracking を選びます。">Syphon出力を開始</button>
+     <label for="recognition-device">認識に使うデバイス</label>
+     <select id="recognition-device"><option value="CPU">CPU</option></select>
+     <button id="save-recognition" class="wide">認識デバイスを保存</button>
+     <p>変更はアプリの再起動後に反映します。</p>
+     <p id="recognition-status" aria-live="polite"></p>
     </div>
     <div id="motion-settings" role="tabpanel" hidden>
+     <label>目線モード<select id="gazeMode"><option value="tracking">自分の目に追従</option><option value="camera">常にカメラ目線</option><option value="fixed">正面固定</option></select></label>
+     <label>目線の追従感度：<output id="gazeStrength-value"></output><input id="gazeStrength" type="range" min="0" max="3" step="0.1" value="1"></label>
+     <label>目の可動範囲：<output id="gazeRange-value"></output><input id="gazeRange" type="range" min="1" max="5" step="0.1" value="1"></label>
+     <p>追従感度は「自分の目に追従」のときに使います。可動範囲はカメラ目線でも使えます。1倍でモデル標準、5倍まで拡大できます（目ボーンは最大45度、表情式は表情の最大量まで）。VRMファイルは変更しません。</p>
+     <p>目線対応のVRMで使えます。自分の目に追従する場合は、カメラを見てキャリブレーションしてください。</p>
      <label title="大きく：滑らかになる／反応はゆっくり&#10;小さく：素早く反応する／細かな揺れが出やすい">滑らかさ：<output id="smoothing-value"></output><input id="smoothing" type="range" min="0" max="0.95" step="0.05" value="0.65"></label>
      <label title="口の変形量を調整します。&#10;大きく：口が大きく開く／小さく：控えめに開く">口の開き具合：<output id="mouthOpenStrength-value"></output><input id="mouthOpenStrength" type="range" min="0.5" max="3" step="0.1" value="1"></label>
      <label title="小さな口の開きを読み取る敏感さです。&#10;大きく：小さな開きにも反応／小さく：大きな開きに反応">口の感度：<output id="mouthSensitivity-value"></output><input id="mouthSensitivity" type="range" min="0.5" max="3" step="0.1" value="1.8"></label>
-     <label title="髪・服などの揺れやすさです。&#10;1.0倍：モデル標準&#10;大きく：揺れやすい／小さく：揺れが控えめ">揺れものの強さ：<output id="springStrength-value"></output><input id="springStrength" type="range" min="0.3" max="3" step="0.1" value="1"></label>
-     <label title="顔の向きや傾きを反映する強さです。&#10;大きく：動きが大きい／小さく：動きが控えめ">顔の動きの強さ：<output id="sensitivity-value"></output><input id="sensitivity" type="range" min="0.3" max="2" step="0.1" value="1"></label>
+     <label title="髪・服などの揺れやすさです。&#10;1.0倍：モデル標準&#10;大きく：揺れやすい／小さく：揺れが控えめ">揺れものの強さ：<output id="springStrength-value"></output><input id="springStrength" type="range" min="0.3" max="5" step="0.1" value="1"></label>
+     <label title="胸専用の揺れ設定があるモデルで使えます。1倍：現在の揺れ。大きくすると胸だけ揺れが残りやすくなります。全体の揺れものの強さと組み合わせて使います。">胸の揺れやすさ：<output id="chestSpringStrength-value"></output><input id="chestSpringStrength" type="range" min="0.3" max="20" step="0.1" value="1" disabled></label>
+     <p id="chest-spring-availability">胸の揺れ設定を確認中です。</p>
+     <label title="頭の向き・傾きを反映する強さです。&#10;1倍：今までと同じ／4倍：顔45度でアバターの顔180度。回転は180度まで。体の強さとは別に調整できます。">顔の動きの強さ：<output id="sensitivity-value">1.0倍</output><input id="sensitivity" type="range" min="0.3" max="5" step="0.1" value="1"></label>
+     <label title="頭に連動する体の左右のひねりを調整します。&#10;1倍：今までと同じ／20倍：顔30度で体180度（左右180度まで）。0倍：左右のひねりなし。頭の向き・前後の傾きは変わりません。">体の動きの強さ：<output id="bodyStrength-value">1.0倍</output><input id="bodyStrength" type="range" min="0" max="20" step="0.1" value="1"></label>
+     <label title="カメラとの距離による体の傾きを調整します。1倍：今までと同じ／0倍：この方向の傾きなし。">反りの強さ：<output id="backwardLeanStrength-value">1.0倍</output><input id="backwardLeanStrength" type="range" min="0" max="3" step="0.1" value="1"></label>
+     <label title="カメラとの距離による体の傾きを調整します。1倍：今までと同じ／0倍：この方向の傾きなし。">前傾の強さ：<output id="forwardLeanStrength-value">1.0倍</output><input id="forwardLeanStrength" type="range" min="0" max="3" step="0.1" value="1"></label>
     </div>
    </div>
   </div>
  </aside>
-</main><script src="app.js"></script></body></html>
+</main><script src="camera-picker.js"></script><script src="app.js"></script></body></html>

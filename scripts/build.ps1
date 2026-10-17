@@ -21,5 +21,6 @@ try {
     if ($LASTEXITCODE) { throw 'App publish failed' }
     Copy-Item README.md dist/YuiTracking/README.md
     Copy-Item THIRD-PARTY-NOTICES.txt dist/YuiTracking/THIRD-PARTY-NOTICES.txt
+    Copy-Item LICENSE dist/YuiTracking/LICENSE
     Write-Host "Ready: $projectRoot\dist\YuiTracking\YuiTracking.exe"
 } finally { Pop-Location }
