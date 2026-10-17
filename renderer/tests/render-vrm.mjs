@@ -11,7 +11,7 @@ if(process.argv.includes('--check-body')||process.argv.includes('--check-hands')
  let source=await fs.readFile(path.resolve(import.meta.dirname,'../src/main.js'),'utf8');
  if(process.argv.includes('--check-mouth'))source=source.replace('function animate(now,dt){','function animate(now,dt){ if(window.testMouthWeights)latestFace={time:now,result:{faceBlendshapes:[{categories:Object.entries(window.testMouthWeights).map(([categoryName,score])=>({categoryName,score}))}]}};');
  const bundle=await build({stdin:{contents:source+`
- window.readTestSprings=()=>[...vrm.springBoneManager.joints].map(j=>({settings:{stiffness:j.settings.stiffness,drag:j.settings.dragForce},rotation:j.bone.quaternion.toArray()}));
+ window.readTestSprings=()=>[...vrm.springBoneManager.joints].map(j=>({name:j.bone.name,chest:springControl.joints.find(item=>item.joint===j).chest,settings:{stiffness:j.settings.stiffness,drag:j.settings.dragForce},rotation:j.bone.quaternion.toArray()}));
  window.setTestMouth=weights=>{window.testMouthWeights=weights;};
  window.readTestMouthMorph=(name='aa')=>vrm.expressionManager.getExpression(name).binds.flatMap(bind=>bind.primitives?.map(mesh=>mesh.morphTargetInfluences[bind.index])??[]);
  window.readTestMouth=()=>Object.fromEntries(['aa','ih','ou','ee','oh','happy'].map(name=>[name,vrm.expressionManager.getValue(name)]));
@@ -98,6 +98,17 @@ try{
   await page.evaluate(()=>window.hostListener({data:{type:'settings',springStrength:1,smoothing:.65,sensitivity:1,background:'#00ff00'}}));await page.waitForTimeout(300);
   assert.deepEqual((await page.evaluate(()=>window.readTestSprings())).map(j=>j.settings),original.map(j=>j.settings));
   console.log('PASS real VRM spring strength changes, finite rotations and restored physics');
+  const beforeChest=await page.evaluate(()=>window.readTestSprings());
+  await page.evaluate(()=>window.hostListener({data:{type:'settings',chestSpringStrength:5}}));await page.waitForTimeout(1500);
+  const afterChest=await page.evaluate(()=>window.readTestSprings());
+  for(let i=0;i<afterChest.length;i++){
+   assert.ok(afterChest[i].rotation.every(Number.isFinite));
+   if(beforeChest[i].chest)assert.ok(afterChest[i].settings.stiffness<beforeChest[i].settings.stiffness);
+   else assert.deepEqual(afterChest[i].settings,beforeChest[i].settings,'Chest slider must preserve hair and cloth');
+  }
+  await page.evaluate(()=>window.hostListener({data:{type:'settings',chestSpringStrength:1}}));
+  assert.deepEqual((await page.evaluate(()=>window.readTestSprings())).map(s=>s.settings),beforeChest.map(s=>s.settings));
+  console.log('PASS chest-only adjustment and restore: '+beforeChest.filter(s=>s.chest).length+' authored joints');
  }
  if(process.argv.includes('--check-body')){
   const points=[];

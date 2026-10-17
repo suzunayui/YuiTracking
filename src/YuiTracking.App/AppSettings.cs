@@ -37,10 +37,14 @@ internal static class AppSettings
     {
         get { var value = Read()["springStrength"]?.GetValue<double>() ?? 1; return double.IsFinite(value) ? Math.Clamp(value, .3, 5) : 1; }
     }
-    public static void SaveSpringStrength(double value)
+    public static double ChestSpringStrength
     {
-        if (!double.IsFinite(value)) return;
-        var settings = Read(); settings["springStrength"] = Math.Clamp(value, .3, 5); Save(settings);
+        get { var value = Read()["chestSpringStrength"]?.GetValue<double>() ?? 1; return double.IsFinite(value) ? Math.Clamp(value, .3, 5) : 1; }
+    }
+    public static void SaveSpringStrength(double value, double chestValue)
+    {
+        if (!double.IsFinite(value) || !double.IsFinite(chestValue)) return;
+        var settings = Read(); settings["springStrength"] = Math.Clamp(value, .3, 5); settings["chestSpringStrength"] = Math.Clamp(chestValue, .3, 5); Save(settings);
     }
     public static bool VirtualCameraEnabled => Read()["virtualCameraEnabled"]?.GetValue<bool>() ?? false;
     public static void SaveVirtualCameraEnabled(bool enabled)

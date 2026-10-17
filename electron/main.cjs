@@ -37,7 +37,7 @@ function persist(){saveQueue=saveQueue.catch(()=>{}).then(save);return saveQueue
 function trusted(event,kind){return event.sender===window?.webContents && event.senderFrame?.url.startsWith(origin+'/'+kind+'/');}
 function command(message){if(window&&!window.webContents.isDestroyed())window.webContents.send('command',message);}
 function notify(message){if(window&&!window.webContents.isDestroyed())window.webContents.send('renderer-event',message);}
-function safeSettings(value){const result={};for(const [key,min,max] of [['smoothing',0,.95],['sensitivity',.3,5],['bodyStrength',0,20],['forwardLeanStrength',0,3],['backwardLeanStrength',0,3],['mouthOpenStrength',.5,3],['mouthSensitivity',.5,3],['springStrength',.3,5]])if(Number.isFinite(value?.[key]))result[key]=Math.min(max,Math.max(min,value[key]));return result;}
+function safeSettings(value){const result={};for(const [key,min,max] of [['smoothing',0,.95],['sensitivity',.3,5],['bodyStrength',0,20],['forwardLeanStrength',0,3],['backwardLeanStrength',0,3],['mouthOpenStrength',.5,3],['mouthSensitivity',.5,3],['springStrength',.3,5],['chestSpringStrength',.3,5]])if(Number.isFinite(value?.[key]))result[key]=Math.min(max,Math.max(min,value[key]));return result;}
 function samplePath(sample){return path.join(app.isPackaged?path.join(process.resourcesPath,'Samples'):path.join(__dirname,'../src/YuiTracking.App/Assets/Samples'),`AvatarSample_${sample}.vrm`);}
 function selectModel(file,sample){
  if(sample==='robot'){pendingModel=null;syphon.setLoading(false);command({type:'demo'});settings.defaultSample='robot';notify({type:'avatar',sample,label:'内蔵ロボット'});return persist();}
@@ -80,7 +80,7 @@ ipcMain.on('renderer-event',async(event,message)=>{
  try{
  if(message.type==='ready'){
   command({type:'recognitionConfig',delegate:recognitionDelegate,expectedRenderer:recognitionGpuName});
-  rendererReady=true;command({type:'settings',smoothing:.65,sensitivity:1,bodyStrength:1,forwardLeanStrength:1,backwardLeanStrength:1,mouthOpenStrength:1,mouthSensitivity:1.8,springStrength:1,...safeSettings(settings)});
+  rendererReady=true;command({type:'settings',smoothing:.65,sensitivity:1,bodyStrength:1,forwardLeanStrength:1,backwardLeanStrength:1,mouthOpenStrength:1,mouthSensitivity:1.8,springStrength:1,chestSpringStrength:1,...safeSettings(settings)});
   if(settings.framing)command({type:'restoreFraming',...settings.framing});
   selectBackground(colors.includes(settings.background)?settings.background:'#00ff00',settings.backgroundImagePath);
   if(settings.defaultSample||!settings.defaultVrmPath)selectModel(samplePath(settings.defaultSample==='Z'?'Z':'Y'),settings.defaultSample||'Y');else selectModel(settings.defaultVrmPath,null);
@@ -95,7 +95,7 @@ ipcMain.on('renderer-event',async(event,message)=>{
  if(message.type==='calibrateRequest')command({type:'calibrate'});
  if(message.type==='error'){syphon.setPrivacy(true);notify({type:'safety',active:true});}
  if(message.type==='framingChanged'&&['zoom','x','y','z'].every(key=>Number.isFinite(message[key]))){settings.framing=Object.fromEntries(['zoom','x','y','z','targetX','targetY','targetZ'].filter(key=>Number.isFinite(message[key])).map(key=>[key,message[key]]));await persist();}
- if(['status','error','tracking','cameras','cameraListWarning','cameraInput','recognitionReady','modelLoaded','modelFailed','ready','togglePreviewMaximized','restorePreview'].includes(message.type))notify(message);
+ if(['status','error','tracking','cameras','cameraListWarning','cameraInput','recognitionReady','springCapabilities','modelLoaded','modelFailed','ready','togglePreviewMaximized','restorePreview'].includes(message.type))notify(message);
  }catch(error){notify({type:'error',text:error.message});}
 });
 async function recover(){if(recoveryOpen||!window)return;rendererReady=false;syphon.setPrivacy(true);recoveryOpen=true;try{const result=await dialog.showMessageBox(window,{type:'error',title:'YuiTracking',message:'描画が停止しました。再起動しますか？',buttons:['再起動','閉じる'],defaultId:0,cancelId:1});if(result.response===0){await persist();app.relaunch();app.exit();}}finally{recoveryOpen=false;}}

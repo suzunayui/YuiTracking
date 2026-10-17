@@ -89,7 +89,7 @@ public sealed partial class MainWindow : Window
     {
         springTimer.Stop();
         if (!pendingSpringStrength) return;
-        try { AppSettings.SaveSpringStrength(SpringStrength.Value); pendingSpringStrength = false; }
+        try { AppSettings.SaveSpringStrength(SpringStrength.Value, ChestSpringStrength.Value); pendingSpringStrength = false; }
         catch (Exception ex) { App.Log(ex.Message); }
     }
     private bool pendingMouthSettings;
@@ -162,9 +162,10 @@ public sealed partial class MainWindow : Window
         mouthTimer.Tick += (_, _) => SaveMouthStrength();
         springTimer = DispatcherQueue.CreateTimer(); springTimer.Interval = TimeSpan.FromMilliseconds(250);
         springTimer.Tick += (_, _) => SaveSpringStrength();
-        try { SpringStrength.Value = AppSettings.SpringStrength; }
+        try { SpringStrength.Value = AppSettings.SpringStrength; ChestSpringStrength.Value = AppSettings.ChestSpringStrength; }
         catch (Exception ex) { App.Log(ex.Message); }
         SpringStrengthLabel.Text = $"揺れものの強さ：{SpringStrength.Value:0.0}倍";
+        ChestSpringStrengthLabel.Text = $"胸の揺れやすさ：{ChestSpringStrength.Value:0.0}倍";
         try { MouthStrength.Value = AppSettings.MouthOpenStrength; MouthSensitivity.Value = AppSettings.MouthSensitivity; Sensitivity.Value = AppSettings.FaceSensitivity; BodyStrength.Value = AppSettings.BodyStrength; ForwardLeanStrength.Value = AppSettings.ForwardLeanStrength; BackwardLeanStrength.Value = AppSettings.BackwardLeanStrength; }
         catch (Exception ex) { App.Log(ex.Message); }
         MouthStrengthLabel.Text = $"口の開き具合：{MouthStrength.Value:0.0}倍";
@@ -423,6 +424,10 @@ public sealed partial class MainWindow : Window
                     if (root.TryGetProperty("renderer", out var rendererName)) RecognitionStatus.Text += " / " + rendererName.GetString();
                     App.Log("Recognition backend: " + root.GetRawText());
                     break;
+                case "springCapabilities":
+                    ChestSpringStrength.IsEnabled = root.GetProperty("chestJoints").GetInt32() > 0;
+                    ChestSpringAvailability.Text = ChestSpringStrength.IsEnabled ? "胸の揺れ設定を検出しました。" : "このモデルには対応する胸の揺れ設定がありません。";
+                    break;
                 case "framingChanged":
                     var zoom = root.GetProperty("zoom").GetDouble();
                     var x = root.GetProperty("x").GetDouble(); var y = root.GetProperty("y").GetDouble(); var z = root.GetProperty("z").GetDouble();
@@ -588,6 +593,7 @@ public sealed partial class MainWindow : Window
     {
         if (!ready || closing) return;
         SpringStrengthLabel.Text = $"揺れものの強さ：{SpringStrength.Value:0.0}倍";
+        ChestSpringStrengthLabel.Text = $"胸の揺れやすさ：{ChestSpringStrength.Value:0.0}倍";
         pendingSpringStrength = true; springTimer.Stop(); springTimer.Start(); SendSettings();
     }
     private void MouthStrength_Changed(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
@@ -656,7 +662,7 @@ public sealed partial class MainWindow : Window
     private void SendSettings()
     {
         if (!ready) return;
-        Send(new { type = "settings", smoothing = Smoothness.Value, sensitivity = Sensitivity.Value, bodyStrength = BodyStrength.Value, forwardLeanStrength = ForwardLeanStrength.Value, backwardLeanStrength = BackwardLeanStrength.Value, mouthOpenStrength = MouthStrength.Value, mouthSensitivity = MouthSensitivity.Value, springStrength = SpringStrength.Value, background = backgroundColor });
+        Send(new { type = "settings", smoothing = Smoothness.Value, sensitivity = Sensitivity.Value, bodyStrength = BodyStrength.Value, forwardLeanStrength = ForwardLeanStrength.Value, backwardLeanStrength = BackwardLeanStrength.Value, mouthOpenStrength = MouthStrength.Value, mouthSensitivity = MouthSensitivity.Value, springStrength = SpringStrength.Value, chestSpringStrength = ChestSpringStrength.Value, background = backgroundColor });
     }
     private void Privacy_Click(object sender, RoutedEventArgs e)
     {

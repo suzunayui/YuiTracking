@@ -1,5 +1,5 @@
 const $=id=>document.getElementById(id),host=window.yuiDesktop;
-const keys=['smoothing','sensitivity','bodyStrength','forwardLeanStrength','backwardLeanStrength','mouthOpenStrength','mouthSensitivity','springStrength'];
+const keys=['smoothing','sensitivity','bodyStrength','forwardLeanStrength','backwardLeanStrength','mouthOpenStrength','mouthSensitivity','springStrength','chestSpringStrength'];
 let active=false,timer,statusTimer,statusRevision=0,syphonActive=false,maximized=false,nativeLabels=[],browserLabels=false;
 const cameraPicker=new CameraPicker();let cameraMessage={items:[],labelsAvailable:false};
 function updateCameras(){
@@ -51,6 +51,7 @@ host.onEvent(message=>{
  if(message.type==='cameras')$('camera-note').textContent='';
  if(message.type==='cameraInput')$('input').textContent=`カメラ入力：${message.label||'名称不明'} / ${message.width} × ${message.height} / ${Math.round(message.fps)}fps`;
  if(message.type==='recognitionReady')$('recognition-status').textContent='認識中：'+message.delegate+(message.renderer?' / '+message.renderer:'');
+ if(message.type==='springCapabilities'){$('chestSpringStrength').disabled=!(message.chestJoints>0);$('chest-spring-availability').textContent=message.chestJoints>0?'胸の揺れ設定を検出しました。':'このモデルには対応する胸の揺れ設定がありません。';}
  if(message.type==='avatar'){$('model').textContent=message.label;for(const button of document.querySelectorAll('[data-sample]'))button.setAttribute('aria-pressed',button.dataset.sample===message.sample);}
  if(message.type==='background'){for(const button of document.querySelectorAll('[data-background]'))button.setAttribute('aria-pressed',!message.image&&button.dataset.background===message.color);$('background-image').setAttribute('aria-pressed',message.image);}
  if(message.type==='togglePreviewMaximized')maximize(!maximized);if(message.type==='restorePreview')maximize(false);

@@ -136,7 +136,7 @@ scene.add(new THREE.HemisphereLight(0xffffff,0xffffff,.35));
 const key=new THREE.DirectionalLight(0xffffff,Math.PI*.85); key.position.set(1,3,3); scene.add(key);
 let vrm=null,demo=null,head=null,eyes=[],arms={},loading=false,privacy=false,output=false;
 const bodyFromHead=true,bodyLeanEnabled=true;
-let springStrength=1,springControl=null;
+let springStrength=1,chestSpringStrength=1,springControl=null;
 let smoothing=.65,sensitivity=1,bodyStrength=1,forwardLeanStrength=1,backwardLeanStrength=1,mouthOpenStrength=1,mouthSensitivity=1.8,tracking=false,video,stream,initializing=false;
 let latestFace=null,latestHands=null,frameNumber=0,lastVideoTime=-1,lastDetect=0,lastRender=0;
 let calibration=new THREE.Quaternion(),rawHead=new THREE.Quaternion(),haveFace=false;
@@ -187,7 +187,7 @@ function disposeAvatarScene(avatarScene){
  for(const image of images)image?.close?.();
 }
 function removeAvatar() {
- mouthMorphBinds=[];springControl=null;resetArmTransitions();
+ mouthMorphBinds=[];springControl=null;post('springCapabilities',{chestJoints:0});resetArmTransitions();
  if(vrm){scene.remove(vrm.scene);disposeAvatarScene(vrm.scene);vrm=null;}
  if(demo){scene.remove(demo);demo.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});demo=null;}
  head=null;eyes=[];arms={};handRest={};renderer.renderLists.dispose();
@@ -234,7 +234,8 @@ async function loadModel(requestId){
   removeAvatar();vrm=next;VRMUtils.rotateVRM0(vrm);scene.add(vrm.scene);
   mouthMorphBinds=['aa','ih','ou','ee','oh'].flatMap(name=>(vrm.expressionManager?.getExpression(name)?.binds??[]).filter(bind=>bind.primitives&&Number.isInteger(bind.index)).map(bind=>({bind,baseWeight:bind.weight})));
   placeAvatar(vrm);
-  springControl=new SpringStrength(vrm.springBoneManager);springControl.setStrength(springStrength);
+  springControl=new SpringStrength(vrm.springBoneManager);springControl.setStrength(springStrength,chestSpringStrength);
+  post('springCapabilities',{chestJoints:springControl.chestCount});
   handRest={};
   for(const side of ['left','right']){
    const hand=bone(side+'Hand');if(!hand)continue;
@@ -618,7 +619,15 @@ host?.addEventListener('message',async e=>{
    try{if(await avatarBackground.set(m))post('backgroundLoaded',{requestId:m.requestId});}
    catch(err){post('backgroundFailed',{requestId:m.requestId,text:'背景画像を読み込めませんでした。'});}
    break;
-  case'settings':if(Number.isFinite(m.forwardLeanStrength))forwardLeanStrength=clamp(m.forwardLeanStrength,0,3);if(Number.isFinite(m.backwardLeanStrength))backwardLeanStrength=clamp(m.backwardLeanStrength,0,3);if(Number.isFinite(m.bodyStrength))bodyStrength=clamp(m.bodyStrength,0,20);if(Number.isFinite(m.sensitivity))sensitivity=clamp(m.sensitivity,.3,5);if(Number.isFinite(m.springStrength)){springStrength=clamp(m.springStrength,.3,5);springControl?.setStrength(springStrength);}smoothing=clamp(m.smoothing??.65,0,.95);mouthOpenStrength=clamp(m.mouthOpenStrength??1,.5,3);mouthSensitivity=clamp(m.mouthSensitivity??1.8,.5,3);break;
+  case'settings':
+   if(Number.isFinite(m.forwardLeanStrength))forwardLeanStrength=clamp(m.forwardLeanStrength,0,3);
+   if(Number.isFinite(m.backwardLeanStrength))backwardLeanStrength=clamp(m.backwardLeanStrength,0,3);
+   if(Number.isFinite(m.bodyStrength))bodyStrength=clamp(m.bodyStrength,0,20);
+   if(Number.isFinite(m.sensitivity))sensitivity=clamp(m.sensitivity,.3,5);
+   if(Number.isFinite(m.springStrength))springStrength=clamp(m.springStrength,.3,5);
+   if(Number.isFinite(m.chestSpringStrength))chestSpringStrength=clamp(m.chestSpringStrength,.3,5);
+   springControl?.setStrength(springStrength,chestSpringStrength);
+   smoothing=clamp(m.smoothing??.65,0,.95);mouthOpenStrength=clamp(m.mouthOpenStrength??1,.5,3);mouthSensitivity=clamp(m.mouthSensitivity??1.8,.5,3);break;
   case'privacy':privacy=!!m.value;break;
   case'output':output=!!m.value;restartRenderLoop();break;
  }
