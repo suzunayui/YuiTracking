@@ -8,7 +8,7 @@
     "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
-    "@mediapipe/tasks-vision": "0.10.22-rc.20250304",
+    "@mediapipe/tasks-vision": "1.1.1",
     "@pixiv/three-vrm": "3.5.5",
     "three": "0.180.0"
   },

@@ -12,6 +12,7 @@ const assert=require('node:assert/strict');
   const launch=()=>_electron.launch({executablePath:packaged?path.resolve(__dirname,'../dist/electron/mac-arm64/YuiTracking.app/Contents/MacOS/YuiTracking'):require('../electron/node_modules/electron'),args:[...(packaged?[]:[path.resolve(__dirname,'../electron')]),'--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream','--user-data-dir='+profile],env});
   app=await launch();let page=await app.firstWindow();
   await page.waitForFunction(()=>document.querySelector('[data-sample=Y]')?.getAttribute('aria-pressed')==='true');
+  assert.equal(await app.evaluate(async({session})=>(await session.defaultSession.fetch('https://example.invalid/yuitracking-network-check')).status),403,'External worker/session network requests must remain blocked');
   assert.equal(await page.evaluate(()=>document.querySelector('#tracking').textContent),'カメラを開始');
   await page.locator('#motion-tab').click();
   assert.equal(await page.locator('#sensitivity').isDisabled(),false);
