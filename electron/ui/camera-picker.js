@@ -17,6 +17,7 @@ class CameraPicker {
    options=options.filter(item=>!item.disabled||normalize(item.label)!==normalize(label));
    options.push({label,deviceId:'native:'+encodeURIComponent(label),disabled:false});
   });
+  options.unshift({label:'システム既定のカメラ',deviceId:'default:',disabled:false});
   const current=options.find(item=>item.deviceId===selected);
   const previousName=this.known.get(selected)?.label||(selected?.startsWith('native:')?decodeURIComponent(selected.slice(7)):'');
   const sameCamera=options.find(item=>normalize(item.label)===normalize(previousName));

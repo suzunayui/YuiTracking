@@ -52,6 +52,7 @@ ipcMain.on('ui-command',(event,message)=>{
  if(!trusted(event,'ui'))return;
  if(message?.type==='privacy')syphon.setPrivacy(message.value);
  if(message?.type==='settings')command({type:'settings',...safeSettings(message)});
+ else if(message?.type==='navigationMode')command({type:'navigationMode',pan:message.pan===true});
  else if(['startTracking','stopTracking','calibrate','privacy','resetFraming','refreshCameras'].includes(message?.type))command({type:message.type,deviceId:typeof message.deviceId==='string'?message.deviceId:undefined,cameraLabel:typeof message.cameraLabel==='string'?message.cameraLabel:undefined,singleNativeCamera:message.singleNativeCamera===true,value:!!message.value});
 });
 ipcMain.on('renderer-event',async(event,message)=>{
@@ -73,7 +74,7 @@ ipcMain.on('renderer-event',async(event,message)=>{
  if(message.type==='calibrateRequest')command({type:'calibrate'});
  if(message.type==='error'){syphon.setPrivacy(true);notify({type:'safety',active:true});}
  if(message.type==='framingChanged'&&['zoom','x','y','z'].every(key=>Number.isFinite(message[key]))){settings.framing=Object.fromEntries(['zoom','x','y','z','targetX','targetY','targetZ'].filter(key=>Number.isFinite(message[key])).map(key=>[key,message[key]]));await persist();}
- if(['status','error','tracking','cameras','cameraInput','modelLoaded','modelFailed','ready','togglePreviewMaximized','restorePreview'].includes(message.type))notify(message);
+ if(['status','error','tracking','cameras','cameraListWarning','cameraInput','modelLoaded','modelFailed','ready','togglePreviewMaximized','restorePreview'].includes(message.type))notify(message);
  }catch(error){notify({type:'error',text:error.message});}
 });
 async function recover(){if(recoveryOpen||!window)return;rendererReady=false;syphon.setPrivacy(true);recoveryOpen=true;try{const result=await dialog.showMessageBox(window,{type:'error',title:'YuiTracking',message:'描画が停止しました。再起動しますか？',buttons:['再起動','閉じる'],defaultId:0,cancelId:1});if(result.response===0){await persist();app.relaunch();app.exit();}}finally{recoveryOpen=false;}}

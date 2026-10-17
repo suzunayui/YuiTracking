@@ -28,7 +28,8 @@ for(const button of document.querySelectorAll('[data-background]'))button.onclic
 $('background-image').onclick=()=>host.selectBackground('image').catch(showError);
 $('calibrate').onclick=()=>send('calibrate');$('reset').onclick=()=>send('resetFraming');
 $('privacy').onclick=()=>{const value=$('privacy').getAttribute('aria-pressed')!=='true';$('privacy').setAttribute('aria-pressed',value);send('privacy',{value});};
-$('tracking').onclick=()=>{send(active?'stopTracking':'startTracking',{singleNativeCamera:$('cameras').value.startsWith('native:')&&nativeLabels.length===1,deviceId:$('cameras').value.startsWith('native:')?'':$('cameras').value,cameraLabel:$('cameras').value.startsWith('native:')?$('cameras').selectedOptions[0]?.textContent:undefined});$('tracking').disabled=true;};
+$('tracking').onclick=()=>{const choice=$('cameras').value;send(active?'stopTracking':'startTracking',{singleNativeCamera:choice.startsWith('native:')&&nativeLabels.length===1,deviceId:choice==='default:'||choice.startsWith('native:')?'':choice,cameraLabel:choice.startsWith('native:')?$('cameras').selectedOptions[0]?.textContent:undefined});$('tracking').disabled=true;};
+$('pan-mode').onclick=()=>{const value=$('pan-mode').getAttribute('aria-pressed')!=='true';$('pan-mode').setAttribute('aria-pressed',value);send('navigationMode',{pan:value});};
 $('refresh-cameras').onclick=async()=>{try{$('refresh-cameras').disabled=true;nativeLabels=await host.nativeCameras();send('refreshCameras');updateCameras();await updateCameraPermission();}catch(error){showError(error);}finally{$('refresh-cameras').disabled=false;}};
 host.syphonAvailable().then(available=>{$('syphon').disabled=!available;if(!available)$('output-status').textContent='Syphon出力はMac版で利用できます。';});
 $('syphon').onclick=async()=>{try{$('syphon').disabled=true;await host.setSyphon(!syphonActive);}catch(error){showError(error);}finally{$('syphon').disabled=false;}};
@@ -40,7 +41,9 @@ host.onEvent(message=>{
  if(message.type==='error')$('tracking').disabled=false;
  if(message.type==='tracking'){active=message.active;$('tracking').textContent=active?'カメラを停止':'カメラを開始';$('tracking').disabled=false;updateCameraPermission().catch(()=>{});}
  if(message.type==='cameras'){browserLabels=browserLabels||message.labelsAvailable===true||message.selectionReady===true;cameraMessage=message;updateCameras();}
- if(message.type==='cameraInput')$('input').textContent=`カメラ入力：${message.width} × ${message.height} / ${Math.round(message.fps)}fps`;
+ if(message.type==='cameraListWarning')$('camera-note').textContent=message.text;
+ if(message.type==='cameras')$('camera-note').textContent='';
+ if(message.type==='cameraInput')$('input').textContent=`カメラ入力：${message.label||'名称不明'} / ${message.width} × ${message.height} / ${Math.round(message.fps)}fps`;
  if(message.type==='avatar'){$('model').textContent=message.label;for(const button of document.querySelectorAll('[data-sample]'))button.setAttribute('aria-pressed',button.dataset.sample===message.sample);}
  if(message.type==='background'){for(const button of document.querySelectorAll('[data-background]'))button.setAttribute('aria-pressed',!message.image&&button.dataset.background===message.color);$('background-image').setAttribute('aria-pressed',message.image);}
  if(message.type==='togglePreviewMaximized')maximize(!maximized);if(message.type==='restorePreview')maximize(false);

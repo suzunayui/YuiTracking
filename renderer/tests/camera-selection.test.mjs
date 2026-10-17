@@ -72,7 +72,7 @@ test('Mac camera picker keeps discovered browser IDs when a camera label is blan
  const source=readFileSync(new URL('../../electron/ui/camera-picker.js',import.meta.url),'utf8');
  const Picker=runInNewContext(source+';CameraPicker');const picker=new Picker();
  const message={labelsAvailable:false,items:[{deviceId:'internal',label:'カメラ 1'},{deviceId:'other',label:'カメラ 2'}]};
- assert.equal(picker.update(message,['macOS camera label'],'native:0').selected,'internal');
+ assert.equal(picker.update(message,['macOS camera label'],'').selected,'default:');
  assert.equal(picker.update(message,['macOS camera label'],'other').selected,'other');
 });
 
@@ -81,8 +81,8 @@ test('Mac native camera and iPhone names remain present after an empty browser r
  const picker=new Picker(),native=['MacBook Air Camera','iPhone Camera'];
  const before=picker.update({items:[]},native,'');
  const after=picker.update({selectionReady:true,items:[]},native,before.selected);
- assert.equal(after.options.length,2);assert.equal(after.selected,before.selected);
- assert.equal(after.options[1].label,'iPhone Camera');assert.equal(after.options[1].disabled,false);
+ assert.equal(after.options.length,3);assert.equal(after.selected,before.selected);
+ assert.equal(after.options[2].label,'iPhone Camera');assert.equal(after.options[2].disabled,false);
 });
 
 test('blank labels keep the camera name and missing browser IDs remain marked unavailable',()=>{
@@ -90,9 +90,9 @@ test('blank labels keep the camera name and missing browser IDs remain marked un
  const picker=new Picker();
  picker.update({labelsAvailable:true,items:[{deviceId:'phone',label:'iPhone Camera'}]},[],'');
  const hidden=picker.update({labelsAvailable:false,items:[{deviceId:'phone',label:'カメラ 1'}]},[],'phone');
- assert.equal(hidden.options[0].label,'iPhone Camera');assert.equal(hidden.options[0].disabled,false);
+ assert.equal(hidden.options[1].label,'iPhone Camera');assert.equal(hidden.options[1].disabled,false);
  const missing=picker.update({items:[]},[],'phone');
- assert.equal(missing.options[0].label,'iPhone Camera');assert.equal(missing.options[0].disabled,true);
+ assert.equal(missing.options[1].label,'iPhone Camera');assert.equal(missing.options[1].disabled,true);
  assert.equal(missing.selected,'phone');
 });
 
@@ -110,4 +110,17 @@ test('camera list accepts a usable label even if another device label is hidden'
  runInNewContext(source.slice(source.indexOf('async function listCameras('),source.indexOf('async function startTracking(')),context);
  await context.listCameras([camera('internal','Internal camera'),camera('hidden',''),camera('obs','OBS Virtual Camera')]);
  assert.equal(result.labelsAvailable,true);assert.equal(result.items.length,2);
+});
+
+test('explicit system-default camera starts without label lookup or device enumeration',async()=>{
+ const f=fixture([]);f.devices.enumerateDevices=()=>{throw new Error('Enumeration unavailable');};
+ await openCameraStream(f.devices,'',undefined,()=>{throw new Error('Must not resolve names');});
+ assert.equal(f.requests.length,1);assert.equal(f.requests[0].video.deviceId,undefined);
+});
+
+test('camera enumeration failure warns without raising a tracking-stop error',async()=>{
+ const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');let result;
+ const context={navigator:{mediaDevices:{enumerateDevices:async()=>{throw new Error('Cannot enumerate');}}},post:(type,message)=>{result={type,...message};}};
+ runInNewContext(source.slice(source.indexOf('async function listCameras('),source.indexOf('async function startTracking(')),context);
+ await context.listCameras();assert.equal(result.type,'cameraListWarning');assert.match(result.text,/Cannot enumerate/);
 });

@@ -68,6 +68,7 @@ if(window.parent!==window&&!window.chrome?.webview){
  window.addEventListener('blur',()=>{held.clear();candidate=null;});
 }
 let panPointer=null,panButton=4,panX=0,panY=0,orbitPointer=null,orbitX=0,orbitY=0;
+let scrollToPan=false;
 const panDepth=Math.hypot(3.1,.25);
 function saveFraming(){post('framingChanged',{zoom:camera.zoom,x:camera.position.x,y:camera.position.y,z:camera.position.z,targetX:cameraTarget.x,targetY:cameraTarget.y,targetZ:cameraTarget.z});}
 function endPan(){
@@ -118,6 +119,14 @@ renderer.domElement.addEventListener('contextmenu',event=>event.preventDefault()
 renderer.domElement.addEventListener('auxclick',event=>{if(event.button===1)event.preventDefault();});
 renderer.domElement.addEventListener('wheel',event=>{
  event.preventDefault();
+ if(scrollToPan&&!event.ctrlKey){
+  const rect=renderer.domElement.getBoundingClientRect(),height=Math.min(rect.height,rect.width/(W/H));
+  if(height<=0)return;
+  const scale=event.deltaMode===1?16:event.deltaMode===2?height:1;
+  const units=2*panDepth*Math.tan(THREE.MathUtils.degToRad(camera.fov/2))/(camera.zoom*height);
+  const movement=new THREE.Vector3(event.deltaX*scale*units,-event.deltaY*scale*units,0).applyQuaternion(camera.quaternion);
+  camera.position.add(movement);cameraTarget.add(movement);saveFraming();return;
+ }
  const delta=event.deltaY*(event.deltaMode===1?16:event.deltaMode===2?H:1);
  camera.zoom=clamp(camera.zoom*Math.exp(-clamp(delta,-720,720)*.0015),.5,4);
  camera.updateProjectionMatrix();
@@ -288,25 +297,29 @@ function stabilizeElbows(result,time){
  return {...result,landmarks:[filtered,...result.landmarks.slice(1)]};
 }
 async function listCameras(devices,selectionReady=false){
- devices??=await navigator.mediaDevices.enumerateDevices();
+ try{devices??=await navigator.mediaDevices.enumerateDevices();}
+ catch(error){post('cameraListWarning',{text:'カメラ一覧を更新できません。取得済みの候補を保持しています。'+error.name+'：'+error.message});return;}
  const cameras=selectableCameras(devices);
  post('cameras',{selectionReady,labelsAvailable:cameras.some(d=>!!d.label),items:cameras.map((d,i)=>({deviceId:d.deviceId,label:d.label||`カメラ ${i+1}`}))});
 }
 async function startTracking(deviceId,cameraLabel,singleNativeCamera=false){
  if(initializing||tracking)return;initializing=true;
+ let stage='認識エンジンの準備';
  try{
   await ensureTasks();
+  stage='カメラの取得';
   // No audio capture, no display capture, and no automatic start on launch.
   stream=await openCameraStream(navigator.mediaDevices,deviceId,cameraLabel,devices=>listCameras(devices,true),{singleNativeCamera});
   const track=stream.getVideoTracks()[0];
   await listCameras();
   if(/YuiTracking Camera|HoloTrack Avatar Camera|Unity Video Capture|OBS Virtual Camera|WarudoCam/i.test(track.label))throw new Error('入力に実際のWebカメラを選択してください。');
   video=document.createElement('video');video.muted=true;video.playsInline=true;video.srcObject=stream;
+  stage='カメラ映像の再生';
   await video.play(); await listCameras();
-  const input=track.getSettings();post('cameraInput',{deviceId:input.deviceId,width:input.width??video.videoWidth,height:input.height??video.videoHeight,fps:input.frameRate??0});
+  const input=track.getSettings();post('cameraInput',{label:track.label,deviceId:input.deviceId,width:input.width??video.videoWidth,height:input.height??video.videoHeight,fps:input.frameRate??0});
   track.onended=()=>{stopTracking();status('カメラが切断されました。待機ポーズに戻ります。');};
   lastHandDetection=-1;lastTrackingReceived=0;trackingGapMs=trackingLatencyMs=trackingResults=0;tracking=true;restartRenderLoop();scheduleDetection();lastVideoTime=-1;lastPoseDetect=0;bodyNeutral=null;bodyLean.reset();trackingPresence.reset();resetArmTransitions();calibration.identity();blinkBaseline={left:0,right:0};autoCalibration.start(performance.now());post('tracking',{active:true});status('正面を向いて目を開けてください。顔の検出が安定すると一度だけ自動でキャリブレーションします。');
- }catch(e){stopTracking();post('error',{text:'カメラを開始できません：'+e.message});}
+ }catch(e){stopTracking();post('error',{text:'カメラを開始できません：'+stage+' / '+e.name+(e.constraint?' ('+e.constraint+')':'')+'：'+e.message});}
  finally{initializing=false;}
 }
 function stopTracking(){
@@ -591,6 +604,7 @@ host?.addEventListener('message',async e=>{
   case'loadModel':await loadModel(m.requestId);break;
   case'demo':loadVersion++;makeDemo();break;
   case'startTracking':await startTracking(m.deviceId,m.cameraLabel,m.singleNativeCamera);break;
+  case'navigationMode':scrollToPan=m.pan===true;break;
   case'refreshCameras':await listCameras();break;
   case'stopTracking':stopTracking();break;
   case'calibrate':calibrateFace();break;

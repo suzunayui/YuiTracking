@@ -53,26 +53,43 @@ const assert=require('node:assert/strict');
    });
    await page.locator('#tracking').click();
    await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('カメラ一覧を更新しました'),null,{timeout:60000});
-   const options=await page.locator('#cameras option').evaluateAll(items=>items.map(item=>item.value).filter(id=>!id.startsWith('native:')));
+   const options=await page.locator('#cameras option').evaluateAll(items=>items.map(item=>item.value).filter(id=>id!=='default:'&&!id.startsWith('native:')));
    assert.equal(options.length,2);assert.ok(options.every(id=>id&&!id.startsWith('native:')),'Error must expose browser IDs instead of restoring the native list');
    await page.locator('#cameras').selectOption(options[0]);
+  }
+  if(process.argv.includes('--default-camera-enumeration-failure')){
+   await page.locator('#cameras').selectOption('default:');
+   const frame=page.frames().find(f=>f.url().includes('/renderer/'));
+   await frame.evaluate(()=>{navigator.mediaDevices.enumerateDevices=async()=>{throw new DOMException('Enumeration unavailable','NotReadableError');};});
   }
   await page.locator('#tracking').click();
   await page.waitForFunction(()=>document.querySelector('#tracking').textContent==='カメラを停止',null,{timeout:60000});
   await page.waitForFunction(()=>window.smokeTrackingResults.length>0,null,{timeout:60000});
+  if(process.argv.includes('--default-camera-enumeration-failure')){
+   await page.waitForFunction(()=>document.querySelector('#camera-note').textContent.includes('Enumeration unavailable'));
+   assert.ok(!(await page.locator('#status').textContent()).includes('カメラを開始できません'));
+   await page.locator('#pan-mode').click();
+   const frame=page.frames().find(f=>f.url().includes('/renderer/')),bounds=await frame.locator('canvas').boundingBox();
+   await page.mouse.move(bounds.x+bounds.width/2,bounds.y+bounds.height/2);
+   await page.mouse.wheel(30,-30);
+   await page.waitForFunction(async()=>!!(await window.yuiDesktop.getSettings()).framing);
+   const framing=await page.evaluate(()=>window.yuiDesktop.getSettings());assert.ok(framing.framing.x>0&&framing.framing.y>1.35);
+   await page.locator('#pan-mode').click();
+   console.log('PASS system-default recognition survives enumeration failure; scroll pan button moves and saves framing');
+  }
   if(process.argv.includes('--camera-list-disappears')){
    await page.evaluate(()=>{
     nativeLabels=['MacBook Air Camera','iPhone Camera'];cameraPicker.known.clear();
     cameraMessage={items:[],selectionReady:true,labelsAvailable:false};updateCameras();
    });
    const labels=await page.locator('#cameras option').allTextContents();
-   assert.deepEqual(labels,['MacBook Air Camera','iPhone Camera']);
-   const phone=await page.locator('#cameras option').nth(1).getAttribute('value');
+   assert.deepEqual(labels,['システム既定のカメラ','MacBook Air Camera','iPhone Camera']);
+   const phone=await page.locator('#cameras option').nth(2).getAttribute('value');
    await page.locator('#cameras').selectOption(phone);
    await page.evaluate(()=>window.yuiHost.postMessage({type:'cameras',items:[],selectionReady:true,labelsAvailable:false}));
    await page.waitForFunction(value=>document.querySelector('#cameras').value===value,phone);
-   assert.equal(await page.locator('#cameras option').count(),2);
-   assert.equal(await page.locator('#cameras option').nth(1).isDisabled(),false);
+   assert.equal(await page.locator('#cameras option').count(),3);
+   assert.equal(await page.locator('#cameras option').nth(2).isDisabled(),false);
    const frame=page.frames().find(f=>f.url().includes('/renderer/'));
    const canvas=frame.locator('canvas');const bounds=await canvas.boundingBox();
    await page.mouse.move(bounds.x+bounds.width*.5,bounds.y+bounds.height*.5);

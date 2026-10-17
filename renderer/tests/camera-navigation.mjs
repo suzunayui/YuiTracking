@@ -18,6 +18,13 @@ try{
  await page.evaluate(()=>{window.commands=null;window.messages=[];window.yuiHost={postMessage:m=>window.messages.push(m),addEventListener:(_,fn)=>window.commands=fn};});
  await page.addScriptTag({content:bundle.outputFiles[0].text});
  const initial=await page.evaluate(()=>cameraState());
+ await page.evaluate(()=>commands({data:{type:'navigationMode',pan:true}}));
+ await page.mouse.move(150,150);await page.mouse.wheel(20,30);
+ await page.waitForFunction(()=>cameraState().position[0]!==0);
+ const scrolled=await page.evaluate(()=>cameraState());
+ assert.notDeepEqual(scrolled.target,initial.target);assert.equal(scrolled.zoom,initial.zoom);
+ await page.evaluate(()=>commands({data:{type:'resetFraming'}}));
+ await page.evaluate(()=>commands({data:{type:'navigationMode',pan:false}}));
  await page.mouse.move(150,150);await page.mouse.wheel(0,-120);
  await page.waitForFunction(()=>cameraState().zoom>1);
  await page.mouse.down({button:'right'});await page.mouse.move(230,190,{steps:5});await page.mouse.up({button:'right'});
