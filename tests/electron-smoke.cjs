@@ -12,6 +12,17 @@ const assert=require('node:assert/strict');
   const launch=()=>_electron.launch({executablePath:packaged?path.resolve(__dirname,'../dist/electron/mac-arm64/YuiTracking.app/Contents/MacOS/YuiTracking'):require('../electron/node_modules/electron'),args:[...(packaged?[]:[path.resolve(__dirname,'../electron')]),'--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream','--user-data-dir='+profile],env});
   app=await launch();let page=await app.firstWindow();
   await page.waitForFunction(()=>document.querySelector('[data-sample=Y]')?.getAttribute('aria-pressed')==='true');
+  if(process.argv.includes('--gpu-recognition')){
+   await page.locator('#motion-tab').click();
+   await page.waitForFunction(()=>document.querySelector('#recognition-device option[value=GPU]'));
+   const before=await page.evaluate(()=>window.yuiDesktop.getRecognitionSettings());assert.equal(before.current,'CPU');
+   await page.locator('#recognition-device').selectOption('GPU');await page.locator('#save-recognition').click();
+   await page.waitForFunction(async()=>(await window.yuiDesktop.getRecognitionSettings()).saved==='GPU');
+   assert.equal((await page.evaluate(()=>window.yuiDesktop.getRecognitionSettings())).current,'CPU','Saving must not switch engines in a running process');
+   await app.close();app=null;app=await launch();page=await app.firstWindow();
+   await page.waitForFunction(()=>document.querySelector('[data-sample=Y]')?.getAttribute('aria-pressed')==='true');
+   const after=await page.evaluate(()=>window.yuiDesktop.getRecognitionSettings());assert.equal(after.current,'GPU');
+  }
   assert.equal(await app.evaluate(async({session})=>(await session.defaultSession.fetch('https://example.invalid/yuitracking-network-check')).status),403,'External worker/session network requests must remain blocked');
   assert.equal(await page.evaluate(()=>document.querySelector('#tracking').textContent),'カメラを開始');
   await page.locator('#motion-tab').click();
@@ -27,7 +38,7 @@ const assert=require('node:assert/strict');
   await page.waitForFunction(async()=>(await window.yuiDesktop.getSettings()).springStrength===5);
   await page.locator('#mouthOpenStrength').fill('2');
   await page.waitForFunction(async()=>(await window.yuiDesktop.getSettings()).mouthOpenStrength===2);
-  await page.evaluate(()=>{window.smokeTrackingResults=[];window.addEventListener('message',event=>{const message=event.data?.yuiRenderer;if(message?.type==='handDetection')window.smokeTrackingResults.push(message);});});
+  await page.evaluate(()=>{window.smokeTrackingResults=[];window.addEventListener('message',event=>{const message=event.data?.yuiRenderer;if(message?.type==='handDetection')window.smokeTrackingResults.push(message);if(message?.type==='recognitionReady')window.smokeBackend=message;});});
   if(process.argv.includes('--camera-label-mismatch')){
    await page.evaluate(()=>{nativeLabels=['macOS camera label'];browserLabels=false;document.querySelector('#cameras').replaceChildren(new Option('macOS camera label','native:0'));});
    const frame=page.frames().find(f=>f.url().includes('/renderer/'));
@@ -65,6 +76,11 @@ const assert=require('node:assert/strict');
   await page.locator('#tracking').click();
   await page.waitForFunction(()=>document.querySelector('#tracking').textContent==='カメラを停止',null,{timeout:60000});
   await page.waitForFunction(()=>window.smokeTrackingResults.length>0,null,{timeout:60000});
+  if(process.argv.includes('--gpu-recognition')){
+   const backend=await page.evaluate(()=>window.smokeBackend);assert.equal(backend.delegate,'GPU');
+   const info=await page.evaluate(()=>window.yuiDesktop.getRecognitionSettings());assert.ok(backend.renderer.includes(info.currentName));
+   console.log('PASS saved GPU recognition after restart: '+backend.renderer);
+  }
   if(process.argv.includes('--default-camera-enumeration-failure')){
    await page.waitForFunction(()=>document.querySelector('#camera-note').textContent.includes('Enumeration unavailable'));
    assert.ok(!(await page.locator('#status').textContent()).includes('カメラを開始できません'));

@@ -5,6 +5,13 @@ namespace YuiTracking;
 
 internal static class AppSettings
 {
+    public record RecognitionSelection(string Delegate, string? AdapterId = null, string? AdapterName = null);
+    public static RecognitionSelection RecognitionDevice => Read()["recognitionDevice"]?.Deserialize<RecognitionSelection>() ?? new("CPU");
+    public static void SaveRecognitionDevice(RecognitionSelection selection)
+    {
+        if (selection.Delegate is not ("CPU" or "GPU")) throw new ArgumentException("Invalid recognition device.");
+        var settings = Read(); settings["recognitionDevice"] = JsonSerializer.SerializeToNode(selection); Save(settings);
+    }
     public static string FilePath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "YuiTracking", "settings.json");
 

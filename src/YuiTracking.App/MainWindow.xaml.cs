@@ -11,6 +11,42 @@ namespace YuiTracking;
 public sealed partial class MainWindow : Window
 {
     private bool ready, tracking, closing;
+    private string recognitionDelegate = "CPU";
+    private GpuCatalog.Device? recognitionGpu;
+    public record RecognitionDeviceItem(string Label, string Delegate, object? Device = null)
+    { internal GpuCatalog.Device? Adapter => Device as GpuCatalog.Device; }
+    private void InitializeRecognitionDevices()
+    {
+        var items = new List<RecognitionDeviceItem> { new("CPU", "CPU") };
+        try
+        {
+            var devices = GpuCatalog.Enumerate();
+            for (var i = 0; i < devices.Count; i++)
+            {
+                var device = devices[i];
+                items.Add(new($"{device.Name} · {device.MemoryBytes / 1073741824.0:0.#} GB（候補{i + 1}）", "GPU", device));
+            }
+            var saved = AppSettings.RecognitionDevice;
+            recognitionGpu = saved.Delegate == "GPU" ? devices.FirstOrDefault(d => d.Id == saved.AdapterId && d.Name == saved.AdapterName) : null;
+            recognitionDelegate = recognitionGpu == null ? "CPU" : "GPU";
+            RecognitionStatus.Text = saved.Delegate == "GPU" && recognitionGpu == null
+                ? "保存したGPUが見つからないため、今回はCPUを使います。GPUを選び直して保存してください。"
+                : "現在の認識設定：" + (recognitionGpu?.Name ?? "CPU");
+        }
+        catch (Exception ex) { recognitionDelegate = "CPU"; recognitionGpu = null; RecognitionStatus.Text = "GPU一覧を取得できないためCPUを使います。"; App.Log(ex.ToString()); }
+        RecognitionDevice.ItemsSource = items;
+        RecognitionDevice.SelectedItem = items.FirstOrDefault(i => i.Adapter == recognitionGpu) ?? items[0];
+    }
+    private void SaveRecognition_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (RecognitionDevice.SelectedItem is not RecognitionDeviceItem item) return;
+            AppSettings.SaveRecognitionDevice(new(item.Delegate, item.Adapter?.Id, item.Adapter?.Name));
+            RecognitionStatus.Text = "保存しました。アプリを再起動すると反映します。現在：" + (recognitionGpu?.Name ?? "CPU");
+        }
+        catch (Exception ex) { Report(ex); }
+    }
     private CalibrationShortcut? calibrationShortcut;
     private bool restoreOutputPending;
     private VirtualCamera? output;
@@ -110,6 +146,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        InitializeRecognitionDevices();
         Root.AddHandler(UIElement.KeyDownEvent, new Microsoft.UI.Xaml.Input.KeyEventHandler((_, e) =>
         {
             if (e.Key == Windows.System.VirtualKey.Escape && previewMaximized)
@@ -179,6 +216,7 @@ public sealed partial class MainWindow : Window
         {
             var profile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "YuiTracking", "WebView");
             var options = new CoreWebView2EnvironmentOptions { AdditionalBrowserArguments = "--disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows --disable-features=CalculateNativeWinOcclusion" };
+            if (recognitionGpu != null) options.AdditionalBrowserArguments += GpuCatalog.BrowserArguments(recognitionGpu);
             var env = await CoreWebView2Environment.CreateWithOptionsAsync(null, profile, options);
             await Viewport.EnsureCoreWebView2Async(env);
             var core = Viewport.CoreWebView2;
@@ -348,6 +386,7 @@ public sealed partial class MainWindow : Window
                     }
                     catch (Exception ex) { frameStream = null; App.Log("Frame transport fallback: " + ex.Message); }
                     TrackingStatus.Text = "準備完了";
+                    Send(new { type = "recognitionConfig", @delegate = recognitionDelegate, expectedRenderer = recognitionGpu?.Name ?? "" });
                     SendSettings(); App.Log("Renderer ready");
                     try
                     {
@@ -378,6 +417,11 @@ public sealed partial class MainWindow : Window
                 case "performance":
                     performanceStatus = $" · 描画 {root.GetProperty("renderFps").GetDouble():F0} / 出力 {root.GetProperty("frameFps").GetDouble():F0}fps";
                     App.Log("Frame performance: " + root.GetRawText());
+                    break;
+                case "recognitionReady":
+                    RecognitionStatus.Text = "認識中：" + root.GetProperty("delegate").GetString();
+                    if (root.TryGetProperty("renderer", out var rendererName)) RecognitionStatus.Text += " / " + rendererName.GetString();
+                    App.Log("Recognition backend: " + root.GetRawText());
                     break;
                 case "framingChanged":
                     var zoom = root.GetProperty("zoom").GetDouble();

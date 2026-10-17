@@ -8,6 +8,16 @@ const {SyphonOutput}=require('./syphon-output.cjs');
 app.setName('YuiTracking');
 let window,settings={},avatarPath=null,backgroundPath=null,pendingModel=null,pendingBackground=null,sequence=0;
 let rendererReady=false,restoreOutput=false,recoveryOpen=false;
+let recognitionDelegate='CPU',recognitionGpuName='',macGpuPromise;
+function macGpu(){
+ return macGpuPromise??=(async()=>{
+  if(process.platform!=='darwin')return '';
+  try{const {stdout}=await promisify(execFile)('/usr/sbin/system_profiler',['SPDisplaysDataType','-json'],{timeout:10000,maxBuffer:1024*1024});
+   const names=(JSON.parse(stdout).SPDisplaysDataType||[]).map(item=>item.sppci_model).filter(name=>typeof name==='string'&&name);
+   return names.length===1?names[0]:'';
+  }catch{return '';}
+ })();
+}
 const origin='https://yuitracking.local';
 const colors=['transparent','#00ff00','#ff0000','#0000ff','#000000'];
 const syphon=new SyphonOutput((...args)=>{
@@ -42,6 +52,16 @@ ipcMain.handle('syphon-capability',event=>trusted(event,'ui')&&process.platform=
 ipcMain.handle('syphon-output',async(event,enabled)=>{if(!trusted(event,'ui')||typeof enabled!=='boolean')return;restoreOutput=false;await setOutput(enabled);});
 ipcMain.handle('avatar-frame',(event,data)=>trusted(event,'ui')&&syphon.accept(data));
 ipcMain.handle('save-settings',async(event,value)=>{if(!trusted(event,'ui'))return;Object.assign(settings,safeSettings(value));await persist();});
+ipcMain.handle('recognition-settings',async event=>{
+ if(!trusted(event,'ui'))return;
+ const name=await macGpu();
+ return {current:recognitionDelegate,currentName:recognitionGpuName||'CPU',saved:settings.recognitionDelegate==='GPU'?'GPU':'CPU',devices:[{id:'CPU',name:'CPU'},...(name?[{id:'GPU',name}]:[])]};
+});
+ipcMain.handle('save-recognition-settings',async(event,value)=>{
+ if(!trusted(event,'ui'))return;
+ if(!['CPU','GPU'].includes(value)||value==='GPU'&&!await macGpu())throw new Error('選択した認識デバイスはこの構成では使用できません。');
+ settings.recognitionDelegate=value;await persist();
+});
 ipcMain.handle('sample',(event,sample)=>{if(trusted(event,'ui')&&['Y','Z','robot'].includes(sample))return selectModel(sample==='robot'?null:samplePath(sample),sample);});
 ipcMain.handle('background',async(event,color)=>{if(!trusted(event,'ui'))return;if(colors.includes(color)){selectBackground(color,null);return;}if(color!=='image')return;
  const result=await dialog.showOpenDialog(window,{filters:[{name:'背景画像',extensions:['png','jpg','jpeg','bmp']}],properties:['openFile']});if(result.canceled)return;
@@ -59,6 +79,7 @@ ipcMain.on('renderer-event',async(event,message)=>{
  if(!trusted(event,'ui')||!message||typeof message.type!=='string')return;
  try{
  if(message.type==='ready'){
+  command({type:'recognitionConfig',delegate:recognitionDelegate,expectedRenderer:recognitionGpuName});
   rendererReady=true;command({type:'settings',smoothing:.65,sensitivity:1,bodyStrength:1,forwardLeanStrength:1,backwardLeanStrength:1,mouthOpenStrength:1,mouthSensitivity:1.8,springStrength:1,...safeSettings(settings)});
   if(settings.framing)command({type:'restoreFraming',...settings.framing});
   selectBackground(colors.includes(settings.background)?settings.background:'#00ff00',settings.backgroundImagePath);
@@ -74,12 +95,13 @@ ipcMain.on('renderer-event',async(event,message)=>{
  if(message.type==='calibrateRequest')command({type:'calibrate'});
  if(message.type==='error'){syphon.setPrivacy(true);notify({type:'safety',active:true});}
  if(message.type==='framingChanged'&&['zoom','x','y','z'].every(key=>Number.isFinite(message[key]))){settings.framing=Object.fromEntries(['zoom','x','y','z','targetX','targetY','targetZ'].filter(key=>Number.isFinite(message[key])).map(key=>[key,message[key]]));await persist();}
- if(['status','error','tracking','cameras','cameraListWarning','cameraInput','modelLoaded','modelFailed','ready','togglePreviewMaximized','restorePreview'].includes(message.type))notify(message);
+ if(['status','error','tracking','cameras','cameraListWarning','cameraInput','recognitionReady','modelLoaded','modelFailed','ready','togglePreviewMaximized','restorePreview'].includes(message.type))notify(message);
  }catch(error){notify({type:'error',text:error.message});}
 });
 async function recover(){if(recoveryOpen||!window)return;rendererReady=false;syphon.setPrivacy(true);recoveryOpen=true;try{const result=await dialog.showMessageBox(window,{type:'error',title:'YuiTracking',message:'描画が停止しました。再起動しますか？',buttons:['再起動','閉じる'],defaultId:0,cancelId:1});if(result.response===0){await persist();app.relaunch();app.exit();}}finally{recoveryOpen=false;}}
 app.whenReady().then(async()=>{
  try{settings=JSON.parse(await fs.readFile(settingsPath(),'utf8'));}catch{settings={};}
+ if(settings.recognitionDelegate==='GPU'){recognitionGpuName=await macGpu();if(recognitionGpuName)recognitionDelegate='GPU';}
  restoreOutput=process.platform==='darwin'&&settings.syphonEnabled===true;
  protocol.handle('https',async request=>{
   const url=new URL(request.url);if(url.origin!==origin)return new Response('Blocked',{status:403});let file;

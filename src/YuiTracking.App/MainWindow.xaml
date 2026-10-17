@@ -77,6 +77,11 @@
       </ScrollViewer>
       <ScrollViewer x:Name="MotionSettings" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
       <StackPanel Spacing="4">
+       <TextBlock Text="認識に使うデバイス" Foreground="#9DA7C0"/>
+       <ComboBox x:Name="RecognitionDevice" DisplayMemberPath="Label" HorizontalAlignment="Stretch"/>
+       <Button Content="認識デバイスを保存" Click="SaveRecognition_Click" HorizontalAlignment="Stretch"/>
+       <TextBlock Text="変更はアプリの再起動後に反映します。GPUを選ぶと描画も同じGPUを使います。" TextWrapping="Wrap" FontSize="12" Foreground="#9DA7C0"/>
+       <TextBlock x:Name="RecognitionStatus" TextWrapping="Wrap" FontSize="12" Foreground="#9DA7C0"/>
        <StackPanel Background="Transparent" ToolTipService.ToolTip="認識結果の間を滑らかにつなぎます。&#10;0%：補間なし（比較用）&#10;大きいほど滑らかになり、追従はゆっくりになります。">
         <TextBlock x:Name="SmoothnessLabel" Text="滑らかさ：65%" Foreground="#9DA7C0"/>
         <Slider x:Name="Smoothness" ToolTipService.ToolTip="認識結果の間を滑らかにつなぎます。&#10;0%：補間なし（比較用）&#10;大きいほど滑らかになり、追従はゆっくりになります。" Minimum="0" Maximum="0.95" Value="0.65" StepFrequency="0.05" ValueChanged="Settings_Changed"/>

@@ -254,6 +254,7 @@ function scheduleDetection(){
  if(tracking)detectionTimer=setTimeout(()=>{detectionTimer=null;detect(performance.now());scheduleDetection();},16);
 }
 let lastTrackingReceived=0,trackingGapMs=0,trackingLatencyMs=0,trackingResults=0;
+let recognitionDelegate='CPU',expectedRecognitionRenderer='';
 async function ensureTasks(){
  if(workerReady)return workerReady;
  status('顔・手・上半身の認識エンジンを準備中…');
@@ -262,7 +263,7 @@ async function ensureTasks(){
   const fail=error=>{trackingWorker?.terminate();trackingWorker=null;workerReady=null;workerBusy=false;reject(error);if(tracking){stopTracking();post('error',{text:'認識を停止しました：'+error.message});}};
   trackingWorker.onerror=e=>fail(new Error(e.message));
   trackingWorker.onmessage=({data})=>{
-   if(data.type==='ready'){resolve();return;}
+   if(data.type==='ready'){post('recognitionReady',{delegate:data.delegate,renderer:data.renderer});resolve();return;}
    if(data.type==='error'){fail(new Error(data.message));return;}
    workerBusy=false;perfDetect=Math.max(perfDetect,data.duration);
    if(!tracking||data.generation!==trackingGeneration)return;
@@ -281,7 +282,7 @@ async function ensureTasks(){
    if(autoCalibration.observe(sample,performance.now()))calibrateFace(true);
 
   };
-  trackingWorker.postMessage({type:'init'});
+  trackingWorker.postMessage({type:'init',delegate:recognitionDelegate,expectedRenderer:expectedRecognitionRenderer});
  });
  return workerReady;
 }
@@ -604,6 +605,11 @@ host?.addEventListener('message',async e=>{
   case'loadModel':await loadModel(m.requestId);break;
   case'demo':loadVersion++;makeDemo();break;
   case'startTracking':await startTracking(m.deviceId,m.cameraLabel,m.singleNativeCamera);break;
+  case'recognitionConfig':
+   if(initializing||tracking)throw new Error('認識デバイスを変更する前にカメラを停止してください。');
+   if(!['CPU','GPU'].includes(m.delegate))throw new Error('認識デバイスの設定が不正です。');
+   trackingWorker?.terminate();trackingWorker=null;workerReady=null;workerBusy=false;
+   recognitionDelegate=m.delegate;expectedRecognitionRenderer=typeof m.expectedRenderer==='string'?m.expectedRenderer:'';break;
   case'navigationMode':scrollToPan=m.pan===true;break;
   case'refreshCameras':await listCameras();break;
   case'stopTracking':stopTracking();break;

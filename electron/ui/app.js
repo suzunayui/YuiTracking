@@ -16,6 +16,12 @@ function values(){return Object.fromEntries(keys.map(key=>[key,Number($(key).val
 function labels(){for(const key of keys)$(key+'-value').textContent=key==='smoothing'?Math.round(Number($(key).value)*100)+'%':Number($(key).value).toFixed(1)+'倍';}
 function apply(){labels();send('settings',values());clearTimeout(timer);timer=setTimeout(()=>host.saveSettings(values()).catch(showError),200);}
 for(const key of keys)$(key).addEventListener('input',apply);
+host.getRecognitionSettings().then(info=>{
+ $('recognition-device').replaceChildren(...info.devices.map(device=>new Option(device.name,device.id)));
+ $('recognition-device').value=info.devices.some(device=>device.id===info.saved)?info.saved:'CPU';
+ $('recognition-status').textContent='現在の認識設定：'+info.currentName+(info.saved!==info.current?'（保存した設定と異なります）':'');
+}).catch(showError);
+$('save-recognition').onclick=async()=>{try{await host.saveRecognitionSettings($('recognition-device').value);$('recognition-status').textContent='保存しました。アプリを再起動すると反映します。';}catch(error){showError(error);}};
 for(const tab of ['avatar','motion'])$(tab+'-tab').onclick=()=>{for(const name of ['avatar','motion']){$(name+'-tab').setAttribute('aria-selected',name===tab);$(name+'-settings').hidden=name!==tab;}};
 function maximize(value){maximized=value;$('main').classList.toggle('maximized',value);$('maximize').textContent=value?'元に戻す':'最大化';}
 $('maximize').onclick=()=>maximize(!maximized);document.addEventListener('keydown',event=>{if(event.key==='Escape')maximize(false);});
@@ -44,6 +50,7 @@ host.onEvent(message=>{
  if(message.type==='cameraListWarning')$('camera-note').textContent=message.text;
  if(message.type==='cameras')$('camera-note').textContent='';
  if(message.type==='cameraInput')$('input').textContent=`カメラ入力：${message.label||'名称不明'} / ${message.width} × ${message.height} / ${Math.round(message.fps)}fps`;
+ if(message.type==='recognitionReady')$('recognition-status').textContent='認識中：'+message.delegate+(message.renderer?' / '+message.renderer:'');
  if(message.type==='avatar'){$('model').textContent=message.label;for(const button of document.querySelectorAll('[data-sample]'))button.setAttribute('aria-pressed',button.dataset.sample===message.sample);}
  if(message.type==='background'){for(const button of document.querySelectorAll('[data-background]'))button.setAttribute('aria-pressed',!message.image&&button.dataset.background===message.color);$('background-image').setAttribute('aria-pressed',message.image);}
  if(message.type==='togglePreviewMaximized')maximize(!maximized);if(message.type==='restorePreview')maximize(false);
