@@ -7,7 +7,7 @@ import {clamp,bend} from '../src/rig-math.js';
 import {TrackingTransition} from '../src/tracking-transition.js';
 import {applyBodyTurn} from '../src/body-turn.js';
 import {WristDepth} from '../src/wrist-depth.js';
-import {avatarFaceAnchor,faceRelativeWristTarget} from '../src/face-hand-placement.js';
+import {avatarFaceAnchor,faceRelativeWristTarget,clearHandFromFace} from '../src/face-hand-placement.js';
 import {fingerBones,palmBasis,fingerSegments,shoulderWristTarget,handWristTarget,wristDepthRatio,trackedElbowTarget,elbowPoleDirection,keepElbowInFront} from '../src/hand-rig.js';
 
 test('hand rendering reaches the shoulder-relative target and falls back only when pose shoulders are unavailable',()=>{
@@ -194,7 +194,7 @@ test('covering the mouth uses the avatar face height instead of leaving the hand
   const landmarks=Array.from({length:21},()=>({x:.5,y:.48,z:0}));landmarks[9]={x:.5,y:.35,z:0};
   const pose=[];pose[11]={x:.3,y:.6,z:0,visibility:1};pose[12]={x:.7,y:.6,z:0,visibility:1};
   const face=[];face[13]={x:.5,y:.34};face[14]={x:.5,y:.36};face[234]={x:.4,y:.3};face[454]={x:.6,y:.3};
-  const context={THREE,clamp,bend,palmBasis,fingerSegments,fingerBones,shoulderWristTarget,handWristTarget,wristDepthRatio,trackedElbowTarget,elbowPoleDirection,keepElbowInFront,avatarFaceAnchor,faceRelativeWristTarget,
+  const context={THREE,clamp,bend,palmBasis,fingerSegments,fingerBones,shoulderWristTarget,handWristTarget,wristDepthRatio,trackedElbowTarget,elbowPoleDirection,keepElbowInFront,avatarFaceAnchor,faceRelativeWristTarget,clearHandFromFace,
    elbowTransitions:{left:new TrackingTransition(),right:new TrackingTransition()},wristDepthFilters:{left:new WristDepth(),right:new WristDepth()},video:null,handRest:{},vrm:{scene,humanoid:{getNormalizedBoneNode:name=>nodes[name]}}};
   runInNewContext(source.slice(source.indexOf('function bone('),source.indexOf('function animate(')),context);
   const base=handWristTarget(landmarks[0],pose,new THREE.Vector3(0,1.2,0),.5),anchor=avatarFaceAnchor(nodes.head,nodes.leftEye,nodes.rightEye,.5);
@@ -238,5 +238,34 @@ test('tracked wrists elbows palms fingers and idle arms follow torso turns throu
     if(active)assert.ok(nodes[name].getWorldQuaternion(new THREE.Quaternion()).angleTo(rotation.clone().multiply(baseline[i].rotation))<1e-7,name+' orientation must turn with torso');
    });
   }
+ }
+});
+
+
+test('face clearance is applied to actual posed fingers after wrist smoothing, including head turns',()=>{
+ const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
+ for(const yaw of [0,.9,-.9])for(const side of ['left','right']){
+  const scene=new THREE.Group(),nodes={};
+  for(const [name,sign]of [['left',1],['right',-1]]){
+   const upper=new THREE.Bone(),lower=new THREE.Bone(),hand=new THREE.Bone();
+   upper.position.set(sign*.25,1.2,0);lower.position.x=sign*.27;hand.position.x=sign*.23;
+   scene.add(upper);upper.add(lower);lower.add(hand);Object.assign(nodes,{[name+'UpperArm']:upper,[name+'LowerArm']:lower,[name+'Hand']:hand});
+  }
+  nodes.head=new THREE.Bone();nodes.head.position.y=1.5;nodes.head.rotation.y=yaw;scene.add(nodes.head);
+  for(const [name,x]of [['leftEye',.03],['rightEye',-.03]]){nodes[name]=new THREE.Bone();nodes[name].position.set(x,.18,.09);nodes.head.add(nodes[name]);}
+  const landmarks=Array.from({length:21},()=>({x:.5,y:.48,z:0}));landmarks[9]={x:.5,y:.35,z:0};
+  const pose=[];pose[11]={x:.3,y:.6,z:0,visibility:1};pose[12]={x:.7,y:.6,z:0,visibility:1};
+  const face=[];face[13]={x:.5,y:.34};face[14]={x:.5,y:.36};face[234]={x:.4,y:.3};face[454]={x:.6,y:.3};
+  const context={THREE,clamp,bend,palmBasis,fingerSegments,fingerBones,shoulderWristTarget,handWristTarget,wristDepthRatio,trackedElbowTarget,elbowPoleDirection,keepElbowInFront,avatarFaceAnchor,faceRelativeWristTarget,clearHandFromFace,
+   elbowTransitions:{left:new TrackingTransition(),right:new TrackingTransition()},wristDepthFilters:{left:new WristDepth(),right:new WristDepth()},video:null,handRest:{},vrm:{scene,humanoid:{getNormalizedBoneNode:name=>nodes[name]}}};
+  runInNewContext(source.slice(source.indexOf('function bone('),source.indexOf('function animate(')),context);
+  const recovery={now:1000,dt:1/60,poseTime:1000,faceLandmarks:face};context.rigHand(side,landmarks,1,null,pose,recovery);
+  const anchor=avatarFaceAnchor(nodes.head,nodes.leftEye,nodes.rightEye,.5),finger=new THREE.Bone(),hand=nodes[side+'Hand'];
+  hand.add(finger);nodes[side+'MiddleProximal']=finger;
+  finger.position.copy(hand.worldToLocal(anchor.mouth.clone().addScaledVector(anchor.forward,-.01)));
+  assert.ok(finger.getWorldPosition(new THREE.Vector3()).sub(anchor.mouth).dot(anchor.forward)<0,'Reproduce a finger penetrating despite a safe wrist');
+  context.rigHand(side,landmarks,.05,null,pose,recovery);
+  const distance=finger.getWorldPosition(new THREE.Vector3()).sub(anchor.mouth).dot(anchor.forward);
+  assert.ok(distance>=.023-1e-6,`Finger must clear the face after interpolation; distance=${distance}`);
  }
 });

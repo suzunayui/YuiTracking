@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {Vector3,Object3D} from 'three';
-import {avatarFaceAnchor,faceRelativeWristTarget} from '../src/face-hand-placement.js';
+import {Vector3,Object3D,Quaternion,Euler} from 'three';
+import {avatarFaceAnchor,faceRelativeWristTarget,clearHandFromFace,captureFaceSurface} from '../src/face-hand-placement.js';
 function fixture(){
  const face=[];face[13]={x:.5,y:.34};face[14]={x:.5,y:.36};face[234]={x:.4,y:.3};face[454]={x:.6,y:.3};
  const hand=Array.from({length:21},()=>({x:.5,y:.48,z:0}));hand[9]={x:.5,y:.35,z:0};
@@ -44,4 +44,46 @@ test('avatar anchor follows head/eye transforms and uses an explicit demo mouth 
  const anchor=avatarFaceAnchor(head,left,right,.5);assert.ok(anchor.mouth.y>1.58&&anchor.mouth.y<1.62);
  const mouth=new Object3D();mouth.name='mouth';mouth.position.set(0,.1,.1);head.add(mouth);
  assert.ok(avatarFaceAnchor(head,null,null,.5).mouth.distanceTo(mouth.getWorldPosition(new Vector3()))<1e-12);
+});
+
+
+test('mouth placement follows the head-facing axes when the face turns or tilts',()=>{
+ const {face,hand,anchor,base}=fixture();
+ anchor.forward=new Vector3(0,0,1);anchor.up=new Vector3(0,1,0);anchor.right=new Vector3(1,0,0);
+ const original=faceRelativeWristTarget(base,hand,face,anchor);
+ for(const yaw of [-Math.PI,-Math.PI/2,.7,Math.PI]){
+  const rotation=new Quaternion().setFromEuler(new Euler(.2,yaw,.1));
+  const turned={width:anchor.width,mouth:anchor.mouth.clone().applyQuaternion(rotation),forward:anchor.forward.clone().applyQuaternion(rotation),up:anchor.up.clone().applyQuaternion(rotation),right:anchor.right.clone().applyQuaternion(rotation)};
+  const result=faceRelativeWristTarget(base.clone().applyQuaternion(rotation),hand,face,turned);
+  assert.ok(result.distanceTo(original.clone().applyQuaternion(rotation))<1e-10);
+ }
+});
+
+test('clearance protects fingers beyond the wrist and moves the whole hand without changing its pose',()=>{
+ for(const yaw of [0,.9,-.9,Math.PI]){
+  const rotation=new Quaternion().setFromEuler(new Euler(.1,yaw,.15)),turn=p=>p.applyQuaternion(rotation);
+  const anchor={mouth:turn(new Vector3(0,1.6,.12)),width:.16,forward:turn(new Vector3(0,0,1)),up:turn(new Vector3(0,1,0)),right:turn(new Vector3(1,0,0))};
+  const wrist=turn(new Vector3(0,1.48,.18)),points=[wrist,turn(new Vector3(0,1.61,.1))],shoulder=turn(new Vector3(.2,1.25,0));
+  const safe=clearHandFromFace(wrist,points,anchor,.015,shoulder,.6),delta=safe.clone().sub(wrist);
+  for(const point of points)assert.ok(point.clone().add(delta).sub(anchor.mouth).dot(anchor.forward)>=.021-1e-10);
+  assert.ok(delta.dot(anchor.forward)>0);assert.ok(delta.clone().cross(anchor.forward).length()<1e-10);
+ }
+});
+
+test('safe placement respects arm reach without pulling the hand back through the face plane',()=>{
+ const anchor={mouth:new Vector3(0,.8,.4),width:.16},wrist=new Vector3(0,.8,.3),shoulder=new Vector3();
+ const safe=clearHandFromFace(wrist,[wrist],anchor,.015,shoulder,.6);
+ assert.ok(safe.distanceTo(shoulder)<=.6+1e-10);assert.ok(safe.z>=.421);
+ assert.ok(safe.y<wrist.y,'An unreachable pose can lower the wrist while retaining safe face depth');
+ assert.equal(clearHandFromFace(wrist,[new Vector3(1,1,0)],anchor,.015,shoulder,.6),wrist);
+});
+
+
+test('models without eye bones preserve neutral face direction across reversed model roots',()=>{
+ const root=new Object3D(),head=new Object3D();root.add(head);root.rotation.y=Math.PI;
+ const vrm={humanoid:{getNormalizedBoneNode:name=>name==='head'?head:null}};
+ assert.equal(captureFaceSurface(vrm),null);
+ const neutral=avatarFaceAnchor(head,null,null,.5);assert.ok(neutral.forward.z>.99);
+ head.rotation.y=.7;const moved=avatarFaceAnchor(head,null,null,.5);
+ assert.ok(moved.forward.distanceTo(new Vector3(Math.sin(.7),0,Math.cos(.7)))<1e-10);
 });
