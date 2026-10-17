@@ -27,9 +27,24 @@ const assert=require('node:assert/strict');
   await page.locator('#mouthOpenStrength').fill('2');
   await page.waitForFunction(async()=>(await window.yuiDesktop.getSettings()).mouthOpenStrength===2);
   await page.evaluate(()=>{window.smokeTrackingResults=[];window.addEventListener('message',event=>{const message=event.data?.yuiRenderer;if(message?.type==='handDetection')window.smokeTrackingResults.push(message);});});
+  if(process.argv.includes('--camera-label-mismatch')){
+   await page.evaluate(()=>{nativeLabels=['macOS camera label'];browserLabels=false;document.querySelector('#cameras').replaceChildren(new Option('macOS camera label','native:0'));});
+   const frame=page.frames().find(f=>f.url().includes('/renderer/'));
+   await frame.evaluate(()=>{
+    const media=navigator.mediaDevices,enumerate=media.enumerateDevices.bind(media),open=media.getUserMedia.bind(media);
+    window.cameraOpenCalls=0;
+    media.enumerateDevices=async()=>{const list=await enumerate();return window.cameraOpenCalls?list:list.map(d=>({kind:d.kind,deviceId:'',label:''}));};
+    media.getUserMedia=async options=>{window.cameraOpenCalls++;return open(options);};
+   });
+  }
   await page.locator('#tracking').click();
   await page.waitForFunction(()=>document.querySelector('#tracking').textContent==='カメラを停止',null,{timeout:60000});
   await page.waitForFunction(()=>window.smokeTrackingResults.length>0,null,{timeout:60000});
+  if(process.argv.includes('--camera-label-mismatch')){
+   const frame=page.frames().find(f=>f.url().includes('/renderer/'));
+   assert.equal(await frame.evaluate(()=>window.cameraOpenCalls),1,'Mismatched single-camera labels must reuse one acquired stream');
+   console.log('PASS native/browser label mismatch: recognition starts with one camera open and no stop/reopen');
+  }
   await page.locator('#tracking').click();
   await page.waitForFunction(()=>document.querySelector('#tracking').textContent==='カメラを開始');
   await page.locator('#privacy').click();

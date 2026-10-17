@@ -52,7 +52,7 @@ ipcMain.on('ui-command',(event,message)=>{
  if(!trusted(event,'ui'))return;
  if(message?.type==='privacy')syphon.setPrivacy(message.value);
  if(message?.type==='settings')command({type:'settings',...safeSettings(message)});
- else if(['startTracking','stopTracking','calibrate','privacy','resetFraming','refreshCameras'].includes(message?.type))command({type:message.type,deviceId:typeof message.deviceId==='string'?message.deviceId:undefined,cameraLabel:typeof message.cameraLabel==='string'?message.cameraLabel:undefined,value:!!message.value});
+ else if(['startTracking','stopTracking','calibrate','privacy','resetFraming','refreshCameras'].includes(message?.type))command({type:message.type,deviceId:typeof message.deviceId==='string'?message.deviceId:undefined,cameraLabel:typeof message.cameraLabel==='string'?message.cameraLabel:undefined,singleNativeCamera:message.singleNativeCamera===true,value:!!message.value});
 });
 ipcMain.on('renderer-event',async(event,message)=>{
  if(!trusted(event,'ui')||!message||typeof message.type!=='string')return;

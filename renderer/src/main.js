@@ -19,7 +19,7 @@ import {TrackingTransition} from './tracking-transition.js';
 import {WristDepth} from './wrist-depth.js';
 import {HandIdentity} from './hand-identity.js';
 import {SpringStrength} from './spring-strength.js';
-import {browserCameraId} from './camera-selection.js';
+import {openCameraStream} from './camera-selection.js';
 import {AvatarBackground} from './background.js';
 import {FrameCapture} from './frame-capture.js';
 import {avatarTextures} from './avatar-textures.js';
@@ -290,13 +290,12 @@ async function listCameras(devices){
  devices??=await navigator.mediaDevices.enumerateDevices();
  post('cameras',{labelsAvailable:devices.filter(d=>d.kind==='videoinput').every(d=>!!d.label),items:devices.filter(d=>d.kind==='videoinput'&&!/YuiTracking Camera|HoloTrack Avatar Camera|Unity Video Capture|OBS Virtual Camera|WarudoCam/i.test(d.label)).map((d,i)=>({deviceId:d.deviceId,label:d.label||`カメラ ${i+1}`}))});
 }
-async function startTracking(deviceId,cameraLabel){
+async function startTracking(deviceId,cameraLabel,singleNativeCamera=false){
  if(initializing||tracking)return;initializing=true;
  try{
   await ensureTasks();
-  deviceId=await browserCameraId(navigator.mediaDevices,deviceId,cameraLabel,listCameras);
   // No audio capture, no display capture, and no automatic start on launch.
-  stream=await navigator.mediaDevices.getUserMedia({video:{...(deviceId?{deviceId:{exact:deviceId}}:{}),width:{ideal:1280},height:{ideal:720},aspectRatio:{ideal:16/9},frameRate:{ideal:30,max:30}},audio:false});
+  stream=await openCameraStream(navigator.mediaDevices,deviceId,cameraLabel,listCameras,{singleNativeCamera});
   const track=stream.getVideoTracks()[0];
   await listCameras();
   if(/YuiTracking Camera|HoloTrack Avatar Camera|Unity Video Capture|OBS Virtual Camera|WarudoCam/i.test(track.label))throw new Error('入力に実際のWebカメラを選択してください。');
@@ -589,7 +588,7 @@ host?.addEventListener('message',async e=>{
    endPan();endOrbit();camera.zoom=1;camera.position.set(0,1.35,3.1);cameraTarget.set(0,1.1,0);camera.lookAt(cameraTarget);camera.updateProjectionMatrix();saveFraming();break;
   case'loadModel':await loadModel(m.requestId);break;
   case'demo':loadVersion++;makeDemo();break;
-  case'startTracking':await startTracking(m.deviceId,m.cameraLabel);break;
+  case'startTracking':await startTracking(m.deviceId,m.cameraLabel,m.singleNativeCamera);break;
   case'refreshCameras':await listCameras();break;
   case'stopTracking':stopTracking();break;
   case'calibrate':calibrateFace();break;

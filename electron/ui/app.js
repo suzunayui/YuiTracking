@@ -22,7 +22,7 @@ for(const button of document.querySelectorAll('[data-background]'))button.onclic
 $('background-image').onclick=()=>host.selectBackground('image').catch(showError);
 $('calibrate').onclick=()=>send('calibrate');$('reset').onclick=()=>send('resetFraming');
 $('privacy').onclick=()=>{const value=$('privacy').getAttribute('aria-pressed')!=='true';$('privacy').setAttribute('aria-pressed',value);send('privacy',{value});};
-$('tracking').onclick=()=>{send(active?'stopTracking':'startTracking',{deviceId:$('cameras').value.startsWith('native:')?'':$('cameras').value,cameraLabel:$('cameras').value.startsWith('native:')?$('cameras').selectedOptions[0]?.textContent:undefined});$('tracking').disabled=true;};
+$('tracking').onclick=()=>{send(active?'stopTracking':'startTracking',{singleNativeCamera:$('cameras').value.startsWith('native:')&&nativeLabels.length===1,deviceId:$('cameras').value.startsWith('native:')?'':$('cameras').value,cameraLabel:$('cameras').value.startsWith('native:')?$('cameras').selectedOptions[0]?.textContent:undefined});$('tracking').disabled=true;};
 $('cameras').onpointerdown=()=>send('refreshCameras');
 host.syphonAvailable().then(available=>{$('syphon').disabled=!available;if(!available)$('output-status').textContent='Syphon出力はMac版で利用できます。';});
 $('syphon').onclick=async()=>{try{$('syphon').disabled=true;await host.setSyphon(!syphonActive);}catch(error){showError(error);}finally{$('syphon').disabled=false;}};
