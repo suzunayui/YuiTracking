@@ -7,7 +7,7 @@ const {pathToFileURL}=require('node:url');
 const {SyphonOutput}=require('./syphon-output.cjs');
 app.setName('YuiTracking');
 let window,settings={},avatarPath=null,backgroundPath=null,pendingModel=null,pendingBackground=null,sequence=0;
-let rendererReady=false,restoreOutput=false,recoveryOpen=false;
+let rendererReady=false,restoreOutput=false,recoveryOpen=false,currentVrmPath=null;
 let recognitionDelegate='CPU',recognitionGpuName='',macGpuPromise;
 function macGpu(){
  return macGpuPromise??=(async()=>{
@@ -40,7 +40,7 @@ function notify(message){if(window&&!window.webContents.isDestroyed())window.web
 function safeSettings(value){const result={};for(const [key,min,max] of [['smoothing',0,.95],['sensitivity',.3,5],['bodyStrength',0,20],['forwardLeanStrength',0,3],['backwardLeanStrength',0,3],['mouthOpenStrength',.5,3],['mouthSensitivity',.5,3],['springStrength',.3,5],['chestSpringStrength',.3,20]])if(Number.isFinite(value?.[key]))result[key]=Math.min(max,Math.max(min,value[key]));return result;}
 function samplePath(sample){return path.join(app.isPackaged?path.join(process.resourcesPath,'Samples'):path.join(__dirname,'../src/YuiTracking.App/Assets/Samples'),`AvatarSample_${sample}.vrm`);}
 function selectModel(file,sample){
- if(sample==='robot'){pendingModel=null;syphon.setLoading(false);command({type:'demo'});settings.defaultSample='robot';notify({type:'avatar',sample,label:'内蔵ロボット'});return persist();}
+ if(sample==='robot'){currentVrmPath=null;pendingModel=null;syphon.setLoading(false);command({type:'demo'});settings.defaultSample='robot';notify({type:'avatar',sample,label:'内蔵ロボット'});return persist();}
  const requestId=++sequence;pendingModel={file,sample,requestId,previous:avatarPath};avatarPath=file;syphon.setLoading(true);command({type:'loadModel',requestId});
 }
 function selectBackground(color,file){backgroundPath=file||null;const requestId=++sequence;pendingBackground={color,file,requestId};command({type:'background',color,imageUrl:file?origin+'/background-image?v='+requestId:undefined,requestId});}
@@ -67,7 +67,7 @@ ipcMain.handle('background',async(event,color)=>{if(!trusted(event,'ui'))return;
  const result=await dialog.showOpenDialog(window,{filters:[{name:'背景画像',extensions:['png','jpg','jpeg','bmp']}],properties:['openFile']});if(result.canceled)return;
  const file=result.filePaths[0];if((await fs.stat(file)).size>32*1024*1024)throw new Error('背景画像は32MB以下にしてください。');selectBackground(settings.background||'#00ff00',file);
 });
-ipcMain.handle('open-model',async event=>{if(!trusted(event,'ui'))return;const result=await dialog.showOpenDialog(window,{filters:[{name:'VRM avatar',extensions:['vrm']}],properties:['openFile']});if(result.canceled)return;const chosen=result.filePaths[0];if((await fs.stat(chosen)).size>200*1024*1024)throw new Error('VRMは200MB以下にしてください。');selectModel(chosen,null);});
+ipcMain.handle('open-model',async event=>{if(!trusted(event,'ui'))return;const defaultPath=await require('./vrm-picker.cjs')(currentVrmPath,settings.defaultVrmPath);const result=await dialog.showOpenDialog(window,{defaultPath,filters:[{name:'VRM avatar',extensions:['vrm']}],properties:['openFile']});if(result.canceled)return;const chosen=result.filePaths[0];if((await fs.stat(chosen)).size>200*1024*1024)throw new Error('VRMは200MB以下にしてください。');selectModel(chosen,null);});
 ipcMain.on('ui-command',(event,message)=>{
  if(!trusted(event,'ui'))return;
  if(message?.type==='privacy')syphon.setPrivacy(message.value);
@@ -88,7 +88,7 @@ ipcMain.on('renderer-event',async(event,message)=>{
  }
  if(['modelLoaded','modelFailed'].includes(message.type)&&pendingModel?.requestId===message.requestId){
   const pending=pendingModel;pendingModel=null;syphon.setLoading(false);
-  if(message.type==='modelLoaded'){settings.defaultSample=pending.sample;if(!pending.sample)settings.defaultVrmPath=pending.file;await persist();notify({type:'avatar',sample:pending.sample,label:pending.sample==='Y'?'女の子':pending.sample==='Z'?'男の子':path.basename(pending.file)});}
+  if(message.type==='modelLoaded'){currentVrmPath=pending.sample?null:pending.file;settings.defaultSample=pending.sample;if(!pending.sample)settings.defaultVrmPath=pending.file;await persist();notify({type:'avatar',sample:pending.sample,label:pending.sample==='Y'?'女の子':pending.sample==='Z'?'男の子':path.basename(pending.file)});}
   else avatarPath=pending.previous;
  }
  if(['backgroundLoaded','backgroundFailed'].includes(message.type)&&pendingBackground?.requestId===message.requestId){const pending=pendingBackground;pendingBackground=null;if(message.type==='backgroundLoaded'){settings.background=pending.color;settings.backgroundImagePath=pending.file||null;await persist();notify({type:'background',color:pending.color,image:!!pending.file});}else notify({type:'error',text:message.text});}

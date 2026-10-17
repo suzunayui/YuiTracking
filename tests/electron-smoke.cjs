@@ -12,6 +12,27 @@ const assert=require('node:assert/strict');
   const launch=()=>_electron.launch({executablePath:packaged?path.resolve(__dirname,'../dist/electron/mac-arm64/YuiTracking.app/Contents/MacOS/YuiTracking'):require('../electron/node_modules/electron'),args:[...(packaged?[]:[path.resolve(__dirname,'../electron')]),'--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream','--user-data-dir='+profile],env});
   app=await launch();let page=await app.firstWindow();
   await page.waitForFunction(()=>document.querySelector('[data-sample=Y]')?.getAttribute('aria-pressed')==='true');
+  if(process.argv.includes('--vrm-picker')){
+   const model=await app.evaluate(async({app,dialog})=>{
+    const fs=process.mainModule.require('node:fs/promises'),path=process.mainModule.require('node:path');
+    const folder=path.join(app.getPath('userData'),'VRM folder');await fs.mkdir(folder,{recursive:true});
+    const file=path.join(folder,'picker-avatar.vrm');
+    const source=app.isPackaged?path.join(process.resourcesPath,'Samples','AvatarSample_Y.vrm'):path.resolve(app.getAppPath(),'../src/YuiTracking.App/Assets/Samples/AvatarSample_Y.vrm');
+    await fs.copyFile(source,file);globalThis.pickerCalls=[];
+    dialog.showOpenDialog=async(_owner,options)=>{globalThis.pickerCalls.push(options);return globalThis.pickerCalls.length===1?{canceled:false,filePaths:[file]}:{canceled:true,filePaths:[]};};
+    return {folder,file};
+   });
+   await page.locator('#open').click();
+   await page.waitForFunction(()=>document.querySelector('#model').textContent==='picker-avatar.vrm');
+   await page.evaluate(()=>window.yuiDesktop.openModel());
+   assert.equal(await app.evaluate(()=>globalThis.pickerCalls[1].defaultPath),model.folder);
+   await page.locator('[data-sample=Y]').click();
+   await page.waitForFunction(()=>document.querySelector('[data-sample=Y]').getAttribute('aria-pressed')==='true');
+   await page.evaluate(()=>window.yuiDesktop.openModel());
+   assert.equal(await app.evaluate(()=>globalThis.pickerCalls[2].defaultPath),model.folder,'Built-in sample must fall back to last custom VRM folder');
+   assert.equal((await page.evaluate(()=>window.yuiDesktop.getSettings())).defaultVrmPath,model.file,'Cancel must preserve saved model');
+   console.log('PASS VRM dialog current folder, last custom folder after sample selection, and cancellation');
+  }
   if(process.argv.includes('--gpu-recognition')){
    await page.locator('#avatar-tab').click();
    await page.waitForFunction(()=>document.querySelector('#recognition-device option[value=GPU]'));
@@ -167,6 +188,9 @@ const assert=require('node:assert/strict');
   await page.waitForFunction(()=>document.querySelector('#status').textContent==='キャリブレーションの調整しました');
   await page.waitForFunction(()=>document.querySelector('#status').textContent==='VRMを表示中',null,{timeout:6000});
   if(await page.locator('#privacy').getAttribute('aria-pressed')==='true')await page.locator('#privacy').click();
+  const zoomFrame=page.frames().find(f=>f.url().includes('/renderer/'));
+  await zoomFrame.locator('canvas').evaluate(canvas=>{for(let i=0;i<5;i++)canvas.dispatchEvent(new WheelEvent('wheel',{deltaY:-720,cancelable:true}));});
+  await page.waitForFunction(async()=>(await window.yuiDesktop.getSettings()).framing?.zoom===20);
   await page.waitForTimeout(300);
   await page.screenshot({path:require('node:path').join(require('node:os').tmpdir(),'yuitracking-mac-ui.png')});
   await app.close();app=null;
@@ -175,6 +199,7 @@ const assert=require('node:assert/strict');
   await page.waitForFunction(()=>document.querySelector('[data-sample=Z]').getAttribute('aria-pressed')==='true',null,{timeout:60000});
   assert.equal(await page.locator('#chestSpringStrength').inputValue(),'20');
   assert.equal(await page.locator('#chestSpringStrength').isDisabled(),true);
+  assert.equal((await page.evaluate(()=>window.yuiDesktop.getSettings())).framing.zoom,20);
   assert.equal(await page.evaluate(()=>document.querySelector('#tracking').textContent),'カメラを開始');
   console.log('PASS Electron preview, synthetic camera/recognition, stop, settings restored, no camera auto-start');
  }finally{if(app)await app.close();await rm(profile,{recursive:true,force:true});}

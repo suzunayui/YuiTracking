@@ -18,6 +18,11 @@ try{
  await page.evaluate(()=>{window.commands=null;window.messages=[];window.yuiHost={postMessage:m=>window.messages.push(m),addEventListener:(_,fn)=>window.commands=fn};});
  await page.addScriptTag({content:bundle.outputFiles[0].text});
  const initial=await page.evaluate(()=>cameraState());
+ await page.locator('canvas').evaluate(canvas=>{for(let i=0;i<5;i++)canvas.dispatchEvent(new WheelEvent('wheel',{deltaY:-720,cancelable:true}));});
+ assert.equal((await page.evaluate(()=>cameraState())).zoom,20);
+ await page.evaluate(()=>commands({data:{type:'restoreFraming',zoom:20,x:0,y:1.35,z:3.1,targetX:0,targetY:1.1,targetZ:0}}));
+ assert.equal((await page.evaluate(()=>cameraState())).zoom,20,'Saved close-up framing must restore at full zoom');
+ await page.evaluate(()=>commands({data:{type:'resetFraming'}}));
  await page.evaluate(()=>commands({data:{type:'navigationMode',pan:true}}));
  await page.mouse.move(150,150);await page.mouse.wheel(20,30);
  await page.waitForFunction(()=>cameraState().position[0]!==0);

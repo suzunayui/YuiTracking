@@ -64,6 +64,7 @@ public sealed partial class MainWindow : Window
     private byte[]? modelBytes;
     private int modelRequestId;
     private string? pendingModelPath;
+    private string? currentVrmPath;
     private string? pendingSample;
     private string? selectedSample;
     private int statusTicks;
@@ -431,7 +432,7 @@ public sealed partial class MainWindow : Window
                 case "framingChanged":
                     var zoom = root.GetProperty("zoom").GetDouble();
                     var x = root.GetProperty("x").GetDouble(); var y = root.GetProperty("y").GetDouble(); var z = root.GetProperty("z").GetDouble();
-                    if (!double.IsFinite(zoom) || zoom < .5 || zoom > 4 || !double.IsFinite(x) || !double.IsFinite(y) || !double.IsFinite(z)) break;
+                    if (!double.IsFinite(zoom) || zoom < .5 || zoom > 20 || !double.IsFinite(x) || !double.IsFinite(y) || !double.IsFinite(z)) break;
                     double? Coordinate(string name) => root.TryGetProperty(name, out var item) && item.TryGetDouble(out var value) && double.IsFinite(value) ? value : null;
                     pendingFraming = new(zoom, x, y, z, Coordinate("targetX"), Coordinate("targetY"), Coordinate("targetZ"));
                     framingTimer.Stop(); framingTimer.Start();
@@ -442,6 +443,7 @@ public sealed partial class MainWindow : Window
                     App.Log("VRM loaded: " + pendingModelPath);
                     ModelButton.IsEnabled = true;
                     SelectSample(pendingSample);
+                    currentVrmPath = pendingSample == null ? pendingModelPath : null;
                     if (pendingSample != null) AppSettings.SaveDefaultSample(pendingSample);
                     else AppSettings.SaveDefaultVrm(pendingModelPath);
                     pendingModelPath = null;
@@ -510,9 +512,11 @@ public sealed partial class MainWindow : Window
         if (!ready) return;
         try
         {
-            var picker = new FileOpenPicker(); WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(this));
-            picker.FileTypeFilter.Add(".vrm"); var file = await picker.PickSingleFileAsync(); if (file == null) return;
-            await LoadModelAsync(file.Path);
+            string? lastVrm = null;
+            try { lastVrm = AppSettings.DefaultVrmPath; } catch (Exception ex) { App.Log(ex.Message); }
+            using var picker = new VrmFilePicker(VrmFilePicker.InitialFolder(currentVrmPath, lastVrm));
+            var file = picker.Show(WinRT.Interop.WindowNative.GetWindowHandle(this)); if (file == null) return;
+            await LoadModelAsync(file);
         }
         catch (Exception ex) { Report(ex); }
     }
@@ -543,7 +547,7 @@ public sealed partial class MainWindow : Window
         SelectSample(selectedSample);
         if (!ready || closing) return;
         modelRequestId++; pendingModelPath = pendingSample = null; ModelButton.IsEnabled = true;
-        ModelLabel.Text = "内蔵ロボット"; Send(new { type = "demo" }); SelectSample("robot"); RestoreOutput();
+        currentVrmPath = null; ModelLabel.Text = "内蔵ロボット"; Send(new { type = "demo" }); SelectSample("robot"); RestoreOutput();
         try { AppSettings.SaveDefaultSample("robot"); } catch (Exception ex) { Report(ex); }
     }
     private Task LoadSampleAsync(string sample) => LoadModelAsync(

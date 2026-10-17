@@ -128,7 +128,7 @@ renderer.domElement.addEventListener('wheel',event=>{
   camera.position.add(movement);cameraTarget.add(movement);saveFraming();return;
  }
  const delta=event.deltaY*(event.deltaMode===1?16:event.deltaMode===2?H:1);
- camera.zoom=clamp(camera.zoom*Math.exp(-clamp(delta,-720,720)*.0015),.5,4);
+ camera.zoom=clamp(camera.zoom*Math.exp(-clamp(delta,-720,720)*.0015),.5,20);
  camera.updateProjectionMatrix();
  saveFraming();
 },{passive:false});
@@ -596,7 +596,7 @@ host?.addEventListener('message',async e=>{
   case'frameAck':if(framePending){perfSent++;perfAck=Math.max(perfAck,performance.now()-perfPendingAt);}framePending=false;break;
   case'restoreFraming':
    if([m.zoom,m.x,m.y,m.z].every(Number.isFinite)){
-    camera.zoom=clamp(m.zoom,.5,4);camera.position.set(m.x,m.y,m.z);
+    camera.zoom=clamp(m.zoom,.5,20);camera.position.set(m.x,m.y,m.z);
     cameraTarget.set(...([m.targetX,m.targetY,m.targetZ].every(Number.isFinite)?[m.targetX,m.targetY,m.targetZ]:[m.x,m.y-.25,m.z-3.1]));
     camera.lookAt(cameraTarget);camera.updateProjectionMatrix();
    }
