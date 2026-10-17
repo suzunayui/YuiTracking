@@ -15,7 +15,7 @@
   </div>
  </section>
  <aside>
-  <div class="camera-section"><div class="camera-row"><select id="cameras" title="トラッキングに使うカメラを選びます。"></select><button id="tracking" disabled title="選択したカメラで顔・手・体の認識を開始します。">カメラを開始</button></div><p id="input">カメラ入力：720p / 最大30fps</p></div>
+  <div class="camera-section"><div class="camera-row"><select id="cameras" title="トラッキングに使うカメラを選びます。"></select><button id="refresh-cameras" title="Macとブラウザーのカメラ一覧を再取得します。">更新</button></div><button id="tracking" class="wide" disabled title="選択したカメラで顔・手・体の認識を開始します。">カメラを開始</button><p id="input">カメラ入力：720p / 最大30fps</p><p id="camera-permission" aria-live="polite"></p></div>
   <div class="settings">
    <div class="tabs" role="tablist"><button id="avatar-tab" role="tab" aria-selected="true" aria-controls="avatar-settings" title="アバター・背景と、OBS向けの出力を設定します。">アバター・出力</button><button id="motion-tab" role="tab" aria-selected="false" aria-controls="motion-settings" title="動きの滑らかさや顔・口・揺れものの反応を調整します。">動きの調整</button></div>
    <div class="tab-content">
@@ -43,4 +43,4 @@
    </div>
   </div>
  </aside>
-</main><script src="app.js"></script></body></html>
+</main><script src="camera-picker.js"></script><script src="app.js"></script></body></html>

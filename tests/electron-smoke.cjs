@@ -53,13 +53,34 @@ const assert=require('node:assert/strict');
    });
    await page.locator('#tracking').click();
    await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('カメラ一覧を更新しました'),null,{timeout:60000});
-   const options=await page.locator('#cameras option').evaluateAll(items=>items.map(item=>item.value));
+   const options=await page.locator('#cameras option').evaluateAll(items=>items.map(item=>item.value).filter(id=>!id.startsWith('native:')));
    assert.equal(options.length,2);assert.ok(options.every(id=>id&&!id.startsWith('native:')),'Error must expose browser IDs instead of restoring the native list');
    await page.locator('#cameras').selectOption(options[0]);
   }
   await page.locator('#tracking').click();
   await page.waitForFunction(()=>document.querySelector('#tracking').textContent==='カメラを停止',null,{timeout:60000});
   await page.waitForFunction(()=>window.smokeTrackingResults.length>0,null,{timeout:60000});
+  if(process.argv.includes('--camera-list-disappears')){
+   await page.evaluate(()=>{
+    nativeLabels=['MacBook Air Camera','iPhone Camera'];cameraPicker.known.clear();
+    cameraMessage={items:[],selectionReady:true,labelsAvailable:false};updateCameras();
+   });
+   const labels=await page.locator('#cameras option').allTextContents();
+   assert.deepEqual(labels,['MacBook Air Camera','iPhone Camera']);
+   const phone=await page.locator('#cameras option').nth(1).getAttribute('value');
+   await page.locator('#cameras').selectOption(phone);
+   await page.evaluate(()=>window.yuiHost.postMessage({type:'cameras',items:[],selectionReady:true,labelsAvailable:false}));
+   await page.waitForFunction(value=>document.querySelector('#cameras').value===value,phone);
+   assert.equal(await page.locator('#cameras option').count(),2);
+   assert.equal(await page.locator('#cameras option').nth(1).isDisabled(),false);
+   const frame=page.frames().find(f=>f.url().includes('/renderer/'));
+   const canvas=frame.locator('canvas');const bounds=await canvas.boundingBox();
+   await page.mouse.move(bounds.x+bounds.width*.5,bounds.y+bounds.height*.5);
+   await page.mouse.down();await page.mouse.move(bounds.x+bounds.width*.5+30,bounds.y+bounds.height*.5+35,{steps:4});await page.mouse.up();
+   await page.waitForFunction(async()=>!!(await window.yuiDesktop.getSettings()).framing);
+   assert.ok((await page.evaluate(()=>window.yuiDesktop.getSettings())).framing.y>1.35);
+   console.log('PASS empty camera list keeps Mac/iPhone selection; primary drag moves and saves avatar framing');
+  }
   if(process.argv.includes('--camera-label-mismatch')){
    const frame=page.frames().find(f=>f.url().includes('/renderer/'));
    assert.equal(await frame.evaluate(()=>window.cameraOpenCalls),1,'Mismatched single-camera labels must reuse one acquired stream');

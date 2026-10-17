@@ -27,11 +27,16 @@ try{
  await page.mouse.down({button:'middle'});await page.mouse.move(250,205,{steps:3});await page.mouse.up({button:'middle'});
  const moved=await page.evaluate(()=>cameraState());assert.notDeepEqual(moved.target,orbit.target);
  assert.ok(Math.abs(radius(moved)-radius(initial))<1e-9);
+ await page.mouse.down({button:'left'});await page.mouse.move(270,230,{steps:3});await page.mouse.up({button:'left'});
+ const dragged=await page.evaluate(()=>cameraState());
+ assert.notDeepEqual(dragged.target,moved.target,'Primary drag used by macOS three-finger drag must pan');
+ assert.equal(dragged.zoom,moved.zoom);assert.ok(Math.abs(radius(dragged)-radius(initial))<1e-9);
+ await page.mouse.move(280,240);assert.deepEqual(await page.evaluate(()=>cameraState()),dragged,'Panning must end on release');
  await page.evaluate(()=>commands({data:{type:'resetFraming'}}));assert.deepEqual(await page.evaluate(()=>cameraState()),initial);
  await page.evaluate(m=>commands({data:{type:'restoreFraming',zoom:m.zoom,x:m.position[0],y:m.position[1],z:m.position[2],targetX:m.target[0],targetY:m.target[1],targetZ:m.target[2]}}),moved);
  assert.deepEqual(await page.evaluate(()=>cameraState()),moved);
  await page.evaluate(()=>commands({data:{type:'restoreFraming',zoom:1,x:.2,y:1.5,z:3.1}}));
  assert.deepEqual((await page.evaluate(()=>cameraState())).target,[.2,1.25,0]);
  assert.ok(await page.evaluate(()=>robotReach())<.08);
- console.log('PASS: wheel without Ctrl, right-drag orbit, middle-drag pan, reset, saved orbit restoration, legacy framing, robot hand reaches face');
+ console.log('PASS: wheel, right-drag orbit, middle/primary drag pan, release, reset, saved orbit restoration, legacy framing, robot hand reaches face');
 }finally{await browser.close();}

@@ -69,16 +69,39 @@ test('an unidentified probe is not reused as the chosen physical camera',async()
 });
 
 test('Mac camera picker keeps discovered browser IDs when a camera label is blank',()=>{
- const source=readFileSync(new URL('../../electron/ui/app.js',import.meta.url),'utf8');
- const handler=source.slice(source.indexOf("if(message.type==='cameras')"),source.indexOf("if(message.type==='cameraInput')"));
- const select={value:'native:0',replaceChildren(...items){this.items=items;this.value=items[0]?.value||'';}};
- const context={nativeLabels:['macOS camera label'],browserLabels:false,$:()=>select,Option:function(label,value){this.label=label;this.value=value;}};
- const dispatch=message=>{context.message=message;runInNewContext(handler,context);};
- dispatch({type:'cameras',selectionReady:true,labelsAvailable:false,items:[{deviceId:'internal',label:'Camera 1'},{deviceId:'other',label:'Camera 2'}]});
- assert.equal(select.value,'internal');assert.equal(context.browserLabels,true);
- select.value='other';
- dispatch({type:'cameras',selectionReady:false,labelsAvailable:false,items:[{deviceId:'internal',label:'Camera 1'},{deviceId:'other',label:'Camera 2'}]});
- assert.equal(select.value,'other','Refresh must preserve the selected browser ID instead of restoring native labels');
+ const source=readFileSync(new URL('../../electron/ui/camera-picker.js',import.meta.url),'utf8');
+ const Picker=runInNewContext(source+';CameraPicker');const picker=new Picker();
+ const message={labelsAvailable:false,items:[{deviceId:'internal',label:'カメラ 1'},{deviceId:'other',label:'カメラ 2'}]};
+ assert.equal(picker.update(message,['macOS camera label'],'native:0').selected,'internal');
+ assert.equal(picker.update(message,['macOS camera label'],'other').selected,'other');
+});
+
+test('Mac native camera and iPhone names remain present after an empty browser refresh',()=>{
+ const Picker=runInNewContext(readFileSync(new URL('../../electron/ui/camera-picker.js',import.meta.url),'utf8')+';CameraPicker');
+ const picker=new Picker(),native=['MacBook Air Camera','iPhone Camera'];
+ const before=picker.update({items:[]},native,'');
+ const after=picker.update({selectionReady:true,items:[]},native,before.selected);
+ assert.equal(after.options.length,2);assert.equal(after.selected,before.selected);
+ assert.equal(after.options[1].label,'iPhone Camera');assert.equal(after.options[1].disabled,false);
+});
+
+test('blank labels keep the camera name and missing browser IDs remain marked unavailable',()=>{
+ const Picker=runInNewContext(readFileSync(new URL('../../electron/ui/camera-picker.js',import.meta.url),'utf8')+';CameraPicker');
+ const picker=new Picker();
+ picker.update({labelsAvailable:true,items:[{deviceId:'phone',label:'iPhone Camera'}]},[],'');
+ const hidden=picker.update({labelsAvailable:false,items:[{deviceId:'phone',label:'カメラ 1'}]},[],'phone');
+ assert.equal(hidden.options[0].label,'iPhone Camera');assert.equal(hidden.options[0].disabled,false);
+ const missing=picker.update({items:[]},[],'phone');
+ assert.equal(missing.options[0].label,'iPhone Camera');assert.equal(missing.options[0].disabled,true);
+ assert.equal(missing.selected,'phone');
+});
+
+test('explicit selection of a hidden iPhone probes permission even if another camera has a label',async()=>{
+ const f=fixture([camera('webcam','Webcam'),camera('phone','iPhone Camera')]);
+ const enumerate=f.devices.enumerateDevices;let calls=0;
+ f.devices.enumerateDevices=async()=>calls++===0?[camera('webcam','Webcam')]:enumerate();
+ await openCameraStream(f.devices,'','iPhone Camera',()=>{});
+ assert.equal(f.requests.length,2);assert.deepEqual(f.requests[1].video.deviceId,{exact:'phone'});
 });
 
 test('camera list accepts a usable label even if another device label is hidden',async()=>{

@@ -42,7 +42,8 @@ renderer.setSize(W,H,false); renderer.setPixelRatio(1); renderer.outputColorSpac
 // Keep the VRM's authored colors without filmic highlight compression.
 renderer.toneMapping=THREE.NoToneMapping;renderer.toneMappingExposure=1;
 document.body.appendChild(renderer.domElement);
-renderer.domElement.title='マウスホイール：拡大・縮小\nホイールドラッグ：上下左右に移動\n右ドラッグ：カメラを回転';
+renderer.domElement.title='マウスホイール／ピンチ：拡大・縮小\nドラッグ：上下左右に移動（Macの3本指ドラッグ対応）\n右ドラッグ：カメラを回転';
+renderer.domElement.style.touchAction='none';
 // Handle this inside WebView2; its native surface does not reliably bubble
 // pointer gestures to the surrounding XAML controls. Keep the same WebView
 // alive so expanding the preview cannot restart tracking or virtual output.
@@ -66,7 +67,7 @@ if(window.parent!==window&&!window.chrome?.webview){
  document.addEventListener('keyup',event=>{if(candidate===event.code&&held.size===1)post('calibrateRequest');held.delete(event.code);candidate=null;});
  window.addEventListener('blur',()=>{held.clear();candidate=null;});
 }
-let panPointer=null,panX=0,panY=0,orbitPointer=null,orbitX=0,orbitY=0;
+let panPointer=null,panButton=4,panX=0,panY=0,orbitPointer=null,orbitX=0,orbitY=0;
 const panDepth=Math.hypot(3.1,.25);
 function saveFraming(){post('framingChanged',{zoom:camera.zoom,x:camera.position.x,y:camera.position.y,z:camera.position.z,targetX:cameraTarget.x,targetY:cameraTarget.y,targetZ:cameraTarget.z});}
 function endPan(){
@@ -78,9 +79,9 @@ renderer.domElement.addEventListener('pointerdown',event=>{
   event.preventDefault();orbitPointer=event.pointerId;orbitX=event.clientX;orbitY=event.clientY;
   renderer.domElement.setPointerCapture(event.pointerId);renderer.domElement.style.cursor='grabbing';return;
  }
- if(event.button!==1||panPointer!==null||orbitPointer!==null)return;
+ if(![0,1].includes(event.button)||panPointer!==null||orbitPointer!==null)return;
  event.preventDefault();
- panPointer=event.pointerId;panX=event.clientX;panY=event.clientY;
+ panPointer=event.pointerId;panButton=event.button===0?1:4;panX=event.clientX;panY=event.clientY;
  renderer.domElement.setPointerCapture(event.pointerId);renderer.domElement.style.cursor='grabbing';
 });
 renderer.domElement.addEventListener('pointermove',event=>{
@@ -94,7 +95,7 @@ renderer.domElement.addEventListener('pointermove',event=>{
   orbitX=event.clientX;orbitY=event.clientY;saveFraming();return;
  }
  if(event.pointerId!==panPointer)return;
- if(!(event.buttons&4)){endPan();return;}
+ if(!(event.buttons&panButton)){endPan();return;}
  event.preventDefault();
  const rect=renderer.domElement.getBoundingClientRect();
  const height=Math.min(rect.height,rect.width/(W/H));
@@ -607,3 +608,4 @@ window.addEventListener('error',e=>{privacy=true;post('error',{text:e.message});
 window.addEventListener('unhandledrejection',e=>{privacy=true;post('error',{text:String(e.reason)});});
 makeDemo();scheduleLoop();post('ready');
 listCameras().catch(()=>{});
+navigator.mediaDevices?.addEventListener('devicechange',()=>listCameras().catch(()=>{}));

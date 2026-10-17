@@ -1,4 +1,4 @@
-const {app,BrowserWindow,dialog,ipcMain,protocol,net,session,globalShortcut}=require('electron');
+const {app,BrowserWindow,dialog,ipcMain,protocol,net,session,globalShortcut,systemPreferences}=require('electron');
 const fs=require('node:fs/promises');
 const path=require('node:path');
 const {execFile}=require('node:child_process');
@@ -35,7 +35,7 @@ function selectModel(file,sample){
 }
 function selectBackground(color,file){backgroundPath=file||null;const requestId=++sequence;pendingBackground={color,file,requestId};command({type:'background',color,imageUrl:file?origin+'/background-image?v='+requestId:undefined,requestId});}
 ipcMain.handle('settings',event=>trusted(event,'ui')?settings:{});
-ipcMain.handle('info',event=>trusted(event,'ui')?{version:app.getVersion(),platform:process.platform}:{});
+ipcMain.handle('info',event=>trusted(event,'ui')?{version:app.getVersion(),platform:process.platform,cameraPermission:process.platform==='darwin'?systemPreferences.getMediaAccessStatus('camera'):undefined}:{});
 ipcMain.handle('native-cameras',async event=>{if(!trusted(event,'ui')||process.platform!=='darwin')return [];try{const {stdout}=await promisify(execFile)('/usr/sbin/system_profiler',['SPCameraDataType','-json'],{timeout:5000,maxBuffer:1024*1024});return (JSON.parse(stdout).SPCameraDataType||[]).map(item=>item._name).filter(name=>typeof name==='string');}catch{return [];}});
 ipcMain.handle('memory',event=>{if(!trusted(event,'ui'))return;const metrics=app.getAppMetrics();return {mb:metrics.reduce((sum,item)=>sum+item.memory.workingSetSize,0)/1024,processes:metrics.map(item=>({type:item.type,mb:item.memory.workingSetSize/1024}))};});
 ipcMain.handle('syphon-capability',event=>trusted(event,'ui')&&process.platform==='darwin');

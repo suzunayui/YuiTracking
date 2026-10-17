@@ -25,7 +25,11 @@ export async function openCameraStream(mediaDevices,deviceId,label,onDiscovered,
  let probe=null;
  try{
   let devices=await mediaDevices.enumerateDevices();
-  if(!devices.some(d=>d.kind==='videoinput'&&d.label)){
+  let resolved=false;
+  try{resolveNamedCamera(devices,label,selection);resolved=true;}catch{}
+  // Partial permission may expose the running webcam but hide the iPhone.
+  // Probe on an explicit Start for an unresolved name even if some labels exist.
+  if(!resolved){
    probe=await open();devices=await mediaDevices.enumerateDevices();
   }
   await onDiscovered(devices);
