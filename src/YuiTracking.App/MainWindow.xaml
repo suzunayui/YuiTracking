@@ -1,4 +1,4 @@
-﻿<Window x:Class="YuiTracking.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="using:Microsoft.UI.Xaml.Controls" Title="YuiTracking">
+<Window x:Class="YuiTracking.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="using:Microsoft.UI.Xaml.Controls" Title="YuiTracking">
  <Grid x:Name="Root" Background="#10121B" RequestedTheme="Dark" Padding="16">
   <Grid x:Name="MainContent" ColumnSpacing="16">
    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition x:Name="SettingsColumn" Width="300"/></Grid.ColumnDefinitions>
@@ -99,7 +99,7 @@
         <Slider x:Name="SpringStrength" Minimum="0.3" Maximum="5" Value="1" StepFrequency="0.1" ToolTipService.ToolTip="モデルに設定された胸・髪・服などの揺れを調整します。" ValueChanged="SpringStrength_Changed"/>
        </StackPanel>
        <TextBlock x:Name="ChestSpringStrengthLabel" Text="胸の揺れやすさ：1.0倍" Foreground="#9DA7C0"/>
-       <Slider x:Name="ChestSpringStrength" Minimum="0.3" Maximum="5" Value="1" StepFrequency="0.1" IsEnabled="False" ToolTipService.ToolTip="胸専用の揺れ設定があるモデルで使えます。1倍：現在の揺れ。大きくすると胸だけ揺れが残りやすくなります。全体の揺れものの強さと組み合わせて使います。" ValueChanged="SpringStrength_Changed"/>
+       <Slider x:Name="ChestSpringStrength" Minimum="0.3" Maximum="20" Value="1" StepFrequency="0.1" IsEnabled="False" ToolTipService.ToolTip="胸専用の揺れ設定があるモデルで使えます。1倍：現在の揺れ。大きくすると胸だけ揺れが残りやすくなります。全体の揺れものの強さと組み合わせて使います。" ValueChanged="SpringStrength_Changed"/>
        <TextBlock x:Name="ChestSpringAvailability" Text="胸の揺れ設定を確認中です。" TextWrapping="Wrap" FontSize="12" Foreground="#9DA7C0"/>
        <StackPanel Background="Transparent" ToolTipService.ToolTip="頭の向き・傾きを反映する強さです。&#10;1倍：今までと同じ／4倍：顔45度でアバターの顔180度。回転は180度まで。体の強さとは別に調整できます。">
         <TextBlock x:Name="SensitivityLabel" Text="顔の動きの強さ：1.0倍" Foreground="#9DA7C0"/>

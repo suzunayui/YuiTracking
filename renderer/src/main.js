@@ -625,7 +625,7 @@ host?.addEventListener('message',async e=>{
    if(Number.isFinite(m.bodyStrength))bodyStrength=clamp(m.bodyStrength,0,20);
    if(Number.isFinite(m.sensitivity))sensitivity=clamp(m.sensitivity,.3,5);
    if(Number.isFinite(m.springStrength))springStrength=clamp(m.springStrength,.3,5);
-   if(Number.isFinite(m.chestSpringStrength))chestSpringStrength=clamp(m.chestSpringStrength,.3,5);
+   if(Number.isFinite(m.chestSpringStrength))chestSpringStrength=clamp(m.chestSpringStrength,.3,20);
    springControl?.setStrength(springStrength,chestSpringStrength);
    smoothing=clamp(m.smoothing??.65,0,.95);mouthOpenStrength=clamp(m.mouthOpenStrength??1,.5,3);mouthSensitivity=clamp(m.mouthSensitivity??1.8,.5,3);break;
   case'privacy':privacy=!!m.value;break;

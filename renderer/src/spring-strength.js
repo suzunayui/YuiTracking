@@ -14,7 +14,7 @@ export class SpringStrength {
  }
  setStrength(value,chestValue=1){
   const strength=clamp(value,.3,5);
-  const chestStrength=clamp(chestValue,.3,5);
+  const chestStrength=clamp(chestValue,.3,20);
   for(const {joint,stiffness,drag,chest}of this.joints){
    const gain=strength*(chest?chestStrength:1);
    joint.settings.stiffness=stiffness/Math.sqrt(gain);

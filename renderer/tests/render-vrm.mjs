@@ -99,14 +99,16 @@ try{
   assert.deepEqual((await page.evaluate(()=>window.readTestSprings())).map(j=>j.settings),original.map(j=>j.settings));
   console.log('PASS real VRM spring strength changes, finite rotations and restored physics');
   const beforeChest=await page.evaluate(()=>window.readTestSprings());
-  await page.evaluate(()=>window.hostListener({data:{type:'settings',chestSpringStrength:5}}));await page.waitForTimeout(1500);
+  await page.evaluate(()=>window.hostListener({data:{type:'settings',chestSpringStrength:20}}));await page.waitForTimeout(1500);
   const afterChest=await page.evaluate(()=>window.readTestSprings());
   for(let i=0;i<afterChest.length;i++){
    assert.ok(afterChest[i].rotation.every(Number.isFinite));
    if(beforeChest[i].chest)assert.ok(afterChest[i].settings.stiffness<beforeChest[i].settings.stiffness);
    else assert.deepEqual(afterChest[i].settings,beforeChest[i].settings,'Chest slider must preserve hair and cloth');
   }
-  await page.evaluate(()=>window.hostListener({data:{type:'settings',chestSpringStrength:1}}));
+  await page.evaluate(()=>window.hostListener({data:{type:'settings',springStrength:5,chestSpringStrength:20}}));await page.waitForTimeout(1000);
+  assert.ok((await page.evaluate(()=>window.readTestSprings())).every(joint=>joint.rotation.every(Number.isFinite)),'Combined maximum must keep finite rotations');
+  await page.evaluate(()=>window.hostListener({data:{type:'settings',springStrength:1,chestSpringStrength:1}}));
   assert.deepEqual((await page.evaluate(()=>window.readTestSprings())).map(s=>s.settings),beforeChest.map(s=>s.settings));
   console.log('PASS chest-only adjustment and restore: '+beforeChest.filter(s=>s.chest).length+' authored joints');
  }
