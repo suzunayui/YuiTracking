@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {irisGaze,EyeGaze,applyVrmGaze} from '../src/eye-gaze.js';
+import {irisGaze,EyeGaze,applyVrmGaze,setGazeRange} from '../src/eye-gaze.js';
 function points(x=0,y=0,roll=0){
  const p=[];
  for(const [a,b,t,d,i,cx] of [[33,133,159,145,468,.3],[362,263,386,374,473,.7]]){
@@ -32,4 +32,22 @@ test('calibration removes iris offset, holds short blinks then returns to neutra
 test('strength is bounded and unsupported VRM is a no-op',()=>{
  const gaze=new EyeGaze(),v=gaze.update(points(.3,.2),{},1,1,1/30,3,1);assert.deepEqual(v,{x:1,y:1});
  assert.equal(applyVrmGaze({},null,'camera',v,1/60),false);
+});
+
+class BoneRanges {
+ static type='bone';
+ constructor(horizontal=3.75){for(const [name,value] of [['HorizontalInner',horizontal],['HorizontalOuter',horizontal],['VerticalDown',10],['VerticalUp',10]])this['rangeMap'+name]={outputScale:value};}
+}
+test('eye range scales authored limits without accumulation, restores exactly and isolates models',()=>{
+ const a=new BoneRanges(),b=new BoneRanges(5);
+ setGazeRange(a,5);setGazeRange(a,5);assert.equal(a.rangeMapHorizontalInner.outputScale,18.75);assert.equal(a.rangeMapVerticalUp.outputScale,45);
+ setGazeRange(a,2);assert.equal(a.rangeMapHorizontalInner.outputScale,7.5);assert.equal(b.rangeMapHorizontalInner.outputScale,5);
+ setGazeRange(a,1);assert.equal(a.rangeMapHorizontalInner.outputScale,3.75);assert.equal(a.rangeMapVerticalUp.outputScale,10);
+ setGazeRange(b,NaN);assert.equal(b.rangeMapHorizontalInner.outputScale,5);
+ const wide=new BoneRanges(60);setGazeRange(wide,5);assert.equal(wide.rangeMapHorizontalInner.outputScale,60);setGazeRange(wide,1);assert.equal(wide.rangeMapHorizontalInner.outputScale,60);
+});
+test('expression range stays within authored expression weight and restores at one',()=>{
+ const expression={rangeMapHorizontalInner:{outputScale:.4},rangeMapVerticalDown:{outputScale:1}};
+ setGazeRange(expression,5);assert.equal(expression.rangeMapHorizontalInner.outputScale,1);assert.equal(expression.rangeMapVerticalDown.outputScale,1);
+ setGazeRange(expression,1);assert.equal(expression.rangeMapHorizontalInner.outputScale,.4);
 });

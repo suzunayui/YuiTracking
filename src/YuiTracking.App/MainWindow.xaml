@@ -88,9 +88,12 @@
          <ComboBoxItem Content="常にカメラ目線" Tag="camera"/>
          <ComboBoxItem Content="正面固定" Tag="fixed"/>
         </ComboBox>
-        <TextBlock x:Name="GazeStrengthLabel" Text="目線の強さ：1.0倍" Foreground="#9DA7C0"/>
+        <TextBlock x:Name="GazeStrengthLabel" Text="目線の追従感度：1.0倍" Foreground="#9DA7C0"/>
         <Slider x:Name="GazeStrength" Minimum="0" Maximum="3" Value="1" StepFrequency="0.1" ValueChanged="FaceSensitivity_Changed"/>
-        <TextBlock Text="目線対応のVRMで使えます。追従時はカメラを見てキャリブレーションしてください。カメラ目線はモデルの目の可動範囲内で動きます。" TextWrapping="Wrap" FontSize="12" Foreground="#9DA7C0"/>
+        <TextBlock x:Name="GazeRangeLabel" Text="目の可動範囲：1.0倍" Foreground="#9DA7C0"/>
+        <Slider x:Name="GazeRange" Minimum="1" Maximum="5" Value="1" StepFrequency="0.1" ValueChanged="FaceSensitivity_Changed"/>
+        <TextBlock Text="追従感度は「自分の目に追従」のときに使います。可動範囲はカメラ目線でも使えます。1倍でモデル標準、5倍まで拡大できます（目ボーンは最大45度、表情式は表情の最大量まで）。VRMファイルは変更しません。" TextWrapping="Wrap" FontSize="12" Foreground="#9DA7C0"/>
+        <TextBlock Text="目線対応のVRMで使えます。追従時はカメラを見てキャリブレーションしてください。" TextWrapping="Wrap" FontSize="12" Foreground="#9DA7C0"/>
 
        <StackPanel Background="Transparent" ToolTipService.ToolTip="認識結果の間を滑らかにつなぎます。&#10;0%：補間なし（比較用）&#10;大きいほど滑らかになり、追従はゆっくりになります。">
         <TextBlock x:Name="SmoothnessLabel" Text="滑らかさ：65%" Foreground="#9DA7C0"/>

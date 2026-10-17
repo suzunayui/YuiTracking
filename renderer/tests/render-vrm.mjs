@@ -11,8 +11,9 @@ if(process.argv.includes('--check-gaze')||process.argv.includes('--check-body')|
  let source=await fs.readFile(path.resolve(import.meta.dirname,'../src/main.js'),'utf8');
  if(process.argv.includes('--check-mouth'))source=source.replace('function animate(now,dt){','function animate(now,dt){ if(window.testMouthWeights)latestFace={time:now,result:{faceBlendshapes:[{categories:Object.entries(window.testMouthWeights).map(([categoryName,score])=>({categoryName,score}))}]}};');
  const bundle=await build({stdin:{contents:source+`
+ window.setTestRange=value=>{gazeRange=value;};
  window.setTestGaze=(mode,x=0,y=0)=>{gazeMode=mode;eyeGaze.update=()=>({x,y});};
- window.readTestGaze=()=>({yaw:vrm.lookAt?.yaw,pitch:vrm.lookAt?.pitch,eyes:['leftEye','rightEye'].map(n=>vrm.humanoid.getRawBoneNode(n)?.quaternion.toArray()),head:bone('head').quaternion.toArray()});
+ window.readTestGaze=()=>({yaw:vrm.lookAt?.yaw,pitch:vrm.lookAt?.pitch,eyes:['leftEye','rightEye'].map(n=>vrm.humanoid.getRawBoneNode(n)?.quaternion.toArray()),head:bone('head').quaternion.toArray(),ranges:['HorizontalInner','HorizontalOuter','VerticalDown','VerticalUp'].map(name=>vrm.lookAt.applier['rangeMap'+name].outputScale)});
  window.moveTestCamera=x=>{camera.position.x=x;camera.updateMatrixWorld();};
  window.readTestSprings=()=>[...vrm.springBoneManager.joints].map(j=>({name:j.bone.name,chest:springControl.joints.find(item=>item.joint===j).chest,settings:{stiffness:j.settings.stiffness,drag:j.settings.dragForce},rotation:j.bone.quaternion.toArray()}));
  window.setTestMouth=weights=>{window.testMouthWeights=weights;};
@@ -97,10 +98,22 @@ try{
   const neutral=await page.evaluate(()=>window.readTestGaze());assert.ok(Number.isFinite(neutral.yaw));
   await page.evaluate(()=>window.setTestGaze('tracking',.5,.5));await page.waitForTimeout(150);
   const moved=await page.evaluate(()=>window.readTestGaze());assert.ok(moved.yaw>0&&moved.pitch>0);assert.notDeepEqual(moved.eyes,neutral.eyes);assert.deepEqual(moved.head,neutral.head);
+  const angle=(a,b)=>2*Math.acos(Math.min(1,Math.abs(a.reduce((sum,v,i)=>sum+v*b[i],0))));
+  await page.evaluate(()=>window.setTestRange(4));await page.waitForTimeout(150);
+  const wider=await page.evaluate(()=>window.readTestGaze());
+  for(let i=0;i<2;i++)assert.ok(angle(wider.eyes[i],neutral.eyes[i])>angle(moved.eyes[i],neutral.eyes[i])*2,'Tracking range must visibly increase eye rotation');
+  assert.deepEqual(wider.head,neutral.head);
+  await page.evaluate(()=>window.setTestRange(1));await page.waitForTimeout(150);
+  assert.deepEqual((await page.evaluate(()=>window.readTestGaze())).eyes,moved.eyes);
   await page.evaluate(()=>window.setTestGaze('fixed'));await page.waitForTimeout(150);
   assert.deepEqual((await page.evaluate(()=>window.readTestGaze())).eyes,neutral.eyes);
   await page.evaluate(()=>{window.setTestGaze('camera');window.moveTestCamera(.5);});await page.waitForTimeout(150);
   const right=await page.evaluate(()=>window.readTestGaze());
+  await page.evaluate(()=>window.setTestRange(4));await page.waitForTimeout(150);
+  const widerCamera=await page.evaluate(()=>window.readTestGaze());
+  for(let i=0;i<2;i++)assert.ok(angle(widerCamera.eyes[i],neutral.eyes[i])>angle(right.eyes[i],neutral.eyes[i])*2,'Camera mode must also use wider range');
+  await page.evaluate(()=>window.setTestRange(1));await page.waitForTimeout(150);
+  assert.deepEqual((await page.evaluate(()=>window.readTestGaze())).ranges,neutral.ranges);
   await page.evaluate(()=>window.moveTestCamera(-.5));await page.waitForTimeout(150);
   const left=await page.evaluate(()=>window.readTestGaze());assert.ok(right.yaw*left.yaw<0);assert.notDeepEqual(left.eyes,right.eyes);assert.deepEqual(left.head,neutral.head);
   console.log('PASS real VRM eye bones: tracking, fixed reset, camera movement without webcam, unchanged head');

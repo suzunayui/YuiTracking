@@ -42,8 +42,24 @@ export class EyeGaze {
  }
 }
 
-export function applyVrmGaze(vrm,camera,mode,gaze,dt){
+const gazeRanges=new WeakMap();
+// Keep authored values per applier so changes never accumulate or leak to another model.
+export function setGazeRange(applier,strength=1){
+ if(!applier)return;
+ let original=gazeRanges.get(applier);
+ if(!original){
+  original=['rangeMapHorizontalInner','rangeMapHorizontalOuter','rangeMapVerticalDown','rangeMapVerticalUp']
+   .map(key=>applier[key]).filter(map=>map&&Number.isFinite(map.outputScale)).map(map=>({map,scale:map.outputScale}));
+  gazeRanges.set(applier,original);
+ }
+ const gain=Number.isFinite(strength)?clamp(strength,1,5):1;
+ const limit=applier.constructor.type==='bone'?45:1;
+ for(const {map,scale} of original)map.outputScale=gain===1?scale:Math.min(scale*gain,Math.max(scale,limit));
+}
+
+export function applyVrmGaze(vrm,camera,mode,gaze,dt,range=1){
  const look=vrm?.lookAt;if(!look)return false;
+ setGazeRange(look.applier,range);
  look.autoUpdate=false;
  if(mode==='camera'){
   vrm.scene.updateWorldMatrix(true,true);

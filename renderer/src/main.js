@@ -142,7 +142,7 @@ let smoothing=.65,sensitivity=1,bodyStrength=1,forwardLeanStrength=1,backwardLea
 let latestFace=null,latestHands=null,frameNumber=0,lastVideoTime=-1,lastDetect=0,lastRender=0;
 let calibration=new THREE.Quaternion(),rawHead=new THREE.Quaternion(),haveFace=false;
 let blinkBaseline={left:0,right:0};
-const eyeGaze=new EyeGaze();let gazeMode='tracking',gazeStrength=1;
+const eyeGaze=new EyeGaze();let gazeMode='tracking',gazeStrength=1,gazeRange=1;
 const autoCalibration=new AutoCalibration();
 let latestPose=null,lastPoseDetect=0,bodyNeutral=null;
 let lastHandDetection=-1;
@@ -544,7 +544,7 @@ function animate(now,dt){
  // Apply only eye look-at after tracked humanoid bones; node constraints stay disabled.
  if(vrm){
   const gaze=eyeGaze.update(face?.faceLandmarks?.[0],weights,latestFace?.time,now,dt,gazeStrength,video?.videoWidth&&video?.videoHeight?video.videoWidth/video.videoHeight:16/9);
-  vrm.humanoid.update();applyVrmGaze(vrm,camera,gazeMode,gaze,dt);vrm.expressionManager?.update();
+  vrm.humanoid.update();applyVrmGaze(vrm,camera,gazeMode,gaze,dt,gazeRange);vrm.expressionManager?.update();
   vrm.springBoneManager?.update(Math.min(Math.max(dt,0),1/30));
   for(const material of vrm.materials??[])material.update?.(dt);
  }
@@ -626,6 +626,7 @@ host?.addEventListener('message',async e=>{
    break;
   case'settings':
    if(['tracking','camera','fixed'].includes(m.gazeMode))gazeMode=m.gazeMode;
+   if(Number.isFinite(m.gazeRange))gazeRange=clamp(m.gazeRange,1,5);
    if(Number.isFinite(m.gazeStrength))gazeStrength=clamp(m.gazeStrength,0,3);
    if(Number.isFinite(m.forwardLeanStrength))forwardLeanStrength=clamp(m.forwardLeanStrength,0,3);
    if(Number.isFinite(m.backwardLeanStrength))backwardLeanStrength=clamp(m.backwardLeanStrength,0,3);
