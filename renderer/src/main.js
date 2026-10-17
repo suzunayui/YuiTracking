@@ -19,6 +19,7 @@ import {TrackingTransition} from './tracking-transition.js';
 import {WristDepth} from './wrist-depth.js';
 import {HandIdentity} from './hand-identity.js';
 import {SpringStrength} from './spring-strength.js';
+import {EyeGaze,applyVrmGaze} from './eye-gaze.js';
 import {openCameraStream,selectableCameras} from './camera-selection.js';
 import {AvatarBackground} from './background.js';
 import {FrameCapture} from './frame-capture.js';
@@ -141,6 +142,7 @@ let smoothing=.65,sensitivity=1,bodyStrength=1,forwardLeanStrength=1,backwardLea
 let latestFace=null,latestHands=null,frameNumber=0,lastVideoTime=-1,lastDetect=0,lastRender=0;
 let calibration=new THREE.Quaternion(),rawHead=new THREE.Quaternion(),haveFace=false;
 let blinkBaseline={left:0,right:0};
+const eyeGaze=new EyeGaze();let gazeMode='tracking',gazeStrength=1;
 const autoCalibration=new AutoCalibration();
 let latestPose=null,lastPoseDetect=0,bodyNeutral=null;
 let lastHandDetection=-1;
@@ -320,11 +322,12 @@ async function startTracking(deviceId,cameraLabel,singleNativeCamera=false){
   await video.play(); await listCameras();
   const input=track.getSettings();post('cameraInput',{label:track.label,deviceId:input.deviceId,width:input.width??video.videoWidth,height:input.height??video.videoHeight,fps:input.frameRate??0});
   track.onended=()=>{stopTracking();status('カメラが切断されました。待機ポーズに戻ります。');};
-  lastHandDetection=-1;lastTrackingReceived=0;trackingGapMs=trackingLatencyMs=trackingResults=0;tracking=true;restartRenderLoop();scheduleDetection();lastVideoTime=-1;lastPoseDetect=0;bodyNeutral=null;bodyLean.reset();trackingPresence.reset();resetArmTransitions();calibration.identity();blinkBaseline={left:0,right:0};autoCalibration.start(performance.now());post('tracking',{active:true});status('正面を向いて目を開けてください。顔の検出が安定すると一度だけ自動でキャリブレーションします。');
+  lastHandDetection=-1;lastTrackingReceived=0;trackingGapMs=trackingLatencyMs=trackingResults=0;tracking=true;restartRenderLoop();scheduleDetection();lastVideoTime=-1;lastPoseDetect=0;bodyNeutral=null;bodyLean.reset();trackingPresence.reset();resetArmTransitions();calibration.identity();eyeGaze.reset();blinkBaseline={left:0,right:0};autoCalibration.start(performance.now());post('tracking',{active:true});status('正面を向いてカメラを見てください。顔の検出が安定すると一度だけ自動でキャリブレーションします。');
  }catch(e){stopTracking();post('error',{text:'カメラを開始できません：'+stage+' / '+e.name+(e.constraint?' ('+e.constraint+')':'')+'：'+e.message});}
  finally{initializing=false;}
 }
 function stopTracking(){
+ eyeGaze.reset();
  autoCalibration.stop();
  bodyStabilizer.reset();headStabilizer.reset();bodyLean.reset();trackingPresence.reset();resetArmTransitions();
  for(const filter of elbowFilters)filter.reset();
@@ -355,9 +358,10 @@ function calibrateFace(automatic=false){
     for(const filter of elbowFilters)filter.reset();
     const weights=Object.fromEntries((latestFace.result.faceBlendshapes?.[0]?.categories??[]).map(c=>[c.categoryName,c.score]));
     blinkBaseline={left:clamp(weights.eyeBlinkLeft??0,0,.95),right:clamp(weights.eyeBlinkRight??0,0,.95)};
+    eyeGaze.calibrate(latestFace.result.faceLandmarks?.[0],weights,video?.videoWidth&&video?.videoHeight?video.videoWidth/video.videoHeight:16/9);
     if(vrm){vrm.expressionManager?.setValue('blinkLeft',0);vrm.expressionManager?.setValue('blinkRight',0);}
     else eyes.forEach(eye=>eye.scale.y=1);
-    status((automatic?'自動キャリブレーション完了。':'')+'正面位置・目の開き具合・上半身の基準を調整しました。',true);
+    status((automatic?'自動キャリブレーション完了。':'')+'正面位置・目の開き具合・目線・上半身の基準を調整しました。',true);
     return true;
  }
  if(!automatic)status('顔が検出されてからキャリブレーションしてください。');
@@ -537,9 +541,10 @@ function animate(now,dt){
  const morphScale=mouthOpenStrength;
  for(const {bind,baseWeight}of mouthMorphBinds)bind.weight=baseWeight*morphScale;
  // Synchronize tracked bones before simulating model-authored spring bones.
- // Look-at and node constraints stay out of the tracking path.
+ // Apply only eye look-at after tracked humanoid bones; node constraints stay disabled.
  if(vrm){
-  vrm.humanoid.update();vrm.expressionManager?.update();
+  const gaze=eyeGaze.update(face?.faceLandmarks?.[0],weights,latestFace?.time,now,dt,gazeStrength,video?.videoWidth&&video?.videoHeight?video.videoWidth/video.videoHeight:16/9);
+  vrm.humanoid.update();applyVrmGaze(vrm,camera,gazeMode,gaze,dt);vrm.expressionManager?.update();
   vrm.springBoneManager?.update(Math.min(Math.max(dt,0),1/30));
   for(const material of vrm.materials??[])material.update?.(dt);
  }
@@ -620,6 +625,8 @@ host?.addEventListener('message',async e=>{
    catch(err){post('backgroundFailed',{requestId:m.requestId,text:'背景画像を読み込めませんでした。'});}
    break;
   case'settings':
+   if(['tracking','camera','fixed'].includes(m.gazeMode))gazeMode=m.gazeMode;
+   if(Number.isFinite(m.gazeStrength))gazeStrength=clamp(m.gazeStrength,0,3);
    if(Number.isFinite(m.forwardLeanStrength))forwardLeanStrength=clamp(m.forwardLeanStrength,0,3);
    if(Number.isFinite(m.backwardLeanStrength))backwardLeanStrength=clamp(m.backwardLeanStrength,0,3);
    if(Number.isFinite(m.bodyStrength))bodyStrength=clamp(m.bodyStrength,0,20);

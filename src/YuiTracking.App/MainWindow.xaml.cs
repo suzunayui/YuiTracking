@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using System.Text.Json;
 using System.Reflection;
 using Microsoft.UI.Xaml;
@@ -98,7 +98,7 @@ public sealed partial class MainWindow : Window
     {
         mouthTimer.Stop();
         if (!pendingMouthSettings) return;
-        try { AppSettings.SaveMotionSettings(MouthStrength.Value, MouthSensitivity.Value, Sensitivity.Value, BodyStrength.Value, ForwardLeanStrength.Value, BackwardLeanStrength.Value); pendingMouthSettings = false; }
+        try { AppSettings.SaveMotionSettings(MouthStrength.Value, MouthSensitivity.Value, Sensitivity.Value, BodyStrength.Value, ForwardLeanStrength.Value, BackwardLeanStrength.Value, SelectedGazeMode, GazeStrength.Value); pendingMouthSettings = false; }
         catch (Exception ex) { App.Log(ex.Message); }
     }
     private AppSettings.Framing? pendingFraming;
@@ -167,7 +167,7 @@ public sealed partial class MainWindow : Window
         catch (Exception ex) { App.Log(ex.Message); }
         SpringStrengthLabel.Text = $"揺れものの強さ：{SpringStrength.Value:0.0}倍";
         ChestSpringStrengthLabel.Text = $"胸の揺れやすさ：{ChestSpringStrength.Value:0.0}倍";
-        try { MouthStrength.Value = AppSettings.MouthOpenStrength; MouthSensitivity.Value = AppSettings.MouthSensitivity; Sensitivity.Value = AppSettings.FaceSensitivity; BodyStrength.Value = AppSettings.BodyStrength; ForwardLeanStrength.Value = AppSettings.ForwardLeanStrength; BackwardLeanStrength.Value = AppSettings.BackwardLeanStrength; }
+        try { MouthStrength.Value = AppSettings.MouthOpenStrength; MouthSensitivity.Value = AppSettings.MouthSensitivity; Sensitivity.Value = AppSettings.FaceSensitivity; BodyStrength.Value = AppSettings.BodyStrength; ForwardLeanStrength.Value = AppSettings.ForwardLeanStrength; BackwardLeanStrength.Value = AppSettings.BackwardLeanStrength; GazeStrength.Value = AppSettings.GazeStrength; GazeMode.SelectedIndex = AppSettings.GazeMode switch { "camera" => 1, "fixed" => 2, _ => 0 }; UpdateMotionLabels(); }
         catch (Exception ex) { App.Log(ex.Message); }
         MouthStrengthLabel.Text = $"口の開き具合：{MouthStrength.Value:0.0}倍";
         MouthSensitivityLabel.Text = $"口の感度：{MouthSensitivity.Value:0.0}倍";
@@ -569,8 +569,17 @@ public sealed partial class MainWindow : Window
     }
     private void Calibrate_Click(object sender, RoutedEventArgs e) => Send(new { type = "calibrate" });
     private void ResetFraming_Click(object sender, RoutedEventArgs e) => Send(new { type = "resetFraming" });
+    private string SelectedGazeMode => (GazeMode?.SelectedItem as ComboBoxItem)?.Tag as string ?? "tracking";
+    private void GazeMode_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        UpdateMotionLabels();
+        if (!ready || closing) return;
+        pendingMouthSettings = true; mouthTimer.Stop(); mouthTimer.Start(); SendSettings();
+    }
     private void UpdateMotionLabels()
     {
+        if (GazeStrength != null) GazeStrength.IsEnabled = SelectedGazeMode == "tracking";
+        if (GazeStrengthLabel != null && GazeStrength != null) GazeStrengthLabel.Text = $"目線の強さ：{GazeStrength.Value:0.0}倍";
         // XAML ValueChanged can fire before all named controls are created.
         if (SmoothnessLabel != null && Smoothness != null) SmoothnessLabel.Text = $"滑らかさ：{Smoothness.Value * 100:0}%";
         if (ForwardLeanStrengthLabel != null && ForwardLeanStrength != null) ForwardLeanStrengthLabel.Text = $"前傾の強さ：{ForwardLeanStrength.Value:0.0}倍";
@@ -666,7 +675,7 @@ public sealed partial class MainWindow : Window
     private void SendSettings()
     {
         if (!ready) return;
-        Send(new { type = "settings", smoothing = Smoothness.Value, sensitivity = Sensitivity.Value, bodyStrength = BodyStrength.Value, forwardLeanStrength = ForwardLeanStrength.Value, backwardLeanStrength = BackwardLeanStrength.Value, mouthOpenStrength = MouthStrength.Value, mouthSensitivity = MouthSensitivity.Value, springStrength = SpringStrength.Value, chestSpringStrength = ChestSpringStrength.Value, background = backgroundColor });
+        Send(new { type = "settings", gazeMode = SelectedGazeMode, gazeStrength = GazeStrength.Value, smoothing = Smoothness.Value, sensitivity = Sensitivity.Value, bodyStrength = BodyStrength.Value, forwardLeanStrength = ForwardLeanStrength.Value, backwardLeanStrength = BackwardLeanStrength.Value, mouthOpenStrength = MouthStrength.Value, mouthSensitivity = MouthSensitivity.Value, springStrength = SpringStrength.Value, chestSpringStrength = ChestSpringStrength.Value, background = backgroundColor });
     }
     private void Privacy_Click(object sender, RoutedEventArgs e)
     {

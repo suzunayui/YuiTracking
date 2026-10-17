@@ -7,10 +7,13 @@ import {build} from 'esbuild';
 const assets=path.resolve(import.meta.dirname,'../../src/YuiTracking.App/Assets/Renderer');
 const model=await fs.readFile(process.argv[2]);
 let bodyTestScript;
-if(process.argv.includes('--check-body')||process.argv.includes('--check-hands')||process.argv.includes('--check-mouth')||process.argv.includes('--check-springs')){
+if(process.argv.includes('--check-gaze')||process.argv.includes('--check-body')||process.argv.includes('--check-hands')||process.argv.includes('--check-mouth')||process.argv.includes('--check-springs')){
  let source=await fs.readFile(path.resolve(import.meta.dirname,'../src/main.js'),'utf8');
  if(process.argv.includes('--check-mouth'))source=source.replace('function animate(now,dt){','function animate(now,dt){ if(window.testMouthWeights)latestFace={time:now,result:{faceBlendshapes:[{categories:Object.entries(window.testMouthWeights).map(([categoryName,score])=>({categoryName,score}))}]}};');
  const bundle=await build({stdin:{contents:source+`
+ window.setTestGaze=(mode,x=0,y=0)=>{gazeMode=mode;eyeGaze.update=()=>({x,y});};
+ window.readTestGaze=()=>({yaw:vrm.lookAt?.yaw,pitch:vrm.lookAt?.pitch,eyes:['leftEye','rightEye'].map(n=>vrm.humanoid.getRawBoneNode(n)?.quaternion.toArray()),head:bone('head').quaternion.toArray()});
+ window.moveTestCamera=x=>{camera.position.x=x;camera.updateMatrixWorld();};
  window.readTestSprings=()=>[...vrm.springBoneManager.joints].map(j=>({name:j.bone.name,chest:springControl.joints.find(item=>item.joint===j).chest,settings:{stiffness:j.settings.stiffness,drag:j.settings.dragForce},rotation:j.bone.quaternion.toArray()}));
  window.setTestMouth=weights=>{window.testMouthWeights=weights;};
  window.readTestMouthMorph=(name='aa')=>vrm.expressionManager.getExpression(name).binds.flatMap(bind=>bind.primitives?.map(mesh=>mesh.morphTargetInfluences[bind.index])??[]);
@@ -88,6 +91,19 @@ try{
   console.log('PASS independent mouth size and sensitivity');
 
 
+ }
+ if(process.argv.includes('--check-gaze')){
+  await page.evaluate(()=>window.setTestGaze('fixed'));await page.waitForTimeout(150);
+  const neutral=await page.evaluate(()=>window.readTestGaze());assert.ok(Number.isFinite(neutral.yaw));
+  await page.evaluate(()=>window.setTestGaze('tracking',.5,.5));await page.waitForTimeout(150);
+  const moved=await page.evaluate(()=>window.readTestGaze());assert.ok(moved.yaw>0&&moved.pitch>0);assert.notDeepEqual(moved.eyes,neutral.eyes);assert.deepEqual(moved.head,neutral.head);
+  await page.evaluate(()=>window.setTestGaze('fixed'));await page.waitForTimeout(150);
+  assert.deepEqual((await page.evaluate(()=>window.readTestGaze())).eyes,neutral.eyes);
+  await page.evaluate(()=>{window.setTestGaze('camera');window.moveTestCamera(.5);});await page.waitForTimeout(150);
+  const right=await page.evaluate(()=>window.readTestGaze());
+  await page.evaluate(()=>window.moveTestCamera(-.5));await page.waitForTimeout(150);
+  const left=await page.evaluate(()=>window.readTestGaze());assert.ok(right.yaw*left.yaw<0);assert.notDeepEqual(left.eyes,right.eyes);assert.deepEqual(left.head,neutral.head);
+  console.log('PASS real VRM eye bones: tracking, fixed reset, camera movement without webcam, unchanged head');
  }
  if(process.argv.includes('--check-springs')){
   const original=await page.evaluate(()=>window.readTestSprings());assert.ok(original.length>0);

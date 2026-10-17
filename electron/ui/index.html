@@ -37,6 +37,9 @@
      <p id="recognition-status" aria-live="polite"></p>
     </div>
     <div id="motion-settings" role="tabpanel" hidden>
+     <label>目線モード<select id="gazeMode"><option value="tracking">自分の目に追従</option><option value="camera">常にカメラ目線</option><option value="fixed">正面固定</option></select></label>
+     <label>目線の強さ：<output id="gazeStrength-value"></output><input id="gazeStrength" type="range" min="0" max="3" step="0.1" value="1"></label>
+     <p>目線対応のVRMで使えます。自分の目に追従する場合は、カメラを見てキャリブレーションしてください。カメラ目線はモデルの目の可動範囲内で動きます。</p>
      <label title="大きく：滑らかになる／反応はゆっくり&#10;小さく：素早く反応する／細かな揺れが出やすい">滑らかさ：<output id="smoothing-value"></output><input id="smoothing" type="range" min="0" max="0.95" step="0.05" value="0.65"></label>
      <label title="口の変形量を調整します。&#10;大きく：口が大きく開く／小さく：控えめに開く">口の開き具合：<output id="mouthOpenStrength-value"></output><input id="mouthOpenStrength" type="range" min="0.5" max="3" step="0.1" value="1"></label>
      <label title="小さな口の開きを読み取る敏感さです。&#10;大きく：小さな開きにも反応／小さく：大きな開きに反応">口の感度：<output id="mouthSensitivity-value"></output><input id="mouthSensitivity" type="range" min="0.5" max="3" step="0.1" value="1.8"></label>

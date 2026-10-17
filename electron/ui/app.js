@@ -1,5 +1,5 @@
 const $=id=>document.getElementById(id),host=window.yuiDesktop;
-const keys=['smoothing','sensitivity','bodyStrength','forwardLeanStrength','backwardLeanStrength','mouthOpenStrength','mouthSensitivity','springStrength','chestSpringStrength'];
+const keys=['gazeStrength','smoothing','sensitivity','bodyStrength','forwardLeanStrength','backwardLeanStrength','mouthOpenStrength','mouthSensitivity','springStrength','chestSpringStrength'];
 let active=false,timer,statusTimer,statusRevision=0,syphonActive=false,maximized=false,nativeLabels=[],browserLabels=false;
 const cameraPicker=new CameraPicker();let cameraMessage={items:[],labelsAvailable:false};
 function updateCameras(){
@@ -12,10 +12,11 @@ window.addEventListener('message',event=>{if(event.source!==$('preview').content
 function setStatus(text,temporary=false){clearTimeout(statusTimer);const revision=++statusRevision;$('status').textContent=text;if(temporary)statusTimer=setTimeout(()=>{if(statusRevision===revision)$('status').textContent=active?'トラッキング中':'VRMを表示中';},3000);}
 function showError(error){setStatus(error.message||String(error));}
 function send(type,rest={}){host.command({type,...rest});}
-function values(){return Object.fromEntries(keys.map(key=>[key,Number($(key).value)]));}
-function labels(){for(const key of keys)$(key+'-value').textContent=key==='smoothing'?Math.round(Number($(key).value)*100)+'%':Number($(key).value).toFixed(1)+'倍';}
+function values(){return {...Object.fromEntries(keys.map(key=>[key,Number($(key).value)])),gazeMode:$('gazeMode').value};}
+function labels(){$('gazeStrength').disabled=$('gazeMode').value!=='tracking';for(const key of keys)$(key+'-value').textContent=key==='smoothing'?Math.round(Number($(key).value)*100)+'%':Number($(key).value).toFixed(1)+'倍';}
 function apply(){labels();send('settings',values());clearTimeout(timer);timer=setTimeout(()=>host.saveSettings(values()).catch(showError),200);}
 for(const key of keys)$(key).addEventListener('input',apply);
+$('gazeMode').addEventListener('change',apply);
 host.getRecognitionSettings().then(info=>{
  $('recognition-device').replaceChildren(...info.devices.map(device=>new Option(device.name,device.id)));
  $('recognition-device').value=info.devices.some(device=>device.id===info.saved)?info.saved:'CPU';
@@ -56,7 +57,7 @@ host.onEvent(message=>{
  if(message.type==='background'){for(const button of document.querySelectorAll('[data-background]'))button.setAttribute('aria-pressed',!message.image&&button.dataset.background===message.color);$('background-image').setAttribute('aria-pressed',message.image);}
  if(message.type==='togglePreviewMaximized')maximize(!maximized);if(message.type==='restorePreview')maximize(false);
 });
-host.getSettings().then(saved=>{for(const key of keys)if(Number.isFinite(saved[key]))$(key).value=saved[key];labels();}).catch(showError);
+host.getSettings().then(saved=>{if(['tracking','camera','fixed'].includes(saved.gazeMode))$('gazeMode').value=saved.gazeMode;for(const key of keys)if(Number.isFinite(saved[key]))$(key).value=saved[key];labels();}).catch(showError);
 async function updateCameraPermission(){const info=await host.info();document.title='YuiTracking '+info.version;
  const names={granted:'許可済み','not-determined':'未確認（開始時に確認）',denied:'拒否されています。システム設定 → プライバシーとセキュリティ → カメラで許可し、アプリを再起動してください。',restricted:'macOS側で使用が制限されています。',unknown:'状態を確認できません。'};
  $('camera-permission').textContent=info.platform==='darwin'?'カメラ権限：'+(names[info.cameraPermission]||'不明'):'';

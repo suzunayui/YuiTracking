@@ -62,6 +62,8 @@ internal static class AppSettings
         var value = Read()[key]?.GetValue<double>() ?? 1;
         return double.IsFinite(value) ? Math.Clamp(value, 0, 3) : 1;
     }
+    public static string GazeMode => Read()["gazeMode"]?.GetValue<string>() is string mode && mode is "tracking" or "camera" or "fixed" ? mode : "tracking";
+    public static double GazeStrength => ReadLeanStrength("gazeStrength");
     public static double FaceSensitivity
     {
         get { var value = Read()["sensitivity"]?.GetValue<double>() ?? 1; return double.IsFinite(value) ? Math.Clamp(value, .3, 5) : 1; }
@@ -79,10 +81,11 @@ internal static class AppSettings
     {
         get { var settings = Read(); var value = settings["mouthSensitivity"]?.GetValue<double>() ?? settings["mouthOpenStrength"]?.GetValue<double>() ?? 1.8; return double.IsFinite(value) ? Math.Clamp(value, .5, 3) : 1.8; }
     }
-    public static void SaveMotionSettings(double opening, double sensitivity, double faceSensitivity, double bodyStrength, double forwardLeanStrength, double backwardLeanStrength)
+    public static void SaveMotionSettings(double opening, double sensitivity, double faceSensitivity, double bodyStrength, double forwardLeanStrength, double backwardLeanStrength, string gazeMode, double gazeStrength)
     {
         if (!double.IsFinite(opening) || !double.IsFinite(sensitivity) || !double.IsFinite(faceSensitivity) || !double.IsFinite(bodyStrength) || !double.IsFinite(forwardLeanStrength) || !double.IsFinite(backwardLeanStrength)) return;
-        var settings = Read(); settings["mouthOpenStrength"] = Math.Clamp(opening, .5, 3); settings["mouthSensitivity"] = Math.Clamp(sensitivity, .5, 3); settings["sensitivity"] = Math.Clamp(faceSensitivity, .3, 5); settings["bodyStrength"] = Math.Clamp(bodyStrength, 0, 20); settings["forwardLeanStrength"] = Math.Clamp(forwardLeanStrength, 0, 3); settings["backwardLeanStrength"] = Math.Clamp(backwardLeanStrength, 0, 3); Save(settings);
+        if (!double.IsFinite(gazeStrength) || gazeMode is not ("tracking" or "camera" or "fixed")) return;
+        var settings = Read(); settings["gazeMode"] = gazeMode; settings["gazeStrength"] = Math.Clamp(gazeStrength, 0, 3); settings["mouthOpenStrength"] = Math.Clamp(opening, .5, 3); settings["mouthSensitivity"] = Math.Clamp(sensitivity, .5, 3); settings["sensitivity"] = Math.Clamp(faceSensitivity, .3, 5); settings["bodyStrength"] = Math.Clamp(bodyStrength, 0, 20); settings["forwardLeanStrength"] = Math.Clamp(forwardLeanStrength, 0, 3); settings["backwardLeanStrength"] = Math.Clamp(backwardLeanStrength, 0, 3); Save(settings);
     }
     public record Framing(double Zoom, double X, double Y, double Z, double? TargetX = null, double? TargetY = null, double? TargetZ = null);
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
