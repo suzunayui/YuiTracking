@@ -10,7 +10,13 @@ internal static class Program
     {
         ApplicationConfiguration.Initialize();
         var assets = Path.GetFullPath(args[0]);
-        var device = args.Length > 1 ? GpuCatalog.Enumerate().Single(d => d.Id == args[1]) : null;
+        var cameraSelection = args.Contains("--camera-selection");
+        var adapterId = args.Skip(1).FirstOrDefault(arg => !arg.StartsWith("--"));
+        var device = adapterId != null ? GpuCatalog.Enumerate().Single(d => d.Id == adapterId) : null;
+        var choices = new CameraChoices();
+        var native = new CameraChoices.Item("native-test", "BSW305MBK", true);
+        choices.UpdateNative(new[] { native });
+        var stage = 0; string? cameraId = null;
         var profile = Path.Combine(Path.GetTempPath(), "yuitracking-webview-recognition-" + Guid.NewGuid());
         using var form = new Form { Width = 800, Height = 600, Opacity = 0, ShowInTaskbar = false };
         using var view = new WebView2 { Dock = DockStyle.Fill };
@@ -43,8 +49,19 @@ internal static class Program
                         {
                             case "ready":
                                 Send(new { type = "recognitionConfig", @delegate = device == null ? "CPU" : "GPU", expectedRenderer = device?.Name ?? "" });
-                                Send(new { type = "startTracking" }); break;
+                                Send(cameraSelection ? choices.StartCommand(new(CameraChoices.DefaultId, "システム既定のカメラ")) : new { type = "startTracking" }); break;
                             case "error": throw new Exception(message.GetProperty("text").GetString());
+                            case "cameraInput":
+                                cameraId = message.GetProperty("deviceId").GetString();
+                                if (string.IsNullOrEmpty(cameraId)) throw new Exception("Missing active camera ID");
+                                break;
+                            case "cameras":
+                                if (cameraSelection)
+                                {
+                                    choices.UpdateBrowser(message.GetProperty("items").EnumerateArray().Select(item => new CameraChoices.Item(item.GetProperty("deviceId").GetString()!, item.GetProperty("label").GetString()!)));
+                                    if (!choices.Build().Contains(native)) throw new Exception("Partial or differently named browser list erased native camera");
+                                }
+                                break;
                             case "recognitionReady":
                                 if (message.GetProperty("delegate").GetString() != (device == null ? "CPU" : "GPU")) throw new Exception("Wrong recognition delegate");
                                 Console.WriteLine(message.GetRawText()); backendReady = true; break;
@@ -53,7 +70,19 @@ internal static class Program
                                 stopped = true; Send(new { type = "stopTracking" }); break;
                             case "tracking":
                                 if (stopped && !message.GetProperty("active").GetBoolean())
-                                { Console.WriteLine("PASS WebView2 initialization, face/hand/pose inference and stop: " + (device?.Name ?? "CPU")); code = 0; timeout.Stop(); form.Close(); }
+                                {
+                                    if (cameraSelection)
+                                    {
+                                        Console.WriteLine("PASS camera start/inference/stop: " + new[] { "system default", "exact browser ID", "native label mismatch with single camera" }[stage]);
+                                        if (stage < 2)
+                                        {
+                                            stage++; stopped = false; backendReady = false;
+                                            Send(choices.StartCommand(stage == 1 ? new(cameraId!, "Selected camera") : native));
+                                            break;
+                                        }
+                                    }
+                                    Console.WriteLine("PASS WebView2 initialization, face/hand/pose inference and stop: " + (device?.Name ?? "CPU")); code = 0; timeout.Stop(); form.Close();
+                                }
                                 break;
                         }
                     }

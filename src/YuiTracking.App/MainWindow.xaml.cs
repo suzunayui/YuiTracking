@@ -1,4 +1,5 @@
 using System.Text;
+using CameraItem = YuiTracking.CameraChoices.Item;
 using System.Text.Json;
 using System.Reflection;
 using Microsoft.UI.Xaml;
@@ -110,30 +111,33 @@ public sealed partial class MainWindow : Window
         catch (Exception ex) { App.Log(ex.Message); }
     }
     private readonly string assets = Path.Combine(AppContext.BaseDirectory, "Assets", "Renderer");
-    public record CameraItem(string Id, string Label, bool Native = false);
-    private bool nativeCamerasAvailable;
-    private bool browserCamerasAvailable, cameraStarting;
+    private readonly CameraChoices cameraChoices = new();
+    private bool cameraStarting;
     private int cameraRefreshVersion;
     private DeviceWatcher? cameraWatcher;
+    private void UpdateCameraChoices()
+    {
+        var previous = Cameras.SelectedItem as CameraItem;
+        var list = cameraChoices.Build();
+        Cameras.ItemsSource = list;
+        Cameras.SelectedItem = CameraChoices.Select(list, previous);
+        Cameras.PlaceholderText = "カメラを選択";
+        if (!cameraStarting) TrackButton.IsEnabled = ready && (tracking || list.Count > 0);
+    }
     private async Task RefreshNativeCameras()
     {
         if (closing || tracking || cameraStarting) return;
-        if (browserCamerasAvailable) { Send(new { type = "refreshCameras" }); return; }
         var version = ++cameraRefreshVersion;
         try
         {
             var devices = await NativeCameraCatalog.EnumerateAsync();
-            if (closing || tracking || cameraStarting || browserCamerasAvailable || version != cameraRefreshVersion) return;
-            var previous = Cameras.SelectedItem as CameraItem;
-            var list = devices.Select(d => new CameraItem(d.Id, d.Label, true)).ToList();
-            nativeCamerasAvailable = true;
-            Cameras.ItemsSource = list;
-            Cameras.SelectedItem = list.FirstOrDefault(c => c.Id == previous?.Id)
-                ?? list.FirstOrDefault(c => c.Label == previous?.Label) ?? list.FirstOrDefault();
-            Cameras.PlaceholderText = list.Count == 0 ? "カメラが見つかりません" : "カメラを選択";
-            TrackButton.IsEnabled = ready && list.Count > 0;
+            if (closing || tracking || cameraStarting || version != cameraRefreshVersion) return;
+            cameraChoices.UpdateNative(devices.Select(d => new CameraItem(d.Id, d.Label, true)));
+            App.Log("Native cameras: " + string.Join(" / ", devices.Select(d => d.Label)));
+            UpdateCameraChoices();
         }
-        catch (Exception ex) { App.Log("Native camera enumeration failed: " + ex.Message); }
+        catch (Exception ex) { App.Log("Native camera enumeration failed: " + ex.Message); UpdateCameraChoices(); }
+        if (!closing) Send(new { type = "refreshCameras" });
     }
     private void WatchNativeCameras()
     {
@@ -377,7 +381,7 @@ public sealed partial class MainWindow : Window
             {
                 case "ready":
                     ready = true; ModelButton.IsEnabled = TrackButton.IsEnabled = OutputButton.IsEnabled = true;
-                    if (nativeCamerasAvailable) TrackButton.IsEnabled = Cameras.Items.Count > 0;
+                    UpdateCameraChoices();
                     try
                     {
                         frameStream?.Dispose(); frameBuffer?.Dispose();
@@ -479,7 +483,9 @@ public sealed partial class MainWindow : Window
                     ToolTipService.SetToolTip(TrackButton, tracking
                         ? "カメラでの顔・手・体の認識を停止します。\nアバターの動きへの反映も止まります。"
                         : "選択したカメラで顔・手・体の認識を開始します。\n認識した動きをアバターに反映します。");
-                    TrackButton.IsEnabled = ready && (tracking || Cameras.Items.Count > 0); break;
+                    TrackButton.IsEnabled = ready && (tracking || Cameras.Items.Count > 0);
+                    if (!tracking) await RefreshNativeCameras();
+                    break;
                 case "cameraInput":
                     if (root.TryGetProperty("deviceId", out var activeDevice))
                         Cameras.SelectedItem = Cameras.Items.OfType<CameraItem>().FirstOrDefault(c => c.Id == activeDevice.GetString()) ?? Cameras.SelectedItem;
@@ -490,17 +496,14 @@ public sealed partial class MainWindow : Window
                     if (root.TryGetProperty("count", out var count) && count.TryGetInt32(out var handCount) && handCount >= 0 && handCount <= 2)
                         HandDetectionStatus.Text = handCount == 0 ? "手：未検出" : $"手：{handCount}つ検出";
                     break;
+                case "cameraListWarning":
+                    App.Log(root.GetProperty("text").GetString() ?? "Camera list warning");
+                    break;
                 case "cameras":
-                    var selected = Cameras.SelectedItem as CameraItem;
                     var list = root.GetProperty("items").EnumerateArray().Select(c => new CameraItem(c.GetProperty("deviceId").GetString()!, c.GetProperty("label").GetString()!)).ToList();
-                    // A permission-limited browser list must not overwrite native names.
-                    var labelsAvailable = root.TryGetProperty("labelsAvailable", out var labels) && labels.GetBoolean();
-                    if (nativeCamerasAvailable && !labelsAvailable) break;
-                    browserCamerasAvailable = labelsAvailable;
-                    Cameras.ItemsSource = list;
-                    Cameras.SelectedItem = list.FirstOrDefault(c => c.Id == selected?.Id)
-                        ?? list.FirstOrDefault(c => c.Label == selected?.Label) ?? list.FirstOrDefault();
-                    if (!cameraStarting) TrackButton.IsEnabled = ready && (tracking || list.Count > 0);
+                    cameraChoices.UpdateBrowser(list);
+                    App.Log("Browser cameras: " + string.Join(" / ", list.Select(c => c.Label)));
+                    UpdateCameraChoices();
                     break;
             }
         }
@@ -565,7 +568,8 @@ public sealed partial class MainWindow : Window
         if (!tracking && camera == null) { TrackingStatus.Text = "接続済みのカメラを選択してください。"; return; }
         TrackButton.IsEnabled = false;
         cameraStarting = !tracking;
-        Send(new { type = tracking ? "stopTracking" : "startTracking", deviceId = camera?.Native == false ? camera.Id : "", cameraLabel = camera?.Native == true ? camera.Label : "" });
+        if (tracking) Send(new { type = "stopTracking" });
+        else Send(cameraChoices.StartCommand(camera!));
     }
     private void Calibrate_Click(object sender, RoutedEventArgs e) => Send(new { type = "calibrate" });
     private void ResetFraming_Click(object sender, RoutedEventArgs e) => Send(new { type = "resetFraming" });
