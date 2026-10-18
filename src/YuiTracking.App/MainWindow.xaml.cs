@@ -112,18 +112,18 @@ public sealed partial class MainWindow : Window
     }
     private readonly string assets = Path.Combine(AppContext.BaseDirectory, "Assets", "Renderer");
     private readonly CameraChoices cameraChoices = new();
+    private readonly CameraChoicePresenter cameraPresenter;
     private bool cameraStarting;
     private int cameraRefreshVersion;
     private DeviceWatcher? cameraWatcher;
     private void UpdateCameraChoices()
     {
-        var previous = Cameras.SelectedItem as CameraItem;
-        var list = cameraChoices.Build();
-        Cameras.ItemsSource = list;
-        Cameras.SelectedItem = CameraChoices.Select(list, previous);
+        cameraPresenter.Refresh();
         Cameras.PlaceholderText = "カメラを選択";
-        if (!cameraStarting) TrackButton.IsEnabled = ready && (tracking || list.Count > 0);
+        if (!cameraStarting) TrackButton.IsEnabled = ready && (tracking || Cameras.Items.Count > 0);
+        RefreshCamerasButton.IsEnabled = ready && !tracking && !cameraStarting;
     }
+    private async void RefreshCameras_Click(object sender, RoutedEventArgs e) => await RefreshNativeCameras();
     private async Task RefreshNativeCameras()
     {
         if (closing || tracking || cameraStarting) return;
@@ -151,6 +151,9 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        cameraPresenter = new CameraChoicePresenter(Cameras, cameraChoices);
+        Cameras.DropDownOpened += (_, _) => App.Log("Camera dropdown opened: " + string.Join(" / ", Cameras.Items.OfType<CameraItem>().Select(c => c.Label)));
+        Cameras.SelectionChanged += (_, _) => { if (Cameras.SelectedItem is CameraItem item) App.Log("Camera selected: " + item.Label); };
         InitializeRecognitionDevices();
         Root.AddHandler(UIElement.KeyDownEvent, new Microsoft.UI.Xaml.Input.KeyEventHandler((_, e) =>
         {
@@ -207,7 +210,6 @@ public sealed partial class MainWindow : Window
             try { if (!closing) WatchNativeCameras(); }
             catch (Exception ex) { App.Log("Camera watcher unavailable: " + ex.Message); }
         };
-        Cameras.DropDownOpened += async (_, _) => await RefreshNativeCameras();
         Closed += (_, _) =>
         {
             cameraRefreshVersion++;
@@ -484,6 +486,7 @@ public sealed partial class MainWindow : Window
                         ? "カメラでの顔・手・体の認識を停止します。\nアバターの動きへの反映も止まります。"
                         : "選択したカメラで顔・手・体の認識を開始します。\n認識した動きをアバターに反映します。");
                     TrackButton.IsEnabled = ready && (tracking || Cameras.Items.Count > 0);
+                    RefreshCamerasButton.IsEnabled = ready && !tracking && !cameraStarting;
                     if (!tracking) await RefreshNativeCameras();
                     break;
                 case "cameraInput":
@@ -568,6 +571,7 @@ public sealed partial class MainWindow : Window
         if (!tracking && camera == null) { TrackingStatus.Text = "接続済みのカメラを選択してください。"; return; }
         TrackButton.IsEnabled = false;
         cameraStarting = !tracking;
+        RefreshCamerasButton.IsEnabled = false;
         if (tracking) Send(new { type = "stopTracking" });
         else Send(cameraChoices.StartCommand(camera!));
     }

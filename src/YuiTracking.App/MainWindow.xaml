@@ -36,7 +36,11 @@
    <Grid x:Name="SettingsPanel" Grid.Column="1" RowSpacing="12">
     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
     <StackPanel Spacing="6">
-     <Grid ColumnSpacing="6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><ComboBox x:Name="Cameras" ToolTipService.ToolTip="トラッキングに使うカメラを選びます。&#10;「カメラを開始」を押すと映像の認識を始めます。" PlaceholderText="カメラを選択" HorizontalAlignment="Stretch" DisplayMemberPath="Label"/><Button x:Name="TrackButton" ToolTipService.ToolTip="選択したカメラで顔・手・体の認識を開始します。&#10;認識した動きをアバターに反映します。" Grid.Column="1" Content="カメラを開始" Click="Track_Click" IsEnabled="False"/></Grid>
+     <ComboBox x:Name="Cameras" ToolTipService.ToolTip="トラッキングに使うカメラを選びます。&#10;製品名ではなく「USB 2.0 Camera」などの名前で出る場合があります。" PlaceholderText="カメラを選択" HorizontalAlignment="Stretch" DisplayMemberPath="Label" MaxDropDownHeight="320"/>
+     <Grid ColumnSpacing="6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <Button x:Name="TrackButton" ToolTipService.ToolTip="選択したカメラで顔・手・体の認識を開始します。" Content="カメラを開始" Click="Track_Click" IsEnabled="False" HorizontalAlignment="Stretch"/>
+      <Button x:Name="RefreshCamerasButton" Grid.Column="1" Content="一覧を更新" Click="RefreshCameras_Click" IsEnabled="False" ToolTipService.ToolTip="接続しているカメラの一覧を取得し直します。トラッキング停止中に使えます。"/>
+     </Grid>
      <TextBlock x:Name="CameraInputStatus" Text="カメラ入力：720p / 最大30fps" Foreground="#9DA7C0" FontSize="12" TextWrapping="Wrap"/>
      <TextBlock x:Name="HandDetectionStatus" Text="手：カメラ停止中" Foreground="#9DA7C0" FontSize="12"/>
     </StackPanel>
