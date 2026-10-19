@@ -6,12 +6,12 @@ WebカメラでVRMアバターの顔・目線・上半身・手・指を動か�
 
 正式な公開版は [Releases](https://github.com/suzunayui/YuiTracking/releases) からダウンロードできます。
 
-2026年10月18日時点の公開版：
+2026年10月19日時点の公開版：
 
 | OS | バージョン | ダウンロード |
 | --- | --- | --- |
-| Windows 10（ビルド19041以降）・Windows 11／x64 | 2026.1018.2 | [Windows用インストーラー](https://github.com/suzunayui/YuiTracking/releases/download/v2026.1018.2/YuiTracking-Setup-2026.1018.2-x64.exe) |
-| Mac／Apple Silicon | 2026.1017.49 | [Mac用DMG](https://github.com/suzunayui/YuiTracking/releases/download/v2026.1017.49/YuiTracking-2026.1017.49-arm64.dmg) |
+| Windows 10（ビルド19041以降）・Windows 11／x64 | 2026.1019.1 | [Windows用インストーラー](https://github.com/suzunayui/YuiTracking/releases/download/v2026.1019.1/YuiTracking-Setup-2026.1019.1-x64.exe) |
+| Mac／Apple Silicon | 2026.1019.1 | [Mac用DMG](https://github.com/suzunayui/YuiTracking/releases/download/v2026.1019.1/YuiTracking-2026.1019.1-arm64.dmg) |
 
 OSごとに更新内容が異なるため、Windows版とMac版のバージョンが違う場合があります。Intel Mac向けの配布ファイルはありません。
 
@@ -65,7 +65,7 @@ Mac版はWeb会議アプリ等で選ぶ仮想カメラへの出力には対応�
 
 可動範囲の拡大は、目ボーンでは各方向最大45度、表情式では表情の最大量までです。元からそれより大きいモデル設定は縮小しません。目線追従を使う場合は、カメラを見てキャリブレーションしてください。
 
-### 距離による拡大・縮小（次回公開予定：2026.1019.1）
+### 距離による拡大・縮小
 
 「動きの調整」の「近距離による拡大」「遠距離による縮小」で、近づいたときに大きくする強さと離れたときに小さくする強さを別々に調整できます。それぞれ初期値は0（オフ）、最大5倍の感度です。片方だけを有効にすることもできます。まず1〜2倍から試し、普段の距離でキャリブレーションしてください。基準距離から半分へ近づくと、感度1倍で表示は約2倍になります。
 

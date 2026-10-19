@@ -2,7 +2,7 @@
 
 Apple Silicon向けのMacアプリです。Windows版とVRM描画・顔・目線・上半身・手・指の認識処理を共有し、OBSへはSyphonでアバターと背景を出力します。
 
-2026年10月18日時点のMac公開版は **2026.1017.49** です。[DMGをダウンロード](https://github.com/suzunayui/YuiTracking/releases/download/v2026.1017.49/YuiTracking-2026.1017.49-arm64.dmg)できます。Windowsのみの修正版がLatestになる場合があるため、Mac用ファイルが付いたリリースを選んでください。Intel Mac版は配布していません。
+2026年10月19日時点のMac公開版は **2026.1019.1** です。[DMGをダウンロード](https://github.com/suzunayui/YuiTracking/releases/download/v2026.1019.1/YuiTracking-2026.1019.1-arm64.dmg)できます。Windowsのみの修正版がLatestになる場合があるため、Mac用ファイルが付いたリリースを選んでください。Intel Mac版は配布していません。
 
 ## 起動と操作
 
@@ -23,7 +23,7 @@ DMGを開き、YuiTrackingをアプリケーションフォルダーへコピー
 
 設定は `~/Library/Application Support/YuiTracking/settings.json` に保存します。前回のモデル・背景・表示位置・動きの調整・Syphon出力のオン／オフを復元します。モデル本体は元の場所から読み込みます。認識は端末内で行い、音声入力は使用しません。
 
-## 距離による拡大・縮小（次回公開予定：2026.1019.1）
+## 距離による拡大・縮小
 
 「近距離による拡大」「遠距離による縮小」で、Webカメラへ近づいたときと離れたときの強さを別々に調整できます。それぞれ0はオフ、初期値も0です。普段の距離でキャリブレーションし、1〜2倍から試してください。顔付近を中心に拡大し、手動のズームと併用できます。
 
