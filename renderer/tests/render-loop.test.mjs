@@ -31,7 +31,7 @@ test('rendering retains 60fps without an optional mode',()=>{
  const loopSource=source.slice(source.indexOf('let loopHandle,loopTimer=false;'),source.indexOf("window.chrome?.webview?.addEventListener('sharedbufferreceived'"));
   let renders=0;
   const context={output:false,tracking:false,lastRender:0,frameNumber:0,privacy:false,loading:false,
-   scene:{},camera:{},standby:{},standbyCam:{},renderer:{render(){renders++;}},detect(){},animate(){},sendFrame(){},
+   scene:{},camera:{},renderCamera:{},standby:{},standbyCam:{},renderer:{render(){renders++;}},detect(){},animate(){},sendFrame(){},
    performance:{now:()=>0},requestAnimationFrame:()=>1,setTimeout:()=>1,
    perfFrames:0,perfLast:0};
   runInNewContext(loopSource,context);

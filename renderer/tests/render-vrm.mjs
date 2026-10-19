@@ -7,10 +7,14 @@ import {build} from 'esbuild';
 const assets=path.resolve(import.meta.dirname,'../../src/YuiTracking.App/Assets/Renderer');
 const model=await fs.readFile(process.argv[2]);
 let bodyTestScript;
-if(process.argv.includes('--check-gaze')||process.argv.includes('--check-body')||process.argv.includes('--check-hands')||process.argv.includes('--check-mouth')||process.argv.includes('--check-springs')){
+if(process.argv.includes('--check-distance')||process.argv.includes('--check-gaze')||process.argv.includes('--check-body')||process.argv.includes('--check-hands')||process.argv.includes('--check-mouth')||process.argv.includes('--check-springs')){
  let source=await fs.readFile(path.resolve(import.meta.dirname,'../src/main.js'),'utf8');
+ if(process.argv.includes('--check-distance'))source=source.replace('function animate(now,dt){',`function animate(now,dt){ if(typeof window.testDistance==='number')latestFace={time:now,result:{facialTransformationMatrixes:[{data:new THREE.Matrix4().makeTranslation(0,0,-window.testDistance).toArray()}]}};else if(window.testDistance===null)latestFace=null;`);
+
  if(process.argv.includes('--check-mouth'))source=source.replace('function animate(now,dt){','function animate(now,dt){ if(window.testMouthWeights)latestFace={time:now,result:{faceBlendshapes:[{categories:Object.entries(window.testMouthWeights).map(([categoryName,score])=>({categoryName,score}))}]}};');
  const bundle=await build({stdin:{contents:source+`
+ window.setTestDistance=depth=>{window.testDistance=depth;};
+ window.readTestDistance=()=>{const point=vrm.humanoid.getRawBoneNode('head').getWorldPosition(new THREE.Vector3());return {factor:distanceZoom.factor,zoom:camera.zoom,renderZoom:renderCamera.zoom,center:point.clone().project(renderCamera).toArray(),baseCenter:point.clone().project(camera).toArray(),saved:window.hostMessages.filter(m=>m.type==='framingChanged')};};
  window.setTestRange=value=>{gazeRange=value;};
  window.setTestGaze=(mode,x=0,y=0)=>{gazeMode=mode;eyeGaze.update=()=>({x,y});};
  window.readTestGaze=()=>({yaw:vrm.lookAt?.yaw,pitch:vrm.lookAt?.pitch,eyes:['leftEye','rightEye'].map(n=>vrm.humanoid.getRawBoneNode(n)?.quaternion.toArray()),head:bone('head').quaternion.toArray(),ranges:['HorizontalInner','HorizontalOuter','VerticalDown','VerticalUp'].map(name=>vrm.lookAt.applier['rangeMap'+name].outputScale)});
@@ -92,6 +96,26 @@ try{
   console.log('PASS independent mouth size and sensitivity');
 
 
+ }
+ if(process.argv.includes('--check-distance')){
+  await page.evaluate(()=>{window.setTestDistance(60);window.hostListener({data:{type:'settings',nearZoomStrength:1,farZoomStrength:1}});});await page.waitForTimeout(200);
+  await page.evaluate(()=>window.hostListener({data:{type:'calibrate'}}));await page.waitForTimeout(200);
+  const base=await page.evaluate(()=>window.readTestDistance());assert.ok(Math.abs(base.factor-1)<1e-6);
+  await page.evaluate(()=>window.setTestDistance(30));await page.waitForTimeout(1000);
+  const close=await page.evaluate(()=>window.readTestDistance());assert.ok(close.factor>1.9&&close.factor<=2.01);assert.equal(close.zoom,base.zoom);assert.deepEqual(close.saved,base.saved);
+  for(let i=0;i<2;i++)assert.ok(Math.abs(close.center[i]-close.baseCenter[i])<1e-5,'Head remains at manually framed position');
+  await page.evaluate(()=>window.hostListener({data:{type:'settings',nearZoomStrength:3}}));await page.waitForTimeout(500);
+  assert.ok((await page.evaluate(()=>window.readTestDistance())).factor>3.9);
+  await page.screenshot({path:path.resolve(assets,'../../../../artifacts/'+process.argv[3]+'-close.png')});
+  await page.evaluate(()=>window.hostListener({data:{type:'calibrate'}}));await page.waitForTimeout(200);
+  assert.ok(Math.abs((await page.evaluate(()=>window.readTestDistance())).factor-1)<1e-6);
+  await page.evaluate(()=>window.setTestDistance(60));await page.waitForTimeout(1000);
+  assert.ok((await page.evaluate(()=>window.readTestDistance())).factor<.51);
+  await page.evaluate(()=>window.setTestDistance(null));await page.waitForTimeout(1300);
+  assert.ok(Math.abs((await page.evaluate(()=>window.readTestDistance())).factor-1)<1e-4);
+  await page.evaluate(()=>window.hostListener({data:{type:'settings',nearZoomStrength:0,farZoomStrength:0}}));await page.waitForTimeout(100);
+  assert.equal((await page.evaluate(()=>window.readTestDistance())).factor,1);
+  console.log('PASS VRM distance zoom: close/far, gain, head framing, calibration, face loss, off and unchanged saved framing');
  }
  if(process.argv.includes('--check-gaze')){
   await page.evaluate(()=>window.setTestGaze('fixed'));await page.waitForTimeout(150);

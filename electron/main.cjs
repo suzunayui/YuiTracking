@@ -37,7 +37,7 @@ function persist(){saveQueue=saveQueue.catch(()=>{}).then(save);return saveQueue
 function trusted(event,kind){return event.sender===window?.webContents && event.senderFrame?.url.startsWith(origin+'/'+kind+'/');}
 function command(message){if(window&&!window.webContents.isDestroyed())window.webContents.send('command',message);}
 function notify(message){if(window&&!window.webContents.isDestroyed())window.webContents.send('renderer-event',message);}
-function safeSettings(value){const result={};for(const [key,min,max] of [['gazeRange',1,5],['gazeStrength',0,3],['smoothing',0,.95],['sensitivity',.3,5],['bodyStrength',0,20],['forwardLeanStrength',0,3],['backwardLeanStrength',0,3],['mouthOpenStrength',.5,3],['mouthSensitivity',.5,3],['springStrength',.3,5],['chestSpringStrength',.3,20]])if(Number.isFinite(value?.[key]))result[key]=Math.min(max,Math.max(min,value[key]));if(['tracking','camera','fixed'].includes(value?.gazeMode))result.gazeMode=value.gazeMode;return result;}
+function safeSettings(value){const result={};for(const [key,min,max] of [['farZoomStrength',0,5],['nearZoomStrength',0,5],['gazeRange',1,5],['gazeStrength',0,3],['smoothing',0,.95],['sensitivity',.3,5],['bodyStrength',0,20],['forwardLeanStrength',0,3],['backwardLeanStrength',0,3],['mouthOpenStrength',.5,3],['mouthSensitivity',.5,3],['springStrength',.3,5],['chestSpringStrength',.3,20]])if(Number.isFinite(value?.[key]))result[key]=Math.min(max,Math.max(min,value[key]));if(['tracking','camera','fixed'].includes(value?.gazeMode))result.gazeMode=value.gazeMode;return result;}
 function samplePath(sample){return path.join(app.isPackaged?path.join(process.resourcesPath,'Samples'):path.join(__dirname,'../src/YuiTracking.App/Assets/Samples'),`AvatarSample_${sample}.vrm`);}
 function selectModel(file,sample){
  if(sample==='robot'){currentVrmPath=null;pendingModel=null;syphon.setLoading(false);command({type:'demo'});settings.defaultSample='robot';notify({type:'avatar',sample,label:'内蔵ロボット'});return persist();}
@@ -80,7 +80,7 @@ ipcMain.on('renderer-event',async(event,message)=>{
  try{
  if(message.type==='ready'){
   command({type:'recognitionConfig',delegate:recognitionDelegate,expectedRenderer:recognitionGpuName});
-  rendererReady=true;command({type:'settings',gazeMode:'tracking',gazeStrength:1,gazeRange:1,smoothing:.65,sensitivity:1,bodyStrength:1,forwardLeanStrength:1,backwardLeanStrength:1,mouthOpenStrength:1,mouthSensitivity:1.8,springStrength:1,chestSpringStrength:1,...safeSettings(settings)});
+  rendererReady=true;command({type:'settings',farZoomStrength:0,nearZoomStrength:0,gazeMode:'tracking',gazeStrength:1,gazeRange:1,smoothing:.65,sensitivity:1,bodyStrength:1,forwardLeanStrength:1,backwardLeanStrength:1,mouthOpenStrength:1,mouthSensitivity:1.8,springStrength:1,chestSpringStrength:1,...safeSettings(settings)});
   if(settings.framing)command({type:'restoreFraming',...settings.framing});
   selectBackground(colors.includes(settings.background)?settings.background:'#00ff00',settings.backgroundImagePath);
   if(settings.defaultSample||!settings.defaultVrmPath)selectModel(samplePath(settings.defaultSample==='Z'?'Z':'Y'),settings.defaultSample||'Y');else selectModel(settings.defaultVrmPath,null);

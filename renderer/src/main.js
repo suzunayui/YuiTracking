@@ -19,6 +19,7 @@ import {TrackingTransition} from './tracking-transition.js';
 import {WristDepth} from './wrist-depth.js';
 import {HandIdentity} from './hand-identity.js';
 import {SpringStrength} from './spring-strength.js';
+import {DistanceZoom,distanceCamera} from './distance-zoom.js';
 import {EyeGaze,applyVrmGaze} from './eye-gaze.js';
 import {openCameraStream,selectableCameras} from './camera-selection.js';
 import {AvatarBackground} from './background.js';
@@ -37,6 +38,7 @@ const scene=new THREE.Scene(); scene.background=new THREE.Color('#00ff00');
 const avatarBackground=new AvatarBackground(scene);
 const cameraTarget=new THREE.Vector3(0,1.1,0);
 const camera=new THREE.PerspectiveCamera(32,W/H,0.01,100); camera.position.set(0,1.35,3.1); camera.lookAt(cameraTarget);
+const renderCamera=camera.clone(),distanceAnchor=new THREE.Vector3();
 const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true,alpha:true,premultipliedAlpha:false});
 renderer.setClearColor(0x000000,0);
 renderer.setSize(W,H,false); renderer.setPixelRatio(1); renderer.outputColorSpace=THREE.SRGBColorSpace;
@@ -142,7 +144,7 @@ let smoothing=.65,sensitivity=1,bodyStrength=1,forwardLeanStrength=1,backwardLea
 let latestFace=null,latestHands=null,frameNumber=0,lastVideoTime=-1,lastDetect=0,lastRender=0;
 let calibration=new THREE.Quaternion(),rawHead=new THREE.Quaternion(),haveFace=false;
 let blinkBaseline={left:0,right:0};
-const eyeGaze=new EyeGaze();let gazeMode='tracking',gazeStrength=1,gazeRange=1;
+const eyeGaze=new EyeGaze();let gazeMode='tracking',gazeStrength=1,gazeRange=1,nearZoomStrength=0,farZoomStrength=0;
 const autoCalibration=new AutoCalibration();
 let latestPose=null,lastPoseDetect=0,bodyNeutral=null;
 let lastHandDetection=-1;
@@ -150,6 +152,7 @@ const bodyStabilizer=new BodyStabilizer();
 const headStabilizer=new RotationStabilizer();
 const elbowFilters=Array.from({length:4},()=>new LandmarkFilter({minCutoff:1,beta:5}));
 const bodyLean=new BodyLean();
+const distanceZoom=new DistanceZoom();
 const trackingPresence=new TrackingPresence();
 const handIdentity=new HandIdentity();
 const handTransitions=Object.fromEntries(['left','right'].map(side=>[side,new TrackingTransition({holdMs:600,recoveryMs:150,recoveryRate:20})]));
@@ -322,11 +325,12 @@ async function startTracking(deviceId,cameraLabel,singleNativeCamera=false){
   await video.play(); await listCameras();
   const input=track.getSettings();post('cameraInput',{label:track.label,deviceId:input.deviceId,width:input.width??video.videoWidth,height:input.height??video.videoHeight,fps:input.frameRate??0});
   track.onended=()=>{stopTracking();status('カメラが切断されました。待機ポーズに戻ります。');};
-  lastHandDetection=-1;lastTrackingReceived=0;trackingGapMs=trackingLatencyMs=trackingResults=0;tracking=true;restartRenderLoop();scheduleDetection();lastVideoTime=-1;lastPoseDetect=0;bodyNeutral=null;bodyLean.reset();trackingPresence.reset();resetArmTransitions();calibration.identity();eyeGaze.reset();blinkBaseline={left:0,right:0};autoCalibration.start(performance.now());post('tracking',{active:true});status('正面を向いてカメラを見てください。顔の検出が安定すると一度だけ自動でキャリブレーションします。');
+  lastHandDetection=-1;lastTrackingReceived=0;trackingGapMs=trackingLatencyMs=trackingResults=0;tracking=true;restartRenderLoop();scheduleDetection();lastVideoTime=-1;lastPoseDetect=0;bodyNeutral=null;bodyLean.reset();trackingPresence.reset();resetArmTransitions();calibration.identity();eyeGaze.reset();distanceZoom.reset();blinkBaseline={left:0,right:0};autoCalibration.start(performance.now());post('tracking',{active:true});status('正面を向いてカメラを見てください。顔の検出が安定すると一度だけ自動でキャリブレーションします。');
  }catch(e){stopTracking();post('error',{text:'カメラを開始できません：'+stage+' / '+e.name+(e.constraint?' ('+e.constraint+')':'')+'：'+e.message});}
  finally{initializing=false;}
 }
 function stopTracking(){
+ distanceZoom.reset();
  eyeGaze.reset();
  autoCalibration.stop();
  bodyStabilizer.reset();headStabilizer.reset();bodyLean.reset();trackingPresence.reset();resetArmTransitions();
@@ -354,7 +358,7 @@ function calibrateFace(automatic=false){
     autoCalibration.stop();
     const pose=safeTracking(latestPose,performance.now())?bodyPose(latestPose.result.worldLandmarks?.[0]):null;
     bodyNeutral=pose?{...pose}:null;
-    bodyStabilizer.reset();headStabilizer.reset();bodyLean.calibrate(matrix,latestFace.time);resetArmTransitions();
+    bodyStabilizer.reset();headStabilizer.reset();bodyLean.calibrate(matrix,latestFace.time);distanceZoom.calibrate(matrix,latestFace.time);resetArmTransitions();
     for(const filter of elbowFilters)filter.reset();
     const weights=Object.fromEntries((latestFace.result.faceBlendshapes?.[0]?.categories??[]).map(c=>[c.categoryName,c.score]));
     blinkBaseline={left:clamp(weights.eyeBlinkLeft??0,0,.95),right:clamp(weights.eyeBlinkRight??0,0,.95)};
@@ -475,6 +479,12 @@ function rigHand(side,landmarks,alpha,worldLandmarks=null,poseLandmarks=null,rec
   }else arms[side].fingers[i].rotation.x=THREE.MathUtils.lerp(arms[side].fingers[i].rotation.x,-amount,alpha);
  }
 }
+function updateDistanceFraming(matrix,time,now,dt){
+ const factor=distanceZoom.update(matrix,time,now,dt,nearZoomStrength,farZoomStrength);
+ const anchor=vrm?.humanoid.getRawBoneNode('head')??head;
+ if(anchor)anchor.getWorldPosition(distanceAnchor);else distanceAnchor.copy(cameraTarget);
+ distanceCamera(camera,renderCamera,factor,distanceAnchor);
+}
 function animate(now,dt){
  // Interpolate the already-filtered pose only. Zero reproduces the direct
  // rendering baseline; no prediction, motion gate or additional damping.
@@ -548,6 +558,7 @@ function animate(now,dt){
   vrm.springBoneManager?.update(Math.min(Math.max(dt,0),1/30));
   for(const material of vrm.materials??[])material.update?.(dt);
  }
+ updateDistanceFraming(mat,latestFace?.time,now,dt);
 }
 async function sendFrame(){
  if(framePending||!output)return;framePending=true;
@@ -577,7 +588,7 @@ function loop(now){
  if(now-lastRender<renderInterval()-1.5){scheduleLoop();return;}
  const dt=Math.min((now-lastRender)/1000,.1);lastRender=now;scheduleLoop();
  animate(now,dt);
- if(privacy||loading)renderer.render(standby,standbyCam);else renderer.render(scene,camera);
+ if(privacy||loading)renderer.render(standby,standbyCam);else renderer.render(scene,renderCamera);
  sendFrame();frameNumber++;
  perfFrames++;
  if(now-perfLast>=3000){
@@ -626,6 +637,8 @@ host?.addEventListener('message',async e=>{
    break;
   case'settings':
    if(['tracking','camera','fixed'].includes(m.gazeMode))gazeMode=m.gazeMode;
+   if(Number.isFinite(m.farZoomStrength))farZoomStrength=clamp(m.farZoomStrength,0,5);
+   if(Number.isFinite(m.nearZoomStrength))nearZoomStrength=clamp(m.nearZoomStrength,0,5);
    if(Number.isFinite(m.gazeRange))gazeRange=clamp(m.gazeRange,1,5);
    if(Number.isFinite(m.gazeStrength))gazeStrength=clamp(m.gazeStrength,0,3);
    if(Number.isFinite(m.forwardLeanStrength))forwardLeanStrength=clamp(m.forwardLeanStrength,0,3);

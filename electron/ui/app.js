@@ -1,5 +1,5 @@
 const $=id=>document.getElementById(id),host=window.yuiDesktop;
-const keys=['gazeRange','gazeStrength','smoothing','sensitivity','bodyStrength','forwardLeanStrength','backwardLeanStrength','mouthOpenStrength','mouthSensitivity','springStrength','chestSpringStrength'];
+const keys=['farZoomStrength','nearZoomStrength','gazeRange','gazeStrength','smoothing','sensitivity','bodyStrength','forwardLeanStrength','backwardLeanStrength','mouthOpenStrength','mouthSensitivity','springStrength','chestSpringStrength'];
 let active=false,timer,statusTimer,statusRevision=0,syphonActive=false,maximized=false,nativeLabels=[],browserLabels=false;
 const cameraPicker=new CameraPicker();let cameraMessage={items:[],labelsAvailable:false};
 function updateCameras(){
@@ -13,7 +13,7 @@ function setStatus(text,temporary=false){clearTimeout(statusTimer);const revisio
 function showError(error){setStatus(error.message||String(error));}
 function send(type,rest={}){host.command({type,...rest});}
 function values(){return {...Object.fromEntries(keys.map(key=>[key,Number($(key).value)])),gazeMode:$('gazeMode').value};}
-function labels(){$('gazeRange').disabled=$('gazeMode').value==='fixed';$('gazeStrength').disabled=$('gazeMode').value!=='tracking';for(const key of keys)$(key+'-value').textContent=key==='smoothing'?Math.round(Number($(key).value)*100)+'%':Number($(key).value).toFixed(1)+'倍';}
+function labels(){$('gazeRange').disabled=$('gazeMode').value==='fixed';$('gazeStrength').disabled=$('gazeMode').value!=='tracking';for(const key of keys)$(key+'-value').textContent=['nearZoomStrength','farZoomStrength'].includes(key)&&Number($(key).value)===0?'オフ':key==='smoothing'?Math.round(Number($(key).value)*100)+'%':Number($(key).value).toFixed(1)+'倍';}
 function apply(){labels();send('settings',values());clearTimeout(timer);timer=setTimeout(()=>host.saveSettings(values()).catch(showError),200);}
 for(const key of keys)$(key).addEventListener('input',apply);
 $('gazeMode').addEventListener('change',apply);

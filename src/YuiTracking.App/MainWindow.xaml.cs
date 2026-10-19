@@ -99,7 +99,7 @@ public sealed partial class MainWindow : Window
     {
         mouthTimer.Stop();
         if (!pendingMouthSettings) return;
-        try { AppSettings.SaveMotionSettings(MouthStrength.Value, MouthSensitivity.Value, Sensitivity.Value, BodyStrength.Value, ForwardLeanStrength.Value, BackwardLeanStrength.Value, SelectedGazeMode, GazeStrength.Value, GazeRange.Value); pendingMouthSettings = false; }
+        try { AppSettings.SaveMotionSettings(MouthStrength.Value, MouthSensitivity.Value, Sensitivity.Value, BodyStrength.Value, ForwardLeanStrength.Value, BackwardLeanStrength.Value, SelectedGazeMode, GazeStrength.Value, GazeRange.Value, NearZoomStrength.Value, FarZoomStrength.Value); pendingMouthSettings = false; }
         catch (Exception ex) { App.Log(ex.Message); }
     }
     private AppSettings.Framing? pendingFraming;
@@ -174,7 +174,7 @@ public sealed partial class MainWindow : Window
         catch (Exception ex) { App.Log(ex.Message); }
         SpringStrengthLabel.Text = $"揺れものの強さ：{SpringStrength.Value:0.0}倍";
         ChestSpringStrengthLabel.Text = $"胸の揺れやすさ：{ChestSpringStrength.Value:0.0}倍";
-        try { MouthStrength.Value = AppSettings.MouthOpenStrength; MouthSensitivity.Value = AppSettings.MouthSensitivity; Sensitivity.Value = AppSettings.FaceSensitivity; BodyStrength.Value = AppSettings.BodyStrength; ForwardLeanStrength.Value = AppSettings.ForwardLeanStrength; BackwardLeanStrength.Value = AppSettings.BackwardLeanStrength; GazeStrength.Value = AppSettings.GazeStrength; GazeRange.Value = AppSettings.GazeRange; GazeMode.SelectedIndex = AppSettings.GazeMode switch { "camera" => 1, "fixed" => 2, _ => 0 }; UpdateMotionLabels(); }
+        try { MouthStrength.Value = AppSettings.MouthOpenStrength; MouthSensitivity.Value = AppSettings.MouthSensitivity; Sensitivity.Value = AppSettings.FaceSensitivity; BodyStrength.Value = AppSettings.BodyStrength; ForwardLeanStrength.Value = AppSettings.ForwardLeanStrength; BackwardLeanStrength.Value = AppSettings.BackwardLeanStrength; NearZoomStrength.Value = AppSettings.NearZoomStrength; FarZoomStrength.Value = AppSettings.FarZoomStrength; GazeStrength.Value = AppSettings.GazeStrength; GazeRange.Value = AppSettings.GazeRange; GazeMode.SelectedIndex = AppSettings.GazeMode switch { "camera" => 1, "fixed" => 2, _ => 0 }; UpdateMotionLabels(); }
         catch (Exception ex) { App.Log(ex.Message); }
         MouthStrengthLabel.Text = $"口の開き具合：{MouthStrength.Value:0.0}倍";
         MouthSensitivityLabel.Text = $"口の感度：{MouthSensitivity.Value:0.0}倍";
@@ -586,6 +586,8 @@ public sealed partial class MainWindow : Window
     }
     private void UpdateMotionLabels()
     {
+        if (FarZoomStrengthLabel != null && FarZoomStrength != null) FarZoomStrengthLabel.Text = FarZoomStrength.Value == 0 ? "遠距離による縮小：オフ" : $"遠距離による縮小：{FarZoomStrength.Value:0.0}倍";
+        if (NearZoomStrengthLabel != null && NearZoomStrength != null) NearZoomStrengthLabel.Text = NearZoomStrength.Value == 0 ? "近距離による拡大：オフ" : $"近距離による拡大：{NearZoomStrength.Value:0.0}倍";
         if (GazeRange != null) GazeRange.IsEnabled = SelectedGazeMode != "fixed";
         if (GazeRangeLabel != null && GazeRange != null) GazeRangeLabel.Text = $"目の可動範囲：{GazeRange.Value:0.0}倍";
         if (GazeStrength != null) GazeStrength.IsEnabled = SelectedGazeMode == "tracking";
@@ -685,7 +687,7 @@ public sealed partial class MainWindow : Window
     private void SendSettings()
     {
         if (!ready) return;
-        Send(new { type = "settings", gazeMode = SelectedGazeMode, gazeStrength = GazeStrength.Value, gazeRange = GazeRange.Value, smoothing = Smoothness.Value, sensitivity = Sensitivity.Value, bodyStrength = BodyStrength.Value, forwardLeanStrength = ForwardLeanStrength.Value, backwardLeanStrength = BackwardLeanStrength.Value, mouthOpenStrength = MouthStrength.Value, mouthSensitivity = MouthSensitivity.Value, springStrength = SpringStrength.Value, chestSpringStrength = ChestSpringStrength.Value, background = backgroundColor });
+        Send(new { type = "settings", farZoomStrength = FarZoomStrength.Value, nearZoomStrength = NearZoomStrength.Value, gazeMode = SelectedGazeMode, gazeStrength = GazeStrength.Value, gazeRange = GazeRange.Value, smoothing = Smoothness.Value, sensitivity = Sensitivity.Value, bodyStrength = BodyStrength.Value, forwardLeanStrength = ForwardLeanStrength.Value, backwardLeanStrength = BackwardLeanStrength.Value, mouthOpenStrength = MouthStrength.Value, mouthSensitivity = MouthSensitivity.Value, springStrength = SpringStrength.Value, chestSpringStrength = ChestSpringStrength.Value, background = backgroundColor });
     }
     private void Privacy_Click(object sender, RoutedEventArgs e)
     {
