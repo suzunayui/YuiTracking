@@ -19,7 +19,7 @@ import {TrackingTransition} from './tracking-transition.js';
 import {WristDepth} from './wrist-depth.js';
 import {HandIdentity} from './hand-identity.js';
 import {SpringStrength} from './spring-strength.js';
-import {DistanceZoom,distanceCamera} from './distance-zoom.js';
+import {DistanceZoom,distanceCamera,MAX_NEAR_ZOOM_STRENGTH} from './distance-zoom.js';
 import {EyeGaze,applyVrmGaze} from './eye-gaze.js';
 import {openCameraStream,selectableCameras} from './camera-selection.js';
 import {AvatarBackground} from './background.js';
@@ -144,7 +144,7 @@ let smoothing=.65,sensitivity=1,bodyStrength=1,forwardLeanStrength=1,backwardLea
 let latestFace=null,latestHands=null,frameNumber=0,lastVideoTime=-1,lastDetect=0,lastRender=0;
 let calibration=new THREE.Quaternion(),rawHead=new THREE.Quaternion(),haveFace=false;
 let blinkBaseline={left:0,right:0};
-const eyeGaze=new EyeGaze();let gazeMode='tracking',gazeStrength=1,gazeRange=1,nearZoomStrength=0,farZoomStrength=0;
+const eyeGaze=new EyeGaze();let gazeMode='tracking',gazeStrength=1,gazeRange=1,nearZoomStrength=0,farZoomStrength=0,zoomCenterX=0,zoomCenterY=0;
 const autoCalibration=new AutoCalibration();
 let latestPose=null,lastPoseDetect=0,bodyNeutral=null;
 let lastHandDetection=-1;
@@ -483,7 +483,7 @@ function updateDistanceFraming(matrix,time,now,dt){
  const factor=distanceZoom.update(matrix,time,now,dt,nearZoomStrength,farZoomStrength);
  const anchor=vrm?.humanoid.getRawBoneNode('head')??head;
  if(anchor)anchor.getWorldPosition(distanceAnchor);else distanceAnchor.copy(cameraTarget);
- distanceCamera(camera,renderCamera,factor,distanceAnchor);
+ distanceCamera(camera,renderCamera,factor,distanceAnchor,zoomCenterX,zoomCenterY);
 }
 function animate(now,dt){
  // Interpolate the already-filtered pose only. Zero reproduces the direct
@@ -638,7 +638,9 @@ host?.addEventListener('message',async e=>{
   case'settings':
    if(['tracking','camera','fixed'].includes(m.gazeMode))gazeMode=m.gazeMode;
    if(Number.isFinite(m.farZoomStrength))farZoomStrength=clamp(m.farZoomStrength,0,5);
-   if(Number.isFinite(m.nearZoomStrength))nearZoomStrength=clamp(m.nearZoomStrength,0,5);
+   if(Number.isFinite(m.nearZoomStrength))nearZoomStrength=clamp(m.nearZoomStrength,0,MAX_NEAR_ZOOM_STRENGTH);
+   if(Number.isFinite(m.zoomCenterX))zoomCenterX=clamp(m.zoomCenterX,-100,100);
+   if(Number.isFinite(m.zoomCenterY))zoomCenterY=clamp(m.zoomCenterY,-100,100);
    if(Number.isFinite(m.gazeRange))gazeRange=clamp(m.gazeRange,1,5);
    if(Number.isFinite(m.gazeStrength))gazeStrength=clamp(m.gazeStrength,0,3);
    if(Number.isFinite(m.forwardLeanStrength))forwardLeanStrength=clamp(m.forwardLeanStrength,0,3);

@@ -9,9 +9,10 @@ test('distance zoom needs calibration and defaults to off',()=>{
  assert.equal(settle(value,30,0),1);assert.equal(value.reference,60);
 });
 test('closer enlarges, farther shrinks, strength increases response and stays bounded',()=>{
- const factors=[1,3,5].map(gain=>{const value=new DistanceZoom();value.calibrate(matrix(60),0);return settle(value,45,gain);});
- assert.ok(Math.abs(factors[0]-4/3)<1e-6);assert.ok(factors[1]>factors[0]&&factors[2]>factors[1]);assert.ok(factors[2]<=4);
- const close=new DistanceZoom();close.calibrate(matrix(60),0);assert.ok(Math.abs(settle(close,1,5)-4)<1e-6);
+ const factors=[1,3,5,20].map(gain=>{const value=new DistanceZoom();value.calibrate(matrix(60),0);return settle(value,45,gain);});
+ assert.ok(Math.abs(factors[0]-4/3)<1e-6);assert.ok(factors.every((factor,i)=>i===0||factor>factors[i-1]));assert.ok(factors[3]<=20);
+ const close=new DistanceZoom();close.calibrate(matrix(60),0);assert.ok(Math.abs(settle(close,1,20)-20)<1e-6);
+ const slight=new DistanceZoom();slight.calibrate(matrix(60),0);assert.ok(settle(slight,55,20)>5);
  const far=new DistanceZoom();far.calibrate(matrix(60),0);assert.ok(Math.abs(settle(far,240,5)-.5)<1e-6);
 });
 test('stalled and missing samples return smoothly to base framing and off restores immediately',()=>{
@@ -29,7 +30,7 @@ test('calibration at a new distance removes zoom and invalid depth cannot poison
  value.reset();assert.equal(value.factor,1);assert.equal(value.reference,null);
 });
 test('projection zoom preserves head framing, manual orbit/zoom and inverse projection',()=>{
- for(const zoom of [1,3,20])for(const yaw of [0,.4])for(const factor of [.5,1,2,4]){
+ for(const zoom of [1,3,20])for(const yaw of [0,.4])for(const factor of [.5,1,2,4,20]){
   const base=new PerspectiveCamera(32,16/9,.01,100);base.position.set(Math.sin(yaw)*3,1.35,Math.cos(yaw)*3);base.lookAt(0,1.1,0);base.zoom=zoom;base.updateProjectionMatrix();base.updateMatrixWorld();
   const anchor=new Vector3(0,1.12,0),before=anchor.clone().project(base),output=new PerspectiveCamera();
   const original={position:base.position.toArray(),rotation:base.quaternion.toArray(),projection:base.projectionMatrix.toArray(),zoom:base.zoom};
@@ -49,5 +50,25 @@ test('near and far gains are independent and either side can be disabled',()=>{
   const value=new DistanceZoom();value.calibrate(matrix(60),0);const factor=settle(value,z,near,0,far);
   if(z<60)assert.ok(near===0?factor===1:factor>3.9);
   else assert.ok(far===0?factor===1:factor<.51);
+ }
+});
+
+test('adjustable zoom center fixes the chosen screen point without moving saved framing or shrink center',()=>{
+ const base=new PerspectiveCamera(32,16/9,.01,100);base.position.set(.2,1.35,3);base.lookAt(0,1.1,0);base.zoom=2;base.updateProjectionMatrix();base.updateMatrixWorld();
+ const head=new Vector3(0,1.12,0),origin=head.clone().project(base),projection=base.projectionMatrix.toArray();
+ for(const factor of [1,2,20])for(const [x,y] of [[0,0],[25,-30],[-50,20],[-100,100],[NaN,Infinity]]){
+  const focus=origin.clone();
+  focus.x=Math.max(-1,Math.min(1,focus.x+(factor>1&&Number.isFinite(x)?x/100:0)));
+  focus.y=Math.max(-1,Math.min(1,focus.y+(factor>1&&Number.isFinite(y)?y/100:0)));
+  const point=focus.clone().unproject(base),output=new PerspectiveCamera();
+  distanceCamera(base,output,factor,head,x,y);
+  const after=point.project(output);
+  assert.ok(Math.abs(after.x-focus.x)<1e-6&&Math.abs(after.y-focus.y)<1e-6,'Selected center must remain fixed');
+  assert.deepEqual(base.projectionMatrix.toArray(),projection);assert.equal(base.zoom,2);
+ }
+ for(const factor of [.5,1]){
+  const original=new PerspectiveCamera(),shifted=new PerspectiveCamera();
+  distanceCamera(base,original,factor,head);distanceCamera(base,shifted,factor,head,60,-70);
+  assert.deepEqual(shifted.projectionMatrix.toArray(),original.projectionMatrix.toArray());
  }
 });

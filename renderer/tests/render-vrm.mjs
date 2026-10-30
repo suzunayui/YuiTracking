@@ -104,18 +104,29 @@ try{
   await page.evaluate(()=>window.setTestDistance(30));await page.waitForTimeout(1000);
   const close=await page.evaluate(()=>window.readTestDistance());assert.ok(close.factor>1.9&&close.factor<=2.01);assert.equal(close.zoom,base.zoom);assert.deepEqual(close.saved,base.saved);
   for(let i=0;i<2;i++)assert.ok(Math.abs(close.center[i]-close.baseCenter[i])<1e-5,'Head remains at manually framed position');
-  await page.evaluate(()=>window.hostListener({data:{type:'settings',nearZoomStrength:3}}));await page.waitForTimeout(500);
-  assert.ok((await page.evaluate(()=>window.readTestDistance())).factor>3.9);
+  await page.evaluate(()=>{window.setTestDistance(55);window.hostListener({data:{type:'settings',nearZoomStrength:20}});});await page.waitForTimeout(1000);
+  assert.ok((await page.evaluate(()=>window.readTestDistance())).factor>5,'A small approach exceeds the previous 4x ceiling');
+  await page.evaluate(()=>window.setTestDistance(30));await page.waitForTimeout(1000);
+  const maximum=await page.evaluate(()=>window.readTestDistance());assert.ok(maximum.factor>19.9&&maximum.factor<=20);
+  assert.equal(maximum.zoom,base.zoom);assert.deepEqual(maximum.saved,base.saved);
+  for(let i=0;i<2;i++)assert.ok(Math.abs(maximum.center[i]-maximum.baseCenter[i])<1e-5,'Head remains framed at 20x');
   await page.screenshot({path:path.resolve(assets,'../../../../artifacts/'+process.argv[3]+'-close.png')});
+  await page.evaluate(()=>window.hostListener({data:{type:'settings',zoomCenterX:2,zoomCenterY:-2}}));await page.waitForTimeout(250);
+  const shifted=await page.evaluate(()=>window.readTestDistance());
+  assert.ok(Math.abs(shifted.center[0]-shifted.baseCenter[0]-(1-shifted.factor)*.02)<1e-5,'Right zoom center shifts the enlarged head left');
+  assert.ok(Math.abs(shifted.center[1]-shifted.baseCenter[1]+(1-shifted.factor)*.02)<1e-5,'Lower zoom center shifts the enlarged head up');
+  assert.equal(shifted.zoom,base.zoom);assert.deepEqual(shifted.saved,base.saved);
+  await page.screenshot({path:path.resolve(assets,'../../../../artifacts/'+process.argv[3]+'-center.png')});
   await page.evaluate(()=>window.hostListener({data:{type:'calibrate'}}));await page.waitForTimeout(200);
   assert.ok(Math.abs((await page.evaluate(()=>window.readTestDistance())).factor-1)<1e-6);
   await page.evaluate(()=>window.setTestDistance(60));await page.waitForTimeout(1000);
-  assert.ok((await page.evaluate(()=>window.readTestDistance())).factor<.51);
+  const shrunk=await page.evaluate(()=>window.readTestDistance());assert.ok(shrunk.factor<.51);
+  for(let i=0;i<2;i++)assert.ok(Math.abs(shrunk.center[i]-shrunk.baseCenter[i])<1e-5,'Center adjustment does not affect shrinking');
   await page.evaluate(()=>window.setTestDistance(null));await page.waitForTimeout(1300);
   assert.ok(Math.abs((await page.evaluate(()=>window.readTestDistance())).factor-1)<1e-4);
   await page.evaluate(()=>window.hostListener({data:{type:'settings',nearZoomStrength:0,farZoomStrength:0}}));await page.waitForTimeout(100);
   assert.equal((await page.evaluate(()=>window.readTestDistance())).factor,1);
-  console.log('PASS VRM distance zoom: close/far, gain, head framing, calibration, face loss, off and unchanged saved framing');
+  console.log('PASS VRM distance zoom: close/far, gain, adjustable center, head framing, calibration, face loss, off and unchanged saved framing');
  }
  if(process.argv.includes('--check-gaze')){
   await page.evaluate(()=>window.setTestGaze('fixed'));await page.waitForTimeout(150);

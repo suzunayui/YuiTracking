@@ -1,5 +1,5 @@
 const $=id=>document.getElementById(id),host=window.yuiDesktop;
-const keys=['farZoomStrength','nearZoomStrength','gazeRange','gazeStrength','smoothing','sensitivity','bodyStrength','forwardLeanStrength','backwardLeanStrength','mouthOpenStrength','mouthSensitivity','springStrength','chestSpringStrength'];
+const keys=['zoomCenterX','zoomCenterY','farZoomStrength','nearZoomStrength','gazeRange','gazeStrength','smoothing','sensitivity','bodyStrength','forwardLeanStrength','backwardLeanStrength','mouthOpenStrength','mouthSensitivity','springStrength','chestSpringStrength'];
 let active=false,timer,statusTimer,statusRevision=0,syphonActive=false,maximized=false,nativeLabels=[],browserLabels=false;
 const cameraPicker=new CameraPicker();let cameraMessage={items:[],labelsAvailable:false};
 function updateCameras(){
@@ -13,7 +13,16 @@ function setStatus(text,temporary=false){clearTimeout(statusTimer);const revisio
 function showError(error){setStatus(error.message||String(error));}
 function send(type,rest={}){host.command({type,...rest});}
 function values(){return {...Object.fromEntries(keys.map(key=>[key,Number($(key).value)])),gazeMode:$('gazeMode').value};}
-function labels(){$('gazeRange').disabled=$('gazeMode').value==='fixed';$('gazeStrength').disabled=$('gazeMode').value!=='tracking';for(const key of keys)$(key+'-value').textContent=['nearZoomStrength','farZoomStrength'].includes(key)&&Number($(key).value)===0?'オフ':key==='smoothing'?Math.round(Number($(key).value)*100)+'%':Number($(key).value).toFixed(1)+'倍';}
+function labels(){
+ $('gazeRange').disabled=$('gazeMode').value==='fixed';$('gazeStrength').disabled=$('gazeMode').value!=='tracking';
+ for(const key of keys){
+  const value=Number($(key).value);
+  if(['zoomCenterX','zoomCenterY'].includes(key)){
+   const direction=key==='zoomCenterX'?(value<0?'左':'右'):(value<0?'下':'上');
+   $(key+'-value').textContent=value===0?'顔の位置':direction+Math.abs(value).toFixed(1)+'%';
+  }else $(key+'-value').textContent=['nearZoomStrength','farZoomStrength'].includes(key)&&value===0?'オフ':key==='smoothing'?Math.round(value*100)+'%':value.toFixed(1)+'倍';
+ }
+}
 function apply(){labels();send('settings',values());clearTimeout(timer);timer=setTimeout(()=>host.saveSettings(values()).catch(showError),200);}
 for(const key of keys)$(key).addEventListener('input',apply);
 $('gazeMode').addEventListener('change',apply);
@@ -52,7 +61,7 @@ host.onEvent(message=>{
  if(message.type==='cameras')$('camera-note').textContent='';
  if(message.type==='cameraInput')$('input').textContent=`カメラ入力：${message.label||'名称不明'} / ${message.width} × ${message.height} / ${Math.round(message.fps)}fps`;
  if(message.type==='recognitionReady')$('recognition-status').textContent='認識中：'+message.delegate+(message.renderer?' / '+message.renderer:'');
- if(message.type==='springCapabilities'){$('chestSpringStrength').disabled=!(message.chestJoints>0);$('chest-spring-availability').textContent=message.chestJoints>0?'胸の揺れ設定を検出しました。':'このモデルには対応する胸の揺れ設定がありません。';}
+ if(message.type==='springCapabilities'){$('chestSpringStrength').disabled=!(message.chestJoints>0);const control=$('chest-spring-control');const status=message.chestJoints>0?'胸の揺れ設定を検出しました。':'このモデルには対応する胸の揺れ設定がありません。';control.title=status+'\n'+control.title.substring(control.title.indexOf('\n')+1);}
  if(message.type==='avatar'){$('model').textContent=message.label;for(const button of document.querySelectorAll('[data-sample]'))button.setAttribute('aria-pressed',button.dataset.sample===message.sample);}
  if(message.type==='background'){for(const button of document.querySelectorAll('[data-background]'))button.setAttribute('aria-pressed',!message.image&&button.dataset.background===message.color);$('background-image').setAttribute('aria-pressed',message.image);}
  if(message.type==='togglePreviewMaximized')maximize(!maximized);if(message.type==='restorePreview')maximize(false);

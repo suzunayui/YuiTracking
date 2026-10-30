@@ -1,6 +1,9 @@
 import {OneEuroFilter} from './vendor/one-euro-filter.js';
 import {clamp} from './rig-math.js';
 
+export const MAX_NEAR_ZOOM_STRENGTH=20;
+const MAX_DISTANCE_ZOOM=20;
+
 const depth=matrix=>Number.isFinite(matrix?.[14])&&Math.abs(matrix[14])>1e-6?Math.abs(matrix[14]):null;
 
 // Face-transform depth, relative to calibration, never changes model scale or rig.
@@ -18,25 +21,27 @@ export class DistanceZoom {
    this.logRatio=this.filter.filter(Math.log(clamp(this.reference/distance,.25,4)),time/1000);
   }
   const strength=this.logRatio>=0?nearStrength:farStrength;
-  const gain=Number.isFinite(strength)?clamp(strength,0,5):0;
+  const gain=Number.isFinite(strength)?clamp(strength,0,this.logRatio>=0?MAX_NEAR_ZOOM_STRENGTH:5):0;
   if(gain===0){this.factor=1;return 1;}
-  const target=this.reference!==null&&now-this.lastSeen<=250?Math.exp(clamp(this.logRatio*gain,Math.log(.5),Math.log(4))):1;
+  const target=this.reference!==null&&now-this.lastSeen<=250?Math.exp(clamp(this.logRatio*gain,Math.log(.5),Math.log(MAX_DISTANCE_ZOOM))):1;
   this.factor+=(target-this.factor)*(1-Math.exp(-18*clamp(dt,0,.1)));
   return this.factor;
  }
 }
 
 // A separate camera keeps tracked zoom out of saved framing and mouse controls.
-// Offset the projection so the face stays at its manually framed screen position.
-export function distanceCamera(base,output,factor,anchor){
+// Center offsets are percentages of half the preview width/height, relative to the face.
+// Only enlargement uses the offsets; neutral framing and distance shrink stay unchanged.
+export function distanceCamera(base,output,factor,anchor,centerX=0,centerY=0){
  base.updateMatrixWorld();output.copy(base);
  if(!Number.isFinite(factor)||Math.abs(factor-1)<1e-8)return output;
  const pivot=anchor.clone().project(base);
- output.zoom=base.zoom*clamp(factor,.5,4);output.updateProjectionMatrix();
+ output.zoom=base.zoom*clamp(factor,.5,MAX_DISTANCE_ZOOM);output.updateProjectionMatrix();
  if([pivot.x,pivot.y,pivot.z].every(Number.isFinite)&&pivot.z>=-1&&pivot.z<=1){
+  const offset=value=>factor>1&&Number.isFinite(value)?clamp(value,-100,100)/100:0;
   const gain=output.zoom/base.zoom-1;
-  output.projectionMatrix.elements[8]+=(clamp(pivot.x,-1,1)+base.projectionMatrix.elements[8])*gain;
-  output.projectionMatrix.elements[9]+=(clamp(pivot.y,-1,1)+base.projectionMatrix.elements[9])*gain;
+  output.projectionMatrix.elements[8]+=(clamp(pivot.x+offset(centerX),-1,1)+base.projectionMatrix.elements[8])*gain;
+  output.projectionMatrix.elements[9]+=(clamp(pivot.y+offset(centerY),-1,1)+base.projectionMatrix.elements[9])*gain;
   output.projectionMatrixInverse.copy(output.projectionMatrix).invert();
  }
  return output;
