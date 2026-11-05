@@ -1,8 +1,10 @@
-param([switch]$SkipAppBuild)
+param([switch]$SkipAppBuild, [switch]$BumpVersion)
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path $PSScriptRoot -Parent
 Push-Location $projectRoot
 try {
+    if ($BumpVersion -and $SkipAppBuild) { throw '-BumpVersion needs an app build, so it cannot be used with -SkipAppBuild.' }
+    if ($BumpVersion) { & "$PSScriptRoot\bump-version.ps1" }
     if (-not $SkipAppBuild) { & "$PSScriptRoot\build.ps1" }
     $project = [xml](Get-Content -LiteralPath 'src/YuiTracking.App/YuiTracking.App.csproj' -Raw)
     $appVersion = [string]$project.Project.PropertyGroup.Version

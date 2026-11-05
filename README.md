@@ -130,6 +130,12 @@ powershell -ExecutionPolicy Bypass -File scripts/build.ps1
 powershell -ExecutionPolicy Bypass -File scripts/build-installer.ps1 -SkipAppBuild
 ```
 
+Windows版のバージョンは「年.月日.連番」です。次のコマンドは、バージョンを上げてからアプリとインストーラーをビルドします。同じ日なら連番を増やし、日付が変われば1に戻します。バージョンだけを上げる場合は `scripts/bump-version.ps1` を実行します。どちらもコミットはしません。
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/build-installer.ps1 -BumpVersion
+```
+
 Mac版の開発・パッケージ作成は [electron/README.md](electron/README.md) を参照してください。依存パッケージの初回取得にはインターネット接続が必要です。
 
 共通処理のテストは `npm --prefix renderer test` で実行できます。Windowsのビルドスクリプトではカメラ選択・ショートカット・映像転送のテストも実行します。カメラ機種ごとの動作やトラッキング品質は、実環境での確認が必要です。
