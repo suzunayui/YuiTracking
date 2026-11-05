@@ -9,6 +9,7 @@ public sealed class VirtualCamera : IDisposable
     public const int Width = 1280, Height = 720, FrameBytes = Width * Height * 4;
     public const string ClassId = "{5C2CD55C-92AD-4999-8666-912BD3E7003B}";
     public const string Category = "{860BB310-5D01-11D0-BD3B-00A0C911CE86}";
+    public const string FilterRevision = "quiet-v1";
     private readonly string suffix; // Production: ASCII '0' + slot 42 = 'Z'
     private readonly object gate = new();
     private readonly byte[] standby = CreateStandby();
@@ -89,18 +90,20 @@ public sealed class VirtualCamera : IDisposable
     public static bool IsRegistered()
     {
         using var key = Registry.CurrentUser.OpenSubKey($@"Software\Classes\CLSID\{ClassId}\InprocServer32");
-        var expected = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "YuiTracking", "VirtualCamera", "UnityCaptureFilter64.dll");
+        var expected = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "YuiTracking", "VirtualCamera", FilterRevision, "UnityCaptureFilter64.dll");
         return key?.GetValue("") is string path && string.Equals(path, expected, StringComparison.OrdinalIgnoreCase) && File.Exists(path);
     }
     public static void Register(string dll)
     {
         if (!File.Exists(dll)) throw new FileNotFoundException("仮想カメラDLLが見つかりません。", dll);
-        var destDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "YuiTracking", "VirtualCamera");
+        var cameraDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "YuiTracking", "VirtualCamera");
+        var destDir = Path.Combine(cameraDir, FilterRevision);
         Directory.CreateDirectory(destDir);
         var dest = Path.Combine(destDir, "UnityCaptureFilter64.dll");
+        var previous = Path.Combine(cameraDir, "UnityCaptureFilter64.dll");
         var legacy = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HoloTrack", "VirtualCamera", "UnityCaptureFilter64.dll");
         using (var existing = Registry.ClassesRoot.OpenSubKey($@"CLSID\{ClassId}\InprocServer32"))
-            if (existing?.GetValue("") is string path && !string.Equals(path, dest, StringComparison.OrdinalIgnoreCase) && !string.Equals(path, legacy, StringComparison.OrdinalIgnoreCase))
+            if (existing?.GetValue("") is string path && !string.Equals(path, dest, StringComparison.OrdinalIgnoreCase) && !string.Equals(path, previous, StringComparison.OrdinalIgnoreCase) && !string.Equals(path, legacy, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("この仮想カメラスロットは別のアプリで使用中です。");
         if (!File.Exists(dest)) File.Copy(dll, dest);
         using var server = Registry.CurrentUser.CreateSubKey($@"Software\Classes\CLSID\{ClassId}\InprocServer32");

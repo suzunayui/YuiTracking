@@ -26,8 +26,7 @@ SolidCompression=yes
 WizardStyle=modern
 AppMutex=Local\YuiTracking.App.SingleInstance,Local\HoloTrack.App.SingleInstance
 CloseApplications=yes
-; The native camera DLL is retained unchanged (onlyifdoesntexist below).
-; OBS/Chrome can keep it loaded while the producer application is updated.
+; Each native revision uses its own path. OBS/Chrome can keep the old DLL loaded.
 ; Keep checking the application and all other DLLs for actual update locks.
 CloseApplicationsFilterExcludes=UnityCaptureFilter64.dll
 RestartApplications=no
@@ -46,7 +45,7 @@ Name: "desktopicon"; Description: "デスクトップにショートカットを
 [Files]
 Source: "..\dist\YuiTracking\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*.pdb,*.map,README.md"
 ; Shared with the portable app; retain the single stable native filter on uninstall.
-Source: "..\src\YuiTracking.App\Assets\VirtualCamera\UnityCaptureFilter64.dll"; DestDir: "{localappdata}\YuiTracking\VirtualCamera"; Flags: onlyifdoesntexist uninsneveruninstall
+Source: "..\src\YuiTracking.App\Assets\VirtualCamera\UnityCaptureFilter64.dll"; DestDir: "{localappdata}\YuiTracking\VirtualCamera\quiet-v1"; Flags: onlyifdoesntexist uninsneveruninstall
 Source: "..\.tools\MicrosoftEdgeWebview2Setup.exe"; Flags: dontcopy
 
 Source: "install-notes.txt"; DestDir: "{app}"; DestName: "Readme.txt"; Flags: ignoreversion
@@ -56,7 +55,7 @@ Name: "{autoprograms}\YuiTracking"; Filename: "{app}\YuiTracking.exe"; WorkingDi
 Name: "{autodesktop}\YuiTracking"; Filename: "{app}\YuiTracking.exe"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Registry]
-Root: HKCU64; Subkey: "Software\Classes\CLSID\{{5C2CD55C-92AD-4999-8666-912BD3E7003B}\InprocServer32"; ValueType: string; ValueName: ""; ValueData: "{localappdata}\YuiTracking\VirtualCamera\UnityCaptureFilter64.dll"
+Root: HKCU64; Subkey: "Software\Classes\CLSID\{{5C2CD55C-92AD-4999-8666-912BD3E7003B}\InprocServer32"; ValueType: string; ValueName: ""; ValueData: "{localappdata}\YuiTracking\VirtualCamera\quiet-v1\UnityCaptureFilter64.dll"
 Root: HKCU64; Subkey: "Software\Classes\CLSID\{{5C2CD55C-92AD-4999-8666-912BD3E7003B}\InprocServer32"; ValueType: string; ValueName: "ThreadingModel"; ValueData: "Both"
 Root: HKCU64; Subkey: "Software\Classes\CLSID\{{860BB310-5D01-11D0-BD3B-00A0C911CE86}\Instance\{{5C2CD55C-92AD-4999-8666-912BD3E7003B}"; ValueType: string; ValueName: "CLSID"; ValueData: "{{5C2CD55C-92AD-4999-8666-912BD3E7003B}"
 Root: HKCU64; Subkey: "Software\Classes\CLSID\{{860BB310-5D01-11D0-BD3B-00A0C911CE86}\Instance\{{5C2CD55C-92AD-4999-8666-912BD3E7003B}"; ValueType: string; ValueName: "FriendlyName"; ValueData: "YuiTracking Camera"
@@ -86,7 +85,8 @@ var Existing: String; ExitCode: Integer;
 begin
   Result := '';
   if RegQueryStringValue(HKCU64, CameraServer, '', Existing) then
-    if (CompareText(Existing, ExpandConstant('{localappdata}\YuiTracking\VirtualCamera\UnityCaptureFilter64.dll')) <> 0) and
+    if (CompareText(Existing, ExpandConstant('{localappdata}\YuiTracking\VirtualCamera\quiet-v1\UnityCaptureFilter64.dll')) <> 0) and
+       (CompareText(Existing, ExpandConstant('{localappdata}\YuiTracking\VirtualCamera\UnityCaptureFilter64.dll')) <> 0) and
        (CompareText(Existing, ExpandConstant('{localappdata}\HoloTrack\VirtualCamera\UnityCaptureFilter64.dll')) <> 0) then begin
       Result := '仮想カメラのスロットは別の登録に使用されています。既存の登録は変更しません。';
       Exit;
@@ -107,7 +107,7 @@ var Existing: String;
 begin
   if CurUninstallStep = usUninstall then
     if RegQueryStringValue(HKCU64, CameraServer, '', Existing) then
-      if CompareText(Existing, ExpandConstant('{localappdata}\YuiTracking\VirtualCamera\UnityCaptureFilter64.dll')) = 0 then begin
+      if CompareText(Existing, ExpandConstant('{localappdata}\YuiTracking\VirtualCamera\quiet-v1\UnityCaptureFilter64.dll')) = 0 then begin
         RegDeleteKeyIncludingSubkeys(HKCU64, 'Software\Classes\CLSID\{#CameraCategory}\Instance\{#CameraClass}');
         RegDeleteKeyIncludingSubkeys(HKCU64, 'Software\Classes\CLSID\{#CameraClass}');
       end;
