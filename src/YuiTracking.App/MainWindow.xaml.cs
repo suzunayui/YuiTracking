@@ -180,6 +180,7 @@ public sealed partial class MainWindow : Window
         MouthSensitivityLabel.Text = $"口の感度：{MouthSensitivity.Value:0.0}倍";
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "Branding", "YuiTracking.ico"));
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1320, 900));
+        MainContent.SizeChanged += (_, _) => UpdateSettingsColumnWidth();
         if (VirtualCamera.IsRegistered()) RegisterButton.Visibility = Visibility.Collapsed;
         statusTimer = DispatcherQueue.CreateTimer(); statusTimer.Interval = TimeSpan.FromSeconds(1);
         statusTimer.Tick += (_, _) =>
@@ -326,6 +327,33 @@ public sealed partial class MainWindow : Window
         if (!previewMaximized) TogglePreviewMaximized();
         Viewport.Focus(FocusState.Programmatic);
     }
+    private void UpdateSettingsColumnWidth()
+    {
+        // The motion tab lays out three columns; keep part of the preview visible in narrow windows.
+        const double settingsWidth = 300, motionSettingsWidth = 620, minimumPreviewWidth = 260, singleRowActionsWidth = 470;
+        var width = MotionTab.IsChecked == true
+            ? Math.Clamp(MainContent.ActualWidth - MainContent.ColumnSpacing - minimumPreviewWidth, settingsWidth, motionSettingsWidth)
+            : settingsWidth;
+        SettingsColumn.Width = new GridLength(previewMaximized ? 0 : width);
+        SetPreviewActionsCompact(!previewMaximized && MainContent.ActualWidth - MainContent.ColumnSpacing - width < singleRowActionsWidth);
+    }
+    private bool previewActionsCompact;
+    private void SetPreviewActionsCompact(bool compact)
+    {
+        if (compact == previewActionsCompact) return;
+        previewActionsCompact = compact;
+        // One row needs about 470 wide; otherwise calibration takes its own row so it never collapses.
+        Grid.SetColumnSpan(CalibrateButton, compact ? 4 : 1);
+        Grid.SetColumn(ResetFramingButton, compact ? 0 : 1);
+        Grid.SetColumnSpan(ResetFramingButton, compact ? 2 : 1);
+        ResetFramingButton.HorizontalAlignment = compact ? HorizontalAlignment.Stretch : HorizontalAlignment.Left;
+        foreach (var button in new Control[] { ResetFramingButton, MaximizeButton, Privacy })
+        {
+            Grid.SetRow(button, compact ? 1 : 0);
+            if (compact) { button.FontSize = 12; button.Padding = new Thickness(6, 5, 6, 6); }
+            else { button.ClearValue(Control.FontSizeProperty); button.ClearValue(Control.PaddingProperty); }
+        }
+    }
     private void TogglePreviewMaximized()
     {
         previewMaximized = !previewMaximized;
@@ -333,7 +361,7 @@ public sealed partial class MainWindow : Window
         PreviewStatus.Visibility = SettingsPanel.Visibility = visibility;
         Root.Padding = new Thickness(previewMaximized ? 0 : 16);
         MainContent.ColumnSpacing = previewMaximized ? 0 : 16;
-        SettingsColumn.Width = new GridLength(previewMaximized ? 0 : 300);
+        UpdateSettingsColumnWidth();
         PreviewPanel.RowSpacing = previewMaximized ? 0 : 8;
         PreviewBorder.CornerRadius = new CornerRadius(previewMaximized ? 0 : 10);
         PreviewBorder.BorderThickness = new Thickness(previewMaximized ? 0 : 1);
@@ -607,6 +635,7 @@ public sealed partial class MainWindow : Window
         AvatarTab.IsChecked = tab == "avatar"; MotionTab.IsChecked = tab == "motion";
         AvatarSettings.Visibility = tab == "avatar" ? Visibility.Visible : Visibility.Collapsed;
         MotionSettings.Visibility = tab == "motion" ? Visibility.Visible : Visibility.Collapsed;
+        UpdateSettingsColumnWidth();
     }
     private void Settings_Changed(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
     { UpdateMotionLabels(); SendSettings(); }
