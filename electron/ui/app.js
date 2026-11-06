@@ -69,7 +69,7 @@ host.onEvent(message=>{
  if(message.type==='cameraListWarning')$('camera-note').textContent=message.text;
  if(message.type==='cameras')$('camera-note').textContent='';
  if(message.type==='cameraInput')$('input').textContent=`カメラ入力：${message.label||'名称不明'} / ${message.width} × ${message.height} / ${Math.round(message.fps)}fps`;
- if(message.type==='recognitionReady'){$('recognition-status').textContent='認識中：'+message.delegate+(message.renderer?' / '+message.renderer:'');$('recognition-summary').textContent='認識：'+(message.renderer||message.delegate);}
+ if(message.type==='recognitionReady'){$('recognition-status').textContent='認識中：'+message.delegate+(message.renderer?' / '+message.renderer:'');if(message.delegate!=='GPU')$('recognition-summary').textContent='認識：'+message.delegate;}
  if(message.type==='springCapabilities'){$('chestSpringStrength').disabled=!(message.chestJoints>0);const control=$('chest-spring-control');const status=message.chestJoints>0?'胸の揺れ設定を検出しました。':'このモデルには対応する胸の揺れ設定がありません。';control.title=status+'\n'+control.title.substring(control.title.indexOf('\n')+1);}
  if(message.type==='avatar'){$('model').textContent=message.label;for(const button of document.querySelectorAll('[data-sample]'))button.setAttribute('aria-pressed',button.dataset.sample===message.sample);}
  if(message.type==='togglePreviewMaximized')maximize(!maximized);if(message.type==='restorePreview')maximize(false);

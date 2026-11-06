@@ -311,6 +311,14 @@ const waitForAsync=async(page,check,argument,{timeout=30000}={})=>{const end=Dat
   assert.equal(cardBytes.subarray(1,4).toString(),'PNG');
   assert.equal(await app.evaluate(({clipboard})=>clipboard.has('image/png')),true,'The card must also be on the clipboard');
   console.log('PASS settings card saved as PNG and copied');
+  const summaryBefore=await page.locator('#recognition-summary').textContent();
+  const sendRecognition=message=>app.evaluate(({BrowserWindow},value)=>BrowserWindow.getAllWindows()[0].webContents.send('renderer-event',value),message);
+  await sendRecognition({type:'recognitionReady',delegate:'GPU',renderer:'ANGLE (Apple, ANGLE Metal Renderer: Apple M6, Unspecified Version)'});
+  await page.waitForFunction(()=>document.querySelector('#recognition-status').textContent.includes('ANGLE'));
+  assert.equal(await page.locator('#recognition-summary').textContent(),summaryBefore,'The summary keeps the short device name');
+  await sendRecognition({type:'recognitionReady',delegate:'CPU'});
+  await page.waitForFunction(()=>document.querySelector('#recognition-summary').textContent==='認識：CPU');
+  console.log('PASS recognition summary stays short');
   await shot('yuitracking-mac-presets.png');
   console.log('PASS presets save, apply, match, rename, duplicate rejection, and delete');
   await page.evaluate(()=>{document.querySelector('#samples').open=true;});await page.locator('[data-sample=Z]').click();
