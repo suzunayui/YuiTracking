@@ -52,5 +52,25 @@ internal static class GpuCatalog
         return devices;
     }
 
+    private static int SameNameOrdinal(IReadOnlyList<Device> devices, Device device) =>
+        devices.TakeWhile(d => d != device).Count(d => d.Name == device.Name) + 1;
+
+    internal static int Ordinal(IReadOnlyList<Device> devices, Device device) => SameNameOrdinal(devices, device);
+
+    internal static string Label(IReadOnlyList<Device> devices, Device device)
+    {
+        var suffix = devices.Count(d => d.Name == device.Name) > 1 ? $"（{SameNameOrdinal(devices, device)}台目）" : "";
+        return $"{device.Name} · {device.MemoryBytes / 1073741824.0:0.#} GB{suffix}";
+    }
+
+    // A LUID is only valid until restart, so the saved ID alone cannot identify a GPU later.
+    internal static Device? FindSaved(IReadOnlyList<Device> devices, string? id, string? name, int? ordinal)
+    {
+        var named = devices.Where(d => d.Name == name).ToList();
+        var exact = named.FirstOrDefault(d => d.Id == id);
+        if (exact != null || named.Count <= 1) return exact ?? named.FirstOrDefault();
+        return ordinal is int position && position >= 1 && position <= named.Count ? named[position - 1] : null;
+    }
+
     internal static string BrowserArguments(Device device) => " --use-angle=d3d11 --use-adapter-luid=" + device.Id;
 }

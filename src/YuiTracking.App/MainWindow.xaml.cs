@@ -21,13 +21,9 @@ public sealed partial class MainWindow : Window
         try
         {
             var devices = GpuCatalog.Enumerate();
-            for (var i = 0; i < devices.Count; i++)
-            {
-                var device = devices[i];
-                items.Add(new($"{device.Name} · {device.MemoryBytes / 1073741824.0:0.#} GB（候補{i + 1}）", "GPU", device));
-            }
+            foreach (var device in devices) items.Add(new(GpuCatalog.Label(devices, device), "GPU", device));
             var saved = AppSettings.RecognitionDevice;
-            recognitionGpu = saved.Delegate == "GPU" ? devices.FirstOrDefault(d => d.Id == saved.AdapterId && d.Name == saved.AdapterName) : null;
+            recognitionGpu = saved.Delegate == "GPU" ? GpuCatalog.FindSaved(devices, saved.AdapterId, saved.AdapterName, saved.AdapterOrdinal) : null;
             recognitionDelegate = recognitionGpu == null ? "CPU" : "GPU";
             RecognitionStatus.Text = saved.Delegate == "GPU" && recognitionGpu == null
                 ? "保存したGPUが見つからないため、今回はCPUを使います。GPUを選び直して保存してください。"
@@ -42,7 +38,8 @@ public sealed partial class MainWindow : Window
         try
         {
             if (RecognitionDevice.SelectedItem is not RecognitionDeviceItem item) return;
-            AppSettings.SaveRecognitionDevice(new(item.Delegate, item.Adapter?.Id, item.Adapter?.Name));
+            var adapter = item.Adapter;
+            AppSettings.SaveRecognitionDevice(new(item.Delegate, adapter?.Id, adapter?.Name, adapter == null ? null : GpuCatalog.Ordinal(GpuCatalog.Enumerate(), adapter)));
             RecognitionStatus.Text = "保存しました。アプリを再起動すると反映します。現在：" + (recognitionGpu?.Name ?? "CPU");
         }
         catch (Exception ex) { Report(ex); }

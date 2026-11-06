@@ -5,7 +5,7 @@ namespace YuiTracking;
 
 internal static class AppSettings
 {
-    public record RecognitionSelection(string Delegate, string? AdapterId = null, string? AdapterName = null);
+    public record RecognitionSelection(string Delegate, string? AdapterId = null, string? AdapterName = null, int? AdapterOrdinal = null);
     public static RecognitionSelection RecognitionDevice => Read()["recognitionDevice"]?.Deserialize<RecognitionSelection>() ?? new("CPU");
     public static void SaveRecognitionDevice(RecognitionSelection selection)
     {
