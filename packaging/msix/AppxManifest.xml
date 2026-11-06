@@ -1,20 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
          xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
-         xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"
          xmlns:virtualization="http://schemas.microsoft.com/appx/manifest/virtualization/windows10"
          xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-         IgnorableNamespaces="uap desktop6 virtualization rescap">
+         IgnorableNamespaces="uap virtualization rescap">
   <!-- build-msix.ps1 replaces identity and version. Store identity must come from Partner Center. -->
   <Identity Name="YuiTracking.Development" Publisher="CN=YuiTracking Development" Version="0.0.0.0" ProcessorArchitecture="x64"/>
   <Properties>
     <DisplayName>YuiTracking</DisplayName>
     <PublisherDisplayName>YuiTracking</PublisherDisplayName>
     <Logo>Assets\Msix\StoreLogo.png</Logo>
-    <!-- Windows 10 compatibility: OBS needs to read our per-user camera registration and DLL. -->
-    <desktop6:RegistryWriteVirtualization>disabled</desktop6:RegistryWriteVirtualization>
-    <desktop6:FileSystemWriteVirtualization>disabled</desktop6:FileSystemWriteVirtualization>
-    <!-- Windows 11 narrows these exceptions to our data folder and two camera keys. -->
+    <!-- OBS needs to read our per-user camera registration and DLL: exclude only our data folder and two camera keys. -->
     <virtualization:FileSystemWriteVirtualization>
       <virtualization:ExcludedDirectories>
         <virtualization:ExcludedDirectory>$(KnownFolder:LocalAppData)\YuiTracking</virtualization:ExcludedDirectory>
@@ -28,7 +24,7 @@
     </virtualization:RegistryWriteVirtualization>
   </Properties>
   <Dependencies>
-    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26100.0"/>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.22000.0" MaxVersionTested="10.0.26100.0"/>
   </Dependencies>
   <Resources><Resource Language="ja-JP"/></Resources>
   <Applications>

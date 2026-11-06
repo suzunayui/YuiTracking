@@ -1,6 +1,6 @@
 ﻿YuiTracking
 
-Windows 10 バージョン2004以降 / Windows 11、x64版向けです。
+Windows 11、x64版向けです。
 
 このユーザーのアプリフォルダにインストールし、スタートメニューにYuiTrackingを追加します。
 OBS用の「YuiTracking Camera」も現在のユーザーに登録します。

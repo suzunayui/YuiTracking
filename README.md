@@ -10,7 +10,7 @@ WebカメラでVRMアバターの顔・目線・上半身・手・指を動か�
 
 | OS | バージョン | ダウンロード |
 | --- | --- | --- |
-| Windows 10（ビルド19041以降）・Windows 11／x64 | 2026.1019.1 | [Windows用インストーラー](https://github.com/suzunayui/YuiTracking/releases/download/v2026.1019.1/YuiTracking-Setup-2026.1019.1-x64.exe) |
+| Windows 11／x64 | 2026.1019.1 | [Windows用インストーラー](https://github.com/suzunayui/YuiTracking/releases/download/v2026.1019.1/YuiTracking-Setup-2026.1019.1-x64.exe) |
 | Mac／Apple Silicon | 2026.1019.1 | [Mac用DMG](https://github.com/suzunayui/YuiTracking/releases/download/v2026.1019.1/YuiTracking-2026.1019.1-arm64.dmg) |
 
 OSごとに更新内容が異なるため、Windows版とMac版のバージョンが違う場合があります。Intel Mac向けの配布ファイルはありません。
