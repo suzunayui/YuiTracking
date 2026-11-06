@@ -19,6 +19,19 @@ internal static class AppSettings
         ? JsonNode.Parse(File.ReadAllText(FilePath)) as JsonObject ?? throw new InvalidDataException("設定ファイルはJSONオブジェクトで指定してください。")
         : new JsonObject();
 
+    public static IReadOnlyList<string> VrmHistory => Read()["vrmHistory"]?.Deserialize<List<string>>() ?? new List<string>();
+    public static void AddVrmToHistory(string path) => SaveVrmHistory(YuiTracking.VrmHistory.WithUsed(VrmHistory, path));
+    public static void RemoveVrmFromHistory(string path)
+    {
+        SaveVrmHistory(YuiTracking.VrmHistory.Without(VrmHistory, path));
+        File.Delete(VrmThumbnailPath(path));
+    }
+    private static void SaveVrmHistory(IReadOnlyList<string> history)
+    {
+        var settings = Read(); settings["vrmHistory"] = JsonSerializer.SerializeToNode(history); Save(settings);
+    }
+    public static string VrmThumbnailPath(string path) => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "YuiTracking", "VrmThumbnails", YuiTracking.VrmHistory.ThumbnailFileName(path));
     public static string? DefaultVrmPath => Read()["defaultVrmPath"]?.GetValue<string>();
     public static string? DefaultSample => Read()["defaultSample"]?.GetValue<string>();
     public static void SaveDefaultSample(string sample)

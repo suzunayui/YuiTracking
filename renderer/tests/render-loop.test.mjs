@@ -30,7 +30,7 @@ test('camera tracking keeps a timer loop when output is off and preview is hidde
 test('rendering retains 60fps without an optional mode',()=>{
  const loopSource=source.slice(source.indexOf('let loopHandle,loopTimer=false;'),source.indexOf("window.chrome?.webview?.addEventListener('sharedbufferreceived'"));
   let renders=0;
-  const context={output:false,tracking:false,lastRender:0,frameNumber:0,privacy:false,avatarHidden:false,avatarRevealAt:null,vrm:null,demo:{},
+  const context={output:false,tracking:false,lastRender:0,frameNumber:0,privacy:false,avatarHidden:false,avatarRevealAt:null,thumbnailPending:false,vrm:null,demo:{},
    scene:{},camera:{},renderCamera:{},renderer:{render(){renders++;}},detect(){},animate(){},sendFrame(){},
    performance:{now:()=>0},requestAnimationFrame:()=>1,setTimeout:()=>1,
    perfFrames:0,perfLast:0};

@@ -8,21 +8,19 @@
   <div class="preview-status">
    <div class="camera-section"><div class="camera-row"><select id="cameras" title="トラッキングに使うカメラを選びます。"></select><button id="refresh-cameras" title="Macとブラウザーのカメラ一覧を再取得します。">更新</button></div><button id="tracking" class="wide" disabled title="選択したカメラで顔・手・体の認識を開始します。">カメラを開始</button><p id="camera-note" aria-live="polite"></p><p id="camera-permission" aria-live="polite"></p><button id="syphon" class="wide output-button" disabled title="透過背景のアバター映像をSyphonへ送信します。&#10;OBS → Syphonクライアント → YuiTracking を選びます。">Syphon出力を開始</button></div>
    <div class="preview-actions">
+    <button id="open" disabled title="PCに保存したVRMファイルを開きます。">VRMを開く</button>
     <button id="calibrate" title="今の顔の向きを正面として合わせます。&#10;Macの共通ショートカット：⌘⇧C&#10;アプリが前面なら右Control／右Shift単独でも実行します。">キャリブレーション</button>
     <button id="reset" title="拡大率・移動位置・カメラの回転を最初の状態に戻します。">初期位置に戻す</button>
     <button id="pan-mode" aria-pressed="false" title="オンの間、プレビュー上の2本指スクロールで上下左右へ移動します。ピンチで拡大・縮小できます。">移動</button>
     <button id="maximize" title="プレビューを最大化します。&#10;Escで元に戻します。ダブルクリックでも切り替えられます。">最大化</button>
     <button id="privacy" aria-pressed="false" title="アバターを隠します。&#10;オンの間は透過だけを出力します。">待機画面</button>
    </div>
-   <div class="status-line"><span id="status">描画エンジンの準備中…</span><span id="output-status">Syphon：停止中</span><span id="memory">メモリ：計測中</span></div>
-   <div class="status-line"><span id="input">カメラ入力：720p / 最大30fps</span></div>
+   <div class="status-line"><span id="model">サンプルを準備中</span><span id="status">描画エンジンの準備中…</span><span id="output-status">Syphon：停止中</span><span id="memory">メモリ：計測中</span></div>
+   <div class="status-line"><span id="input">カメラ入力：720p / 最大30fps</span><span id="recognition-summary">認識：確認中</span></div>
   </div>
  </section>
  <aside>
   <div class="settings">
-   <div class="title-row"><h2 class="section-title">アバター</h2><p id="model">サンプルを準備中</p></div>
-   <button id="open" class="wide" disabled title="PCに保存したVRMファイルを開きます。">VRMを開く</button>
-   <details id="samples"><summary title="同梱のアバターに切り替えます。青色が現在の選択です。">サンプル</summary><div class="three-buttons"><button data-sample="Y" aria-pressed="false" title="女の子のサンプル（Y）に切り替えます。">女の子</button><button data-sample="Z" aria-pressed="false" title="男の子のサンプル（Z）に切り替えます。">男の子</button><button id="demo" data-sample="robot" aria-pressed="false" title="内蔵ロボットに切り替えます。">ロボット</button></div></details>
    <h2 class="section-title">目線</h2>
    <label title="目線対応のVRMで使えます。自分の目に追従する場合は、カメラを見てキャリブレーションしてください。">目線モード<select id="gazeMode"><option value="tracking">自分の目に追従</option><option value="camera">常にカメラ目線</option><option value="fixed">正面固定</option></select></label>
    <label title="追従感度は「自分の目に追従」のときに使います。">目線の追従感度：<output id="gazeStrength-value"></output><input id="gazeStrength" type="range" min="0" max="3" step="0.1" value="1"></label>
@@ -44,6 +42,8 @@
    <label title="カメラから離れたときに小さくする強さです。0：縮小なし／大きいほど少ない移動で変化。普段の距離でキャリブレーションしてください。">遠距離による縮小：<output id="farZoomStrength-value">オフ</output><input id="farZoomStrength" type="range" min="0" max="5" step="0.1" value="0"></label>
    <label title="顔の位置から拡大の中心をずらします。マイナス：左／プラス：右／0：顔の位置。100はプレビューの幅の半分です。矢印キーで細かく調整できます。">拡大の中心（左右）：<output id="zoomCenterX-value">顔の位置</output><input id="zoomCenterX" type="range" min="-100" max="100" step="0.1" value="0"></label>
    <label title="顔の位置から拡大の中心をずらします。マイナス：下／プラス：上／0：顔の位置。100はプレビューの高さの半分です。矢印キーで細かく調整できます。">拡大の中心（上下）：<output id="zoomCenterY-value">顔の位置</output><input id="zoomCenterY" type="range" min="-100" max="100" step="0.1" value="0"></label>
+   <h2 class="section-title">アバター</h2>
+   <details id="samples"><summary title="同梱のアバターに切り替えます。青色が現在の選択です。">サンプル</summary><div class="three-buttons"><button data-sample="Y" aria-pressed="false" title="女の子のサンプル（Y）に切り替えます。">女の子</button><button data-sample="Z" aria-pressed="false" title="男の子のサンプル（Z）に切り替えます。">男の子</button><button id="demo" data-sample="robot" aria-pressed="false" title="内蔵ロボットに切り替えます。">ロボット</button></div></details>
    <h2 class="section-title">詳細</h2>
    <label for="recognition-device">認識に使うデバイス</label>
    <select id="recognition-device"><option value="CPU">CPU</option></select>

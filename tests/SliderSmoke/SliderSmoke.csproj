@@ -1,4 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup>
- <ItemGroup><Compile Include="../../src/YuiTracking.App/SliderMath.cs" Link="SliderMath.cs" /><Compile Include="../../src/YuiTracking.App/ScrollThumbMath.cs" Link="ScrollThumbMath.cs" /></ItemGroup>
+ <ItemGroup><Compile Include="../../src/YuiTracking.App/SliderMath.cs" Link="SliderMath.cs" /><Compile Include="../../src/YuiTracking.App/ScrollThumbMath.cs" Link="ScrollThumbMath.cs" /><Compile Include="../../src/YuiTracking.App/VrmHistory.cs" Link="VrmHistory.cs" /></ItemGroup>
 </Project>

@@ -174,7 +174,7 @@ function stabilizeHands(result,time){
 let framePending=false,loadVersion=0;
 // Stay transparent while an avatar loads and settles out of its T pose.
 const AVATAR_SETTLE_MS=1000;
-let avatarHidden=true,avatarRevealAt=null;
+let avatarHidden=true,avatarRevealAt=null,thumbnailPending=false;
 let sharedFramePixels=null;
 let perfLast=0,perfFrames=0,perfSent=0,perfDetect=0,perfCapture=0,perfAck=0,perfPendingAt=0;
 const perfStats={renderFps:0,frameFps:0,detectMs:0,captureMs:0,ackMs:0};
@@ -223,7 +223,7 @@ function makeDemo(){
  avatarHidden=false;avatarRevealAt=null;status('内蔵サンプルを表示中');
 }
 async function loadModel(requestId){
- const version=++loadVersion;avatarHidden=true;avatarRevealAt=null;status('VRMを読み込み中…');
+ const version=++loadVersion;avatarHidden=true;avatarRevealAt=null;thumbnailPending=false;status('VRMを読み込み中…');
  try{
   const manager=new THREE.LoadingManager();
   manager.setURLModifier(url=>{
@@ -575,6 +575,11 @@ async function sendFrame(){
  finally{if(!sharedPosted)framePending=false;}
 }
 let loopHandle,loopTimer=false;
+function postThumbnail(){
+ const canvas=document.createElement('canvas');canvas.width=320;canvas.height=180;
+ canvas.getContext('2d').drawImage(renderer.domElement,0,0,canvas.width,canvas.height);
+ post('modelThumbnail',{dataUrl:canvas.toDataURL('image/png')});
+}
 function renderInterval(){return 1000/60;}
 function scheduleLoop(){
  // Tracking must also run when the preview is occluded or output is disabled.
@@ -586,9 +591,9 @@ function loop(now){
  if(now-lastRender<renderInterval()-1.5){scheduleLoop();return;}
  const dt=Math.min((now-lastRender)/1000,.1);lastRender=now;scheduleLoop();
  if(vrm||demo)animate(now,dt);
- if(avatarHidden&&avatarRevealAt!==null&&now>=avatarRevealAt)avatarHidden=false;
+ if(avatarHidden&&avatarRevealAt!==null&&now>=avatarRevealAt){avatarHidden=false;thumbnailPending=true;}
  if(privacy||avatarHidden)renderer.clear();
- else renderer.render(scene,renderCamera);
+ else{renderer.render(scene,renderCamera);if(thumbnailPending){thumbnailPending=false;postThumbnail();}}
  sendFrame();frameNumber++;
  perfFrames++;
  if(now-perfLast>=3000){

@@ -54,22 +54,25 @@
       </Grid>
       <Grid Grid.Row="1" ColumnSpacing="6" RowSpacing="6">
        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-       <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-       <Button x:Name="CalibrateButton" Content="キャリブレーション" HorizontalAlignment="Stretch" ToolTipService.ToolTip="今の顔・体の向きと目の開き具合を基準に合わせます。&#10;正面を向いて実行してください。&#10;ショートカット：右Ctrl／右Shift" Click="Calibrate_Click"/>
-       <Button x:Name="ResetFramingButton" Grid.Column="1" Content="初期位置に戻す" Click="ResetFraming_Click" ToolTipService.ToolTip="拡大率・移動位置・カメラの回転を、&#10;最初の状態に戻します。"/>
-       <Button x:Name="MaximizeButton" Grid.Column="2" Content="最大化" Click="MaximizePreview_Click" ToolTipService.ToolTip="プレビューを最大化します。&#10;Esc：元に戻す&#10;ダブルクリックでも切り替えられます。"/>
-       <ToggleButton x:Name="Privacy" Grid.Column="3" VerticalAlignment="Center" Content="待機画面" ToolTipService.ToolTip="アバターを隠します。&#10;オンの間は透過だけを出力します。" Click="Privacy_Click"/>
+       <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+       <Button x:Name="ModelButton" ToolTipService.ToolTip="PCに保存したVRMファイルを開いて、&#10;使用するアバターを切り替えます。" Content="VRMを開く" HorizontalAlignment="Stretch" Click="OpenModel_Click" IsEnabled="False"/>
+       <Button x:Name="CalibrateButton" Grid.Column="1" Content="キャリブレーション" HorizontalAlignment="Stretch" ToolTipService.ToolTip="今の顔・体の向きと目の開き具合を基準に合わせます。&#10;正面を向いて実行してください。&#10;ショートカット：右Ctrl／右Shift" Click="Calibrate_Click"/>
+       <Button x:Name="ResetFramingButton" Grid.Column="2" Content="初期位置に戻す" Click="ResetFraming_Click" ToolTipService.ToolTip="拡大率・移動位置・カメラの回転を、&#10;最初の状態に戻します。"/>
+       <Button x:Name="MaximizeButton" Grid.Column="3" Content="最大化" Click="MaximizePreview_Click" ToolTipService.ToolTip="プレビューを最大化します。&#10;Esc：元に戻す&#10;ダブルクリックでも切り替えられます。"/>
+       <ToggleButton x:Name="Privacy" Grid.Column="4" VerticalAlignment="Center" Content="待機画面" ToolTipService.ToolTip="アバターを隠します。&#10;オンの間は透過だけを出力します。" Click="Privacy_Click"/>
       </Grid>
       <Grid Grid.Row="2" ColumnSpacing="12">
-       <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" MaxWidth="180"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-       <TextBlock x:Name="TrackingStatus" Text="描画エンジンを準備しています…" TextTrimming="CharacterEllipsis" FontSize="12" ToolTipService.ToolTip="{Binding Text, ElementName=TrackingStatus}"/>
-       <TextBlock x:Name="OutputStatus" Grid.Column="1" Text="仮想カメラ：停止中" Foreground="#9DA7C0" TextTrimming="CharacterEllipsis" FontSize="12" ToolTipService.ToolTip="{Binding Text, ElementName=OutputStatus}"/>
-       <TextBlock x:Name="MemoryStatus" Grid.Column="2" Text="メモリ：計測中" Foreground="#9DA7C0" FontSize="12" ToolTipService.ToolTip="本体と関連WebView2のメモリ使用量を合計します。"/>
+       <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" MaxWidth="220"/><ColumnDefinition Width="Auto" MaxWidth="180"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+       <TextBlock x:Name="ModelLabel" Text="サンプルを準備中" TextTrimming="CharacterEllipsis" FontSize="12" ToolTipService.ToolTip="{Binding Text, ElementName=ModelLabel}"/>
+       <TextBlock x:Name="TrackingStatus" Grid.Column="1" Text="描画エンジンを準備しています…" TextTrimming="CharacterEllipsis" FontSize="12" ToolTipService.ToolTip="{Binding Text, ElementName=TrackingStatus}"/>
+       <TextBlock x:Name="OutputStatus" Grid.Column="2" Text="仮想カメラ：停止中" Foreground="#9DA7C0" TextTrimming="CharacterEllipsis" FontSize="12" ToolTipService.ToolTip="{Binding Text, ElementName=OutputStatus}"/>
+       <TextBlock x:Name="MemoryStatus" Grid.Column="3" Text="メモリ：計測中" Foreground="#9DA7C0" FontSize="12" ToolTipService.ToolTip="本体と関連WebView2のメモリ使用量を合計します。"/>
       </Grid>
       <Grid Grid.Row="3" ColumnSpacing="12">
-       <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+       <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
        <TextBlock x:Name="CameraInputStatus" Text="カメラ入力：720p / 最大30fps" Foreground="#9DA7C0" FontSize="12" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{Binding Text, ElementName=CameraInputStatus}"/>
-       <TextBlock x:Name="HandDetectionStatus" Grid.Column="1" Text="手：カメラ停止中" Foreground="#9DA7C0" FontSize="12"/>
+       <TextBlock x:Name="RecognitionSummary" Grid.Column="1" Text="認識：確認中" Foreground="#9DA7C0" FontSize="12" MaxWidth="240" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{Binding Text, ElementName=RecognitionSummary}"/>
+       <TextBlock x:Name="HandDetectionStatus" Grid.Column="2" Text="手：カメラ停止中" Foreground="#9DA7C0" FontSize="12"/>
       </Grid>
      </Grid>
     </Border>
@@ -83,26 +86,7 @@
       </Grid>
      <ScrollViewer x:Name="SettingsScroll" VerticalScrollMode="Enabled" VerticalScrollBarVisibility="Hidden">
       <StackPanel x:Name="SettingsList" Spacing="4">
-       <Grid ColumnSpacing="10">
-        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-        <TextBlock Text="アバター" FontSize="13" FontWeight="SemiBold"/>
-        <TextBlock x:Name="ModelLabel" Grid.Column="1" Text="サンプルを準備中" Foreground="#9DA7C0" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{Binding Text, ElementName=ModelLabel}"/>
-       </Grid>
-      <Button x:Name="ModelButton" ToolTipService.ToolTip="PCに保存したVRMファイルを開いて、&#10;使用するアバターを切り替えます。" Content="VRMを開く" HorizontalAlignment="Stretch" Click="OpenModel_Click" IsEnabled="False"/>
-       <Button AutomationProperties.Name="サンプル" Click="SamplesToggle_Click" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" ToolTipService.ToolTip="同梱のアバターに切り替えます。&#10;青色のボタンが現在の選択です。">
-        <Grid>
-         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-         <TextBlock Text="サンプル"/>
-         <FontIcon x:Name="SamplesChevron" Grid.Column="1" Glyph="&#xE70D;" FontSize="12"/>
-        </Grid>
-       </Button>
-       <Grid x:Name="SampleButtons" ColumnSpacing="6" Visibility="Collapsed">
-       <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-       <ToggleButton x:Name="SampleGirl" ToolTipService.ToolTip="女の子のサンプル（Y）に切り替えます。&#10;選択中のボタンは青色で表示します。" Content="女の子" Tag="Y" Click="Sample_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
-       <ToggleButton x:Name="SampleBoy" ToolTipService.ToolTip="男の子のサンプル（Z）に切り替えます。&#10;選択中のボタンは青色で表示します。" Grid.Column="1" Content="男の子" Tag="Z" Click="Sample_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
-       <ToggleButton x:Name="SampleRobot" ToolTipService.ToolTip="内蔵ロボットに切り替えます。&#10;選択中のボタンは青色で表示します。" Grid.Column="2" Content="ロボット" Click="Demo_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
-       </Grid>
-       <TextBlock Text="目線" FontSize="13" FontWeight="SemiBold" Margin="0,12,0,0"/>
+       <TextBlock Text="目線" FontSize="13" FontWeight="SemiBold"/>
        <StackPanel Background="Transparent" ToolTipService.ToolTip="目線対応のVRMで使えます。自分の目に追従する場合は、カメラを見てキャリブレーションしてください。">
         <TextBlock Text="目線モード" Foreground="#9DA7C0" FontSize="12" TextTrimming="CharacterEllipsis"/>
         <ComboBox x:Name="GazeMode" SelectedIndex="0" HorizontalAlignment="Stretch" SelectionChanged="GazeMode_Changed">
@@ -183,6 +167,20 @@
         <TextBlock x:Name="ZoomCenterYLabel" Text="拡大の中心（上下）：顔の位置" Foreground="#9DA7C0" FontSize="12" TextTrimming="CharacterEllipsis"/>
         <Slider x:Name="ZoomCenterY" Minimum="-100" Maximum="100" Value="0" StepFrequency="0.1" ToolTipService.ToolTip="顔の位置から拡大の中心をずらします。&#10;マイナス：下／プラス：上／0：顔の位置。&#10;100はプレビューの高さの半分です。矢印キーで細かく調整できます。" ValueChanged="FaceSensitivity_Changed"/>
        </StackPanel>
+       <TextBlock Text="アバター" FontSize="13" FontWeight="SemiBold" Margin="0,12,0,0"/>
+       <Button AutomationProperties.Name="サンプル" Click="SamplesToggle_Click" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" ToolTipService.ToolTip="同梱のアバターに切り替えます。&#10;青色のボタンが現在の選択です。">
+        <Grid>
+         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+         <TextBlock Text="サンプル"/>
+         <FontIcon x:Name="SamplesChevron" Grid.Column="1" Glyph="&#xE70D;" FontSize="12"/>
+        </Grid>
+       </Button>
+       <Grid x:Name="SampleButtons" ColumnSpacing="6" Visibility="Collapsed">
+       <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+       <ToggleButton x:Name="SampleGirl" ToolTipService.ToolTip="女の子のサンプル（Y）に切り替えます。&#10;選択中のボタンは青色で表示します。" Content="女の子" Tag="Y" Click="Sample_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
+       <ToggleButton x:Name="SampleBoy" ToolTipService.ToolTip="男の子のサンプル（Z）に切り替えます。&#10;選択中のボタンは青色で表示します。" Grid.Column="1" Content="男の子" Tag="Z" Click="Sample_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
+       <ToggleButton x:Name="SampleRobot" ToolTipService.ToolTip="内蔵ロボットに切り替えます。&#10;選択中のボタンは青色で表示します。" Grid.Column="2" Content="ロボット" Click="Demo_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
+       </Grid>
        <TextBlock Text="詳細" FontSize="13" FontWeight="SemiBold" Margin="0,12,0,0"/>
        <TextBlock Text="認識に使うデバイス" Foreground="#9DA7C0"/>
        <ComboBox x:Name="RecognitionDevice" DisplayMemberPath="Label" HorizontalAlignment="Stretch" FontSize="12"/>

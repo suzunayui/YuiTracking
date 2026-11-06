@@ -30,6 +30,7 @@ public sealed partial class MainWindow : Window
                 : "現在の認識設定：" + (recognitionGpu?.Name ?? "CPU");
         }
         catch (Exception ex) { recognitionDelegate = "CPU"; recognitionGpu = null; RecognitionStatus.Text = "GPU一覧を取得できないためCPUを使います。"; App.Log(ex.ToString()); }
+        RecognitionSummary.Text = "認識：" + (recognitionGpu?.Name ?? "CPU");
         RecognitionDevice.ItemsSource = items;
         RecognitionDevice.SelectedItem = items.FirstOrDefault(i => i.Adapter == recognitionGpu) ?? items[0];
     }
@@ -143,6 +144,9 @@ public sealed partial class MainWindow : Window
         InitializeComponent();
         AddSliderControls();
         InitializeSettingsScrollbar();
+        // The VRM name is already shown beside it, so the idle status adds nothing.
+        TrackingStatus.RegisterPropertyChangedCallback(TextBlock.TextProperty, (_, _) =>
+            TrackingStatus.Visibility = TrackingStatus.Text is "VRMを表示中" or "内蔵サンプルを表示中" ? Visibility.Collapsed : Visibility.Visible);
         cameraPresenter = new CameraChoicePresenter(Cameras, cameraChoices);
         Cameras.DropDownOpened += (_, _) => App.Log("Camera dropdown opened: " + string.Join(" / ", Cameras.Items.OfType<CameraItem>().Select(c => c.Label)));
         Cameras.SelectionChanged += (_, _) => { if (Cameras.SelectedItem is CameraItem item) App.Log("Camera selected: " + item.Label); };
@@ -319,7 +323,7 @@ public sealed partial class MainWindow : Window
     }
     private void UpdateSettingsColumnWidth()
     {
-        const double settingsWidth = 300, singleRowActionsWidth = 470, singleRowCameraWidth = 620;
+        const double settingsWidth = 300, singleRowActionsWidth = 570, singleRowCameraWidth = 620;
         SettingsColumn.Width = new GridLength(previewMaximized ? 0 : settingsWidth);
         var previewWidth = MainContent.ActualWidth - MainContent.ColumnSpacing - settingsWidth;
         SetPreviewActionsCompact(!previewMaximized && previewWidth < singleRowActionsWidth);
@@ -342,9 +346,9 @@ public sealed partial class MainWindow : Window
     {
         if (compact == previewActionsCompact) return;
         previewActionsCompact = compact;
-        // One row needs about 470 wide; otherwise calibration takes its own row so it never collapses.
+        // One row needs about 570 wide; otherwise calibration takes its own row so it never collapses.
         Grid.SetColumnSpan(CalibrateButton, compact ? 4 : 1);
-        Grid.SetColumn(ResetFramingButton, compact ? 0 : 1);
+        Grid.SetColumn(ResetFramingButton, compact ? 0 : 2);
         Grid.SetColumnSpan(ResetFramingButton, compact ? 2 : 1);
         ResetFramingButton.HorizontalAlignment = compact ? HorizontalAlignment.Stretch : HorizontalAlignment.Left;
         foreach (var button in new Control[] { ResetFramingButton, MaximizeButton, Privacy })
@@ -449,6 +453,7 @@ public sealed partial class MainWindow : Window
                 case "recognitionReady":
                     RecognitionStatus.Text = "認識中：" + root.GetProperty("delegate").GetString();
                     if (root.TryGetProperty("renderer", out var rendererName)) RecognitionStatus.Text += " / " + rendererName.GetString();
+                    RecognitionSummary.Text = "認識：" + (root.GetProperty("delegate").GetString() == "GPU" ? recognitionGpu?.Name ?? "GPU" : "CPU");
                     App.Log("Recognition backend: " + root.GetRawText());
                     break;
                 case "springCapabilities":
@@ -471,10 +476,14 @@ public sealed partial class MainWindow : Window
                     SelectSample(pendingSample);
                     currentVrmPath = pendingSample == null ? pendingModelPath : null;
                     if (pendingSample != null) AppSettings.SaveDefaultSample(pendingSample);
-                    else AppSettings.SaveDefaultVrm(pendingModelPath);
+                    else { AppSettings.SaveDefaultVrm(pendingModelPath); AppSettings.AddVrmToHistory(pendingModelPath); }
                     pendingModelPath = null;
                     pendingSample = null;
                     RestoreOutput();
+                    break;
+                case "modelThumbnail":
+                    try { SaveVrmThumbnail(root.GetProperty("dataUrl").GetString()); }
+                    catch (Exception ex) { App.Log(ex.Message); }
                     break;
                 case "modelFailed":
                     if (root.GetProperty("requestId").GetInt32() == modelRequestId)
@@ -523,19 +532,6 @@ public sealed partial class MainWindow : Window
         catch (Exception ex) { Report(ex); }
     }
     private void Send(object message) { if (ready) Viewport.CoreWebView2.PostWebMessageAsJson(JsonSerializer.Serialize(message)); }
-    private async void OpenModel_Click(object sender, RoutedEventArgs e)
-    {
-        if (!ready) return;
-        try
-        {
-            string? lastVrm = null;
-            try { lastVrm = AppSettings.DefaultVrmPath; } catch (Exception ex) { App.Log(ex.Message); }
-            using var picker = new VrmFilePicker(VrmFilePicker.InitialFolder(currentVrmPath, lastVrm));
-            var file = picker.Show(WinRT.Interop.WindowNative.GetWindowHandle(this)); if (file == null) return;
-            await LoadModelAsync(file);
-        }
-        catch (Exception ex) { Report(ex); }
-    }
     private async Task LoadModelAsync(string path, string? sample = null)
     {
         var requestId = ++modelRequestId;

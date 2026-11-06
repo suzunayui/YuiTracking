@@ -18,3 +18,11 @@ Check(ScrollThumbMath.ThumbHeight(600, 100, 100000) == 32, "thumb keeps a usable
 Check(ScrollThumbMath.ThumbTop(0, 600, 500, 1000) == 0 && ScrollThumbMath.ThumbTop(500, 600, 500, 1000) == 300, "thumb reaches both ends of the track");
 Check(ScrollThumbMath.OffsetFromThumbTop(150, 600, 500, 1000) == 250, "dragging the thumb maps to the scroll offset");
 Check(ScrollThumbMath.OffsetFromThumbTop(-50, 600, 500, 1000) == 0 && ScrollThumbMath.OffsetFromThumbTop(900, 600, 500, 1000) == 500, "dragging past the ends is limited");
+var used = VrmHistory.WithUsed(new[] { @"C:\a.vrm", @"C:\b.vrm" }, @"C:\B.VRM");
+Check(used.Count == 2 && used[0] == @"C:\B.VRM" && used[1] == @"C:\a.vrm", "reopening a VRM moves it first without duplicating");
+Check(VrmHistory.WithUsed(Enumerable.Range(0, 40).Select(i => $@"C:\{i}.vrm"), @"C:\new.vrm").Count == VrmHistory.MaximumEntries, "history keeps a limited number of entries");
+Check(VrmHistory.Without(used, @"C:\A.vrm").Count == 1, "removing ignores letter case");
+Check(VrmHistory.ThumbnailFileName(@"C:\A.vrm") == VrmHistory.ThumbnailFileName(@"c:\a.VRM") && !VrmHistory.ThumbnailFileName(@"C:\a.vrm").Contains('\\'), "thumbnail name is stable and safe");
+var png = "data:image/png;base64," + Convert.ToBase64String(new byte[] { 0x89, 0x50, 0x4E, 0x47, 13, 10, 26, 10 });
+Check(VrmHistory.DecodeThumbnail(png)?.Length == 8, "PNG thumbnail is accepted");
+Check(VrmHistory.DecodeThumbnail("data:text/html;base64,AAAA") == null && VrmHistory.DecodeThumbnail("data:image/png;base64,###") == null && VrmHistory.DecodeThumbnail("data:image/png;base64,AAAAAAAAAAA=") == null, "other data is rejected");
