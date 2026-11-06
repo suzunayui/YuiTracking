@@ -22,7 +22,7 @@
   for(const preset of presets){
    const button=document.createElement('button');
    button.type='button';button.className='preset-button';button.textContent=preset.name;button.dataset.name=preset.name;
-   button.title='押すとこの動きの調整に切り替えます。\n右クリックで上書き・名前変更・削除ができます。';
+   button.title='押すとこの動きの調整に切り替えます。\n右クリックで上書き・名前変更・書き出し・削除ができます。';
    button.onclick=()=>applyPreset(preset);
    button.oncontextmenu=event=>{event.preventDefault();showMenu(event.clientX,event.clientY,preset);};
    bar.append(button);
@@ -32,6 +32,11 @@
   add.disabled=presets.length>=PresetLogic.MAX_PRESETS;
   add.onclick=()=>addPreset().catch(showError);
   bar.append(add);
+  const load=document.createElement('button');
+  load.type='button';load.id='preset-import';load.textContent='読み込み';load.title='書き出したプリセットのファイルを読み込みます。';
+  load.disabled=presets.length>=PresetLogic.MAX_PRESETS;
+  load.onclick=()=>importPreset().catch(showError);
+  bar.append(load);
   refresh();
  }
  async function store(updated){presets=await host.savePresets(updated);render();}
@@ -50,6 +55,7 @@
   const name=await askName('プリセットを保存',PresetLogic.nextName(presets),null);
   if(name)await store(PresetLogic.added(presets,{name,gazeMode:$('gazeMode').value,values:motionValues(),disabled:disabledSliders}));
  }
+ async function importPreset(){const updated=await host.importPreset();if(updated){presets=updated;render();setStatus('プリセットを読み込みました。',true);}}
  function showMenu(x,y,preset){
   menuPreset=preset;menu.hidden=false;
   const box=menu.getBoundingClientRect();
@@ -59,6 +65,7 @@
  const fromMenu=action=>()=>{const preset=menuPreset;hideMenu();if(preset)action(preset).catch(showError);};
  $('preset-menu-overwrite').onclick=fromMenu(preset=>store(PresetLogic.overwritten(presets,preset.name,$('gazeMode').value,motionValues(),disabledSliders)));
  $('preset-menu-rename').onclick=fromMenu(async preset=>{const name=await askName('名前を変更',preset.name,preset.name);if(name)await store(PresetLogic.renamed(presets,preset.name,name));});
+ $('preset-menu-export').onclick=fromMenu(async preset=>{if(await host.exportPreset(preset.name))setStatus('プリセットを書き出しました。',true);});
  $('preset-menu-delete').onclick=fromMenu(preset=>store(PresetLogic.without(presets,preset.name)));
  document.addEventListener('click',event=>{if(!menu.hidden&&!menu.contains(event.target))hideMenu();});
  document.addEventListener('keydown',event=>{if(event.key==='Escape')hideMenu();});

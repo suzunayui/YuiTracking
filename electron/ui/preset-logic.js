@@ -29,5 +29,39 @@
   const off=safeDisabled(preset.disabled),now=safeDisabled(disabled);
   return preset.gazeMode===gazeMode&&Object.entries(preset.values).every(([key,value])=>Number.isFinite(current[key])&&Math.abs(current[key]-value)<=TOLERANCE)&&off.length===now.length&&off.every(key=>now.includes(key));
  }
- return {MAX_PRESETS,MAX_NAME_LENGTH,OFF_VALUES,safeDisabled,effective,nameProblem,nextName,added,overwritten,renamed,without,matches};
+ // One preset per file, in the same format as the Windows app's PresetFile.cs.
+ const MAX_FILE_BYTES=64*1024,FILE_FORMAT='yuitracking-preset',FILE_VERSION=1,UNREADABLE='プリセットのファイルとして読み込めません。';
+ function shortened(text,length){
+  if(text.length<=length)return text;
+  const code=text.charCodeAt(length-1),cut=code>=0xD800&&code<=0xDBFF?length-1:length;
+  return text.slice(0,cut).trimEnd();
+ }
+ const serialized=preset=>JSON.stringify({format:FILE_FORMAT,version:FILE_VERSION,name:preset.name,gazeMode:preset.gazeMode,values:preset.values,disabled:safeDisabled(preset.disabled)},null,2);
+ // Other people's files are untrusted: only known sliders and finite numbers get through.
+ function parsed(text){
+  let file;
+  try{file=JSON.parse(text);}catch{throw new Error(UNREADABLE);}
+  if(!file||typeof file!=='object'||Array.isArray(file)||file.format!==FILE_FORMAT||!Number.isInteger(file.version)||file.version<1)throw new Error(UNREADABLE);
+  if(file.version>FILE_VERSION)throw new Error('新しいバージョンのアプリで作られたプリセットです。アプリを更新してください。');
+  const name=typeof file.name==='string'?shortened(file.name.trim(),MAX_NAME_LENGTH):'';
+  if(!name||!['tracking','camera','fixed'].includes(file.gazeMode))throw new Error(UNREADABLE);
+  const values={};
+  if(file.values&&typeof file.values==='object'&&!Array.isArray(file.values))for(const [key,value] of Object.entries(file.values))if(Object.hasOwn(OFF_VALUES,key)&&Number.isFinite(value))values[key]=value;
+  if(!Object.keys(values).length)throw new Error(UNREADABLE);
+  return {name,gazeMode:file.gazeMode,values,disabled:safeDisabled(file.disabled)};
+ }
+ // An imported preset never replaces an existing one, so a taken name gets a number.
+ function uniqueName(presets,name){
+  const taken=text=>presets.some(preset=>same(preset.name,text));
+  if(!taken(name))return name;
+  for(let number=2;;number++){
+   const suffix=` (${number})`,candidate=shortened(name,MAX_NAME_LENGTH-suffix.length).trimEnd()+suffix;
+   if(!taken(candidate))return candidate;
+  }
+ }
+ function fileName(name){
+  const safe=name.replace(/[\u0000-\u001f<>:"/\\|?*]/g,'_').replace(/[. ]+$/,'').trimStart();
+  return (safe||'preset')+'.json';
+ }
+ return {MAX_PRESETS,MAX_NAME_LENGTH,MAX_FILE_BYTES,OFF_VALUES,safeDisabled,effective,nameProblem,nextName,added,overwritten,renamed,without,matches,serialized,parsed,uniqueName,fileName};
 });

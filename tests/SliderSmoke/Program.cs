@@ -48,3 +48,19 @@ Check(MotionPresets.Matches(new MotionPreset("old", "camera", V(1)), "camera", V
 Check(MotionPresets.Overwritten(new[] { withOff }, "x", "camera", V(1), new List<string> { "a" })[0].Disabled![0] == "a", "overwrite saves which sliders are off");
 var offLoaded = System.Text.Json.JsonSerializer.Deserialize<MotionPreset>(System.Text.Json.JsonSerializer.Serialize(withOff))!;
 Check(offLoaded.Disabled![0] == "b", "the off list survives saving and loading");
+const string sharedFile = """
+{"format":"yuitracking-preset","version":1,"name":"配信","gazeMode":"camera","values":{"smoothing":0.5,"sideTiltStrength":2,"unknownKey":9},"disabled":["sideTiltStrength","unknownKey"]}
+""";
+var imported = PresetFile.Parsed(sharedFile);
+Check(imported.Name == "配信" && imported.GazeMode == "camera" && imported.Values.Count == 2 && imported.Values["sideTiltStrength"] == 2 && imported.Disabled!.SequenceEqual(new[] { "sideTiltStrength" }), "a preset file keeps known values and drops unknown ones");
+var written = PresetFile.Parsed(PresetFile.Serialized(new MotionPreset("雑談", "fixed", new Dictionary<string, double> { ["smoothing"] = .25 }, new List<string> { "smoothing" })));
+Check(written.Name == "雑談" && written.GazeMode == "fixed" && written.Values["smoothing"] == .25 && written.Disabled![0] == "smoothing", "a preset file survives writing and reading");
+Check(PresetFile.Serialized(written).Contains("雑談"), "preset files keep Japanese names readable");
+bool Rejected(string text, string message) { try { PresetFile.Parsed(text); return false; } catch (InvalidDataException ex) { return ex.Message.Contains(message); } }
+Check(new[] { "", "[]", "{}", "not json", "{\"format\":\"other\",\"version\":1}", sharedFile.Replace("\"version\":1", "\"version\":\"1\""), sharedFile.Replace("\"camera\"", "\"other\""), sharedFile.Replace("\"配信\"", "\"  \""), "{\"format\":\"yuitracking-preset\",\"version\":1,\"name\":\"a\",\"gazeMode\":\"camera\",\"values\":{\"unknown\":1}}", "{\"format\":\"yuitracking-preset\",\"version\":1,\"name\":\"a\",\"gazeMode\":\"camera\",\"values\":{\"smoothing\":\"1\"}}" }.All(text => Rejected(text, "読み込めません")), "broken preset files are rejected");
+Check(Rejected(sharedFile.Replace("\"version\":1", "\"version\":2"), "新しいバージョン"), "preset files from a newer format are refused");
+Check(PresetFile.Parsed(PresetFile.Serialized(new MotionPreset(new string('あ', 30), "camera", new Dictionary<string, double> { ["smoothing"] = 1 }))).Name.Length == 20, "long names are shortened on import");
+var takenNames = new[] { new MotionPreset("配信", "camera", V(1)), new MotionPreset("配信 (2)", "camera", V(1)) };
+Check(PresetFile.UniqueName(takenNames, "雑談") == "雑談" && PresetFile.UniqueName(takenNames, "配信") == "配信 (3)", "imported names never collide");
+Check(PresetFile.UniqueName(new[] { new MotionPreset(new string('あ', 20), "camera", V(1)) }, new string('あ', 20)) == new string('あ', 16) + " (2)", "numbered names still fit the limit");
+Check(PresetFile.FileName("配信") == "配信.json" && PresetFile.FileName("a/b:c*") == "a_b_c_.json" && PresetFile.FileName("...") == "preset.json", "file names avoid characters Windows refuses");

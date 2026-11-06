@@ -46,11 +46,12 @@ public sealed partial class MainWindow
         {
             var button = new ToggleButton { Content = preset.Name, Padding = new Thickness(10, 3, 10, 4), FontSize = 12, MinWidth = 0 };
             AutomationProperties.SetName(button, "プリセット：" + preset.Name);
-            ToolTipService.SetToolTip(button, "押すとこの動きの調整に切り替えます。\n右クリックで上書き・名前変更・削除ができます。");
+            ToolTipService.SetToolTip(button, "押すとこの動きの調整に切り替えます。\n右クリックで上書き・名前変更・書き出し・削除ができます。");
             button.Click += (_, _) => ApplyPreset(preset);
             var menu = new MenuFlyout();
             menu.Items.Add(PresetMenuItem("今の設定で上書き", () => { SavePresets(MotionPresets.Overwritten(presets, preset.Name, SelectedGazeMode, CurrentPresetValues(), disabledSliders.ToList())); return Task.CompletedTask; }));
             menu.Items.Add(PresetMenuItem("名前を変更…", () => RenamePresetAsync(preset)));
+            menu.Items.Add(PresetMenuItem("書き出し…", () => { ExportPreset(preset); return Task.CompletedTask; }));
             menu.Items.Add(new MenuFlyoutSeparator());
             menu.Items.Add(PresetMenuItem("削除", () => { SavePresets(MotionPresets.Without(presets, preset.Name)); return Task.CompletedTask; }));
             button.ContextFlyout = menu;
@@ -62,6 +63,11 @@ public sealed partial class MainWindow
         ToolTipService.SetToolTip(add, "今の動きの調整に名前を付けて保存します。");
         add.Click += async (_, _) => await RunPresetAction(AddPresetAsync);
         PresetBar.Children.Add(add);
+        var load = new Button { Content = "読み込み", Padding = new Thickness(10, 3, 10, 4), FontSize = 12, MinWidth = 0, IsEnabled = presets.Count < MotionPresets.MaximumPresets };
+        AutomationProperties.SetName(load, "プリセットを読み込む");
+        ToolTipService.SetToolTip(load, "書き出したプリセットのファイルを読み込みます。");
+        load.Click += async (_, _) => await RunPresetAction(() => { ImportPreset(); return Task.CompletedTask; });
+        PresetBar.Children.Add(load);
         UpdatePresetSelection();
     }
 
@@ -92,6 +98,34 @@ public sealed partial class MainWindow
         AppSettings.SaveMotionPresets(updated);
         presets = updated;
         RebuildPresetButtons();
+    }
+
+    private void ShowPresetStatus(string text)
+    {
+        TrackingStatus.Text = text;
+        temporaryStatus = text;
+        temporaryStatusExpires = Environment.TickCount64 + 3000;
+    }
+
+    private void ExportPreset(MotionPreset preset)
+    {
+        using var picker = PresetFilePicker.ForSaving(PresetFile.FileName(preset.Name));
+        var file = picker.Show(WinRT.Interop.WindowNative.GetWindowHandle(this));
+        if (file == null) return;
+        File.WriteAllText(file, PresetFile.Serialized(preset), new System.Text.UTF8Encoding(false));
+        ShowPresetStatus("プリセットを書き出しました。");
+    }
+
+    private void ImportPreset()
+    {
+        using var picker = PresetFilePicker.ForOpening();
+        var file = picker.Show(WinRT.Interop.WindowNative.GetWindowHandle(this));
+        if (file == null) return;
+        if (new FileInfo(file).Length > PresetFile.MaximumBytes) throw new InvalidDataException("プリセットのファイルとして読み込めません。");
+        var preset = PresetFile.Parsed(File.ReadAllText(file));
+        var values = preset.Values.Where(item => presetSliders.ContainsKey(item.Key)).ToDictionary(item => item.Key, item => Math.Clamp(item.Value, presetSliders[item.Key].Minimum, presetSliders[item.Key].Maximum));
+        SavePresets(MotionPresets.Added(presets, preset with { Name = PresetFile.UniqueName(presets, preset.Name), Values = values }));
+        ShowPresetStatus("プリセットを読み込みました。");
     }
 
     private async Task AddPresetAsync()

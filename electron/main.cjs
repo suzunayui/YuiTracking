@@ -88,6 +88,29 @@ ipcMain.handle('save-presets',async(event,value)=>{
  await persist();
  return settings.motionPresets;
 });
+const presetFilters=[{name:'YuiTracking preset',extensions:['json']}];
+ipcMain.handle('export-preset',async(event,name)=>{
+ if(!trusted(event,'ui')||typeof name!=='string')return false;
+ const preset=safePresets(settings.motionPresets).find(item=>item.name===name);
+ if(!preset)throw new Error('プリセットが見つかりません。');
+ const result=await dialog.showSaveDialog(window,{title:'プリセットを書き出す',defaultPath:presetLogic.fileName(preset.name),filters:presetFilters});
+ if(result.canceled||!result.filePath)return false;
+ await fs.writeFile(result.filePath,presetLogic.serialized(preset),'utf8');
+ return true;
+});
+ipcMain.handle('import-preset',async event=>{
+ if(!trusted(event,'ui'))return null;
+ const current=safePresets(settings.motionPresets);
+ if(current.length>=presetLogic.MAX_PRESETS)throw new Error(`プリセットは${presetLogic.MAX_PRESETS}個までです。`);
+ const result=await dialog.showOpenDialog(window,{title:'プリセットを読み込む',filters:presetFilters,properties:['openFile']});
+ if(result.canceled||!result.filePaths[0])return null;
+ const info=await fs.stat(result.filePaths[0]);
+ if(info.size>presetLogic.MAX_FILE_BYTES)throw new Error('プリセットのファイルとして読み込めません。');
+ const preset=presetLogic.parsed(await fs.readFile(result.filePaths[0],'utf8'));
+ settings.motionPresets=safePresets(presetLogic.added(current,{...preset,name:presetLogic.uniqueName(current,preset.name)}));
+ await persist();
+ return settings.motionPresets;
+});
 ipcMain.handle('info',event=>trusted(event,'ui')?{version:app.getVersion(),platform:process.platform,cameraPermission:process.platform==='darwin'?systemPreferences.getMediaAccessStatus('camera'):undefined}:{});
 ipcMain.handle('native-cameras',async event=>{if(!trusted(event,'ui')||process.platform!=='darwin')return [];try{const {stdout}=await promisify(execFile)('/usr/sbin/system_profiler',['SPCameraDataType','-json'],{timeout:5000,maxBuffer:1024*1024});return (JSON.parse(stdout).SPCameraDataType||[]).map(item=>item._name).filter(name=>typeof name==='string');}catch{return [];}});
 ipcMain.handle('memory',event=>{if(!trusted(event,'ui'))return;const metrics=app.getAppMetrics();return {mb:metrics.reduce((sum,item)=>sum+item.memory.workingSetSize,0)/1024,processes:metrics.map(item=>({type:item.type,mb:item.memory.workingSetSize/1024}))};});

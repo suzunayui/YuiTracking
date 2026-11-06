@@ -49,3 +49,40 @@ test('match includes which sliders are off, and older presets mean all on',()=>{
  assert.ok(!logic.matches(preset,'camera',{sensitivity:1},[]));
  assert.ok(logic.matches({name:'old',gazeMode:'camera',values:{sensitivity:1}},'camera',{sensitivity:1},[]));
 });
+
+const sharedFile='{"format":"yuitracking-preset","version":1,"name":"配信","gazeMode":"camera","values":{"smoothing":0.5,"sideTiltStrength":2,"unknownKey":9},"disabled":["sideTiltStrength","unknownKey"]}';
+test('a preset file keeps known values and drops unknown ones',()=>{
+ const preset=logic.parsed(sharedFile);
+ assert.equal(preset.name,'配信');assert.equal(preset.gazeMode,'camera');
+ assert.deepEqual(preset.values,{smoothing:.5,sideTiltStrength:2});
+ assert.deepEqual(preset.disabled,['sideTiltStrength']);
+});
+test('a preset file survives writing and reading',()=>{
+ const preset={name:'雑談',gazeMode:'fixed',values:{smoothing:.25},disabled:['smoothing']};
+ assert.deepEqual(logic.parsed(logic.serialized(preset)),preset);
+});
+test('broken preset files are rejected',()=>{
+ for(const text of ['','[]','{}','not json','{"format":"other","version":1}',sharedFile.replace('"version":1','"version":"1"'),sharedFile.replace('"camera"','"other"'),sharedFile.replace('"配信"','"  "'),'{"format":"yuitracking-preset","version":1,"name":"a","gazeMode":"camera","values":{"unknown":1}}','{"format":"yuitracking-preset","version":1,"name":"a","gazeMode":"camera","values":{"smoothing":"1"}}'])assert.throws(()=>logic.parsed(text),{message:/読み込めません/},text);
+ assert.throws(()=>logic.parsed(sharedFile.replace('"version":1','"version":2')),{message:/新しいバージョン/});
+});
+test('a preset file cannot set an inherited property',()=>{
+ const preset=logic.parsed('{"format":"yuitracking-preset","version":1,"name":"a","gazeMode":"camera","values":{"__proto__":1,"smoothing":1}}');
+ assert.deepEqual(Object.keys(preset.values),['smoothing']);
+ assert.equal(({}).polluted,undefined);
+});
+test('long names are shortened on import',()=>{
+ const preset=logic.parsed(logic.serialized({name:'あ'.repeat(30),gazeMode:'camera',values:{smoothing:1}}));
+ assert.equal(preset.name.length,20);
+});
+test('imported names never collide',()=>{
+ const taken=[{name:'配信'},{name:'配信 (2)'}];
+ assert.equal(logic.uniqueName(taken,'雑談'),'雑談');
+ assert.equal(logic.uniqueName(taken,' 配信'.trim()),'配信 (3)');
+ const long='あ'.repeat(20);
+ assert.equal(logic.uniqueName([{name:long}],long),'あ'.repeat(16)+' (2)');
+});
+test('file names avoid characters Windows refuses',()=>{
+ assert.equal(logic.fileName('配信'),'配信.json');
+ assert.equal(logic.fileName('a/b:c*'),'a_b_c_.json');
+ assert.equal(logic.fileName('...'),'preset.json');
+});
