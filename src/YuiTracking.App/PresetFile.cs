@@ -84,7 +84,7 @@ internal static class PresetFile
     internal static string FileName(string name)
     {
         var safe = new string(name.Select(item => item < ' ' || "<>:\"/\\|?*".Contains(item) ? '_' : item).ToArray()).TrimEnd('.', ' ').TrimStart();
-        return (safe.Length == 0 ? "preset" : safe) + ".json";
+        return safe.Length == 0 ? "yuitracking-preset.json" : $"yuitracking-preset-{safe}.json";
     }
 
     private static string Shortened(string text, int length)

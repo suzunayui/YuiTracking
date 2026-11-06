@@ -82,7 +82,7 @@ test('imported names never collide',()=>{
  assert.equal(logic.uniqueName([{name:long}],long),'あ'.repeat(16)+' (2)');
 });
 test('file names avoid characters Windows refuses',()=>{
- assert.equal(logic.fileName('配信'),'配信.json');
- assert.equal(logic.fileName('a/b:c*'),'a_b_c_.json');
- assert.equal(logic.fileName('...'),'preset.json');
+ assert.equal(logic.fileName('配信'),'yuitracking-preset-配信.json');
+ assert.equal(logic.fileName('a/b:c*'),'yuitracking-preset-a_b_c_.json');
+ assert.equal(logic.fileName('...'),'yuitracking-preset.json');
 });

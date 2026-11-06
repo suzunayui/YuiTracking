@@ -63,4 +63,4 @@ Check(PresetFile.Parsed(PresetFile.Serialized(new MotionPreset(new string('あ',
 var takenNames = new[] { new MotionPreset("配信", "camera", V(1)), new MotionPreset("配信 (2)", "camera", V(1)) };
 Check(PresetFile.UniqueName(takenNames, "雑談") == "雑談" && PresetFile.UniqueName(takenNames, "配信") == "配信 (3)", "imported names never collide");
 Check(PresetFile.UniqueName(new[] { new MotionPreset(new string('あ', 20), "camera", V(1)) }, new string('あ', 20)) == new string('あ', 16) + " (2)", "numbered names still fit the limit");
-Check(PresetFile.FileName("配信") == "配信.json" && PresetFile.FileName("a/b:c*") == "a_b_c_.json" && PresetFile.FileName("...") == "preset.json", "file names avoid characters Windows refuses");
+Check(PresetFile.FileName("配信") == "yuitracking-preset-配信.json" && PresetFile.FileName("a/b:c*") == "yuitracking-preset-a_b_c_.json" && PresetFile.FileName("...") == "yuitracking-preset.json", "file names avoid characters Windows refuses");

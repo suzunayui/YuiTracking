@@ -264,7 +264,7 @@ const assert=require('node:assert/strict');
   assert.equal(await page.locator('#preset-export-list button').count(),1);
   await page.locator('#preset-export-list button[data-name="配信"]').click();
   await statusShown('エクスポートしました');
-  assert.equal(await app.evaluate(()=>globalThis.presetSaveName),'配信.json');
+  assert.equal(await app.evaluate(()=>globalThis.presetSaveName),'yuitracking-preset-配信.json');
   const exported=JSON.parse(await require('node:fs/promises').readFile(path.join(presetFolder,'exported.json'),'utf8'));
   assert.equal(exported.format,'yuitracking-preset');assert.equal(exported.name,'配信');assert.ok(!JSON.stringify(exported).includes('vrm'),'Preset files must not carry model paths');
   await page.locator('#preset-import').click();

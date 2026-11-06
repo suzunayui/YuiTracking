@@ -61,7 +61,7 @@
  }
  function fileName(name){
   const safe=name.replace(/[\u0000-\u001f<>:"/\\|?*]/g,'_').replace(/[. ]+$/,'').trimStart();
-  return (safe||'preset')+'.json';
+  return safe?`yuitracking-preset-${safe}.json`:'yuitracking-preset.json';
  }
  return {MAX_PRESETS,MAX_NAME_LENGTH,MAX_FILE_BYTES,OFF_VALUES,safeDisabled,effective,nameProblem,nextName,added,overwritten,renamed,without,matches,serialized,parsed,uniqueName,fileName};
 });
