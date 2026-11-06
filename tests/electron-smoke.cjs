@@ -13,7 +13,16 @@ const waitForAsync=async(page,check,argument,{timeout=30000}={})=>{const end=Dat
   const packaged=process.argv.includes('--packaged');
   const launch=()=>_electron.launch({executablePath:packaged?path.resolve(__dirname,'../dist/electron/mac-arm64/YuiTracking.app/Contents/MacOS/YuiTracking'):require('../electron/node_modules/electron'),args:[...(packaged?[]:[path.resolve(__dirname,'../electron')]),'--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream','--user-data-dir='+profile],env});
   app=await launch();let page=await app.firstWindow();
-  await page.waitForFunction(()=>document.querySelector('[data-sample=Y]')?.getAttribute('aria-pressed')==='true');
+  // Startup problems on CI are otherwise invisible: keep what the app reported.
+  const startupLog=[];
+  app.process().stderr?.on('data',data=>startupLog.push('stderr: '+String(data).slice(0,300)));
+  page.on('console',message=>{if(['error','warning'].includes(message.type()))startupLog.push('console: '+message.text().slice(0,300));});
+  page.on('pageerror',error=>startupLog.push('pageerror: '+String(error).slice(0,300)));
+  await page.waitForFunction(()=>document.querySelector('[data-sample=Y]')?.getAttribute('aria-pressed')==='true').catch(async error=>{
+   console.log('Startup status:',await page.locator('#status').textContent(),'| model:',await page.locator('#model').textContent());
+   console.log(startupLog.slice(-20).join('\n'));
+   throw error;
+  });
   if(process.argv.includes('--vrm-picker')){
    const model=await app.evaluate(async({app,dialog})=>{
     const fs=process.mainModule.require('node:fs/promises'),path=process.mainModule.require('node:path');
@@ -242,13 +251,20 @@ const waitForAsync=async(page,check,argument,{timeout=30000}={})=>{const end=Dat
   await page.locator('#preset-name-input').fill('雑談');await page.locator('#preset-name-save').click();
   await page.locator('.preset-gear[data-name="雑談"]').click();
   await page.locator('#preset-action-delete').click();
+  await page.locator('#preset-confirm-dialog[open]').waitFor();
+  assert.equal(await page.locator('#preset-confirm-title').textContent(),'「雑談」を削除しますか？');
+  await page.locator('#preset-confirm-cancel').click();
+  assert.equal(await page.locator('.preset-button[data-name="雑談"]').count(),1,'Canceling must keep the preset');
+  await page.locator('.preset-gear[data-name="雑談"]').click();
+  await page.locator('#preset-action-delete').click();
+  await page.locator('#preset-confirm-ok').click();
   await page.waitForFunction(()=>!document.querySelector('.preset-button[data-name="雑談"]'));
   await page.locator('#sideTiltStrength-enabled').uncheck();
   await waitForAsync(page,async()=>(await window.yuiDesktop.getSettings()).disabledSliders?.includes('sideTiltStrength'));
   assert.equal(await page.locator('.preset-button',{hasText:'配信'}).getAttribute('aria-pressed'),'false','Turning a slider off must leave the preset');
   await page.locator('.preset-button',{hasText:'配信'}).click();
   assert.equal(await page.locator('#sideTiltStrength-enabled').isChecked(),true,'Applying a preset restores its checkboxes');
-  await page.locator('.preset-gear[data-name="配信"]').click();await page.locator('#preset-action-overwrite').click();
+  await page.locator('.preset-gear[data-name="配信"]').click();await page.locator('#preset-action-overwrite').click();await page.locator('#preset-confirm-ok').click();
   await waitForAsync(page,async()=>(await window.yuiDesktop.getPresets())[0].handTracking===true);
   await page.locator('#handTracking').uncheck();
   assert.equal(await page.locator('.preset-button',{hasText:'配信'}).getAttribute('aria-pressed'),'false','Turning hands off must leave the preset');
@@ -280,6 +296,7 @@ const waitForAsync=async(page,check,argument,{timeout=30000}={})=>{const end=Dat
   assert.equal((await storedPresets()).length,2,'Importing must add, not replace');
   await page.locator('.preset-gear[data-name="配信 (2)"]').click();
   await page.locator('#preset-action-delete').click();
+  await page.locator('#preset-confirm-ok').click();
   await page.waitForFunction(()=>!document.querySelector('.preset-button[data-name="配信 (2)"]'));
   await require('node:fs/promises').writeFile(path.join(presetFolder,'exported.json'),'not a preset');
   await page.locator('#preset-import').click();

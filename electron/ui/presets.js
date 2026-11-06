@@ -80,10 +80,16 @@
   };
   exporter.showModal();
  }
+ function confirmAction(title,message,action){
+  const confirmDialog=$('preset-confirm-dialog');
+  $('preset-confirm-title').textContent=title;$('preset-confirm-message').textContent=message;$('preset-confirm-ok').textContent=action;
+  confirmDialog.returnValue='';
+  return new Promise(resolve=>{confirmDialog.onclose=()=>resolve(confirmDialog.returnValue==='ok');confirmDialog.showModal();});
+ }
  const presetActions={
-  overwrite:preset=>store(PresetLogic.overwritten(presets,preset.name,$('gazeMode').value,motionValues(),disabledSliders,$('handTracking').checked)),
+  overwrite:async preset=>{if(await confirmAction(`「${preset.name}」を上書きしますか？`,'今の設定に置き換わります。元の設定には戻せません。','上書き'))await store(PresetLogic.overwritten(presets,preset.name,$('gazeMode').value,motionValues(),disabledSliders,$('handTracking').checked));},
   rename:async preset=>{const name=await askName('名前を変更',preset.name,preset.name);if(name)await store(PresetLogic.renamed(presets,preset.name,name));},
-  delete:preset=>store(PresetLogic.without(presets,preset.name))
+  delete:async preset=>{if(await confirmAction(`「${preset.name}」を削除しますか？`,'削除すると元に戻せません。','削除'))await store(PresetLogic.without(presets,preset.name));}
  };
  function showActions(preset){
   $('preset-actions-title').textContent=preset.name;

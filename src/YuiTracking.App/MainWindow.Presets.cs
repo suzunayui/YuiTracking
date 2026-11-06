@@ -96,9 +96,17 @@ public sealed partial class MainWindow
                 button.Click += (_, _) => { chosen = action; dialog.Hide(); };
                 content.Children.Add(button);
             }
-            Add("今の設定で上書き", () => { SavePresets(MotionPresets.Overwritten(presets, preset.Name, SelectedGazeMode, CurrentPresetValues(), disabledSliders.ToList(), HandTracking.IsChecked == true)); return Task.CompletedTask; });
+            Add("今の設定で上書き", async () =>
+            {
+                if (await ConfirmPresetAsync($"「{preset.Name}」を上書きしますか？", "今の設定に置き換わります。元の設定には戻せません。", "上書き"))
+                    SavePresets(MotionPresets.Overwritten(presets, preset.Name, SelectedGazeMode, CurrentPresetValues(), disabledSliders.ToList(), HandTracking.IsChecked == true));
+            });
             Add("名前を変更…", () => RenamePresetAsync(preset));
-            Add("削除", () => { SavePresets(MotionPresets.Without(presets, preset.Name)); return Task.CompletedTask; });
+            Add("削除", async () =>
+            {
+                if (await ConfirmPresetAsync($"「{preset.Name}」を削除しますか？", "削除すると元に戻せません。", "削除"))
+                    SavePresets(MotionPresets.Without(presets, preset.Name));
+            });
             await dialog.ShowAsync();
         }
         finally { presetDialogOpen = false; }
@@ -133,6 +141,23 @@ public sealed partial class MainWindow
         TrackingStatus.Text = text;
         temporaryStatus = text;
         temporaryStatusExpires = Environment.TickCount64 + 3000;
+    }
+
+    private async Task<bool> ConfirmPresetAsync(string title, string message, string action)
+    {
+        if (presetDialogOpen || vrmDialogOpen) return false;
+        presetDialogOpen = true;
+        try
+        {
+            var dialog = new ContentDialog
+            {
+                XamlRoot = Root.XamlRoot, RequestedTheme = ElementTheme.Dark, Title = title,
+                Content = new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, Width = 320 },
+                PrimaryButtonText = action, CloseButtonText = "キャンセル", DefaultButton = ContentDialogButton.Close
+            };
+            return await dialog.ShowAsync() == ContentDialogResult.Primary;
+        }
+        finally { presetDialogOpen = false; }
     }
 
     private async Task ChoosePresetToExportAsync()
