@@ -32,7 +32,6 @@ host.getRecognitionSettings().then(info=>{
  $('recognition-status').textContent='現在の認識設定：'+info.currentName+(info.saved!==info.current?'（保存した設定と異なります）':'');
 }).catch(showError);
 $('save-recognition').onclick=async()=>{try{await host.saveRecognitionSettings($('recognition-device').value);$('recognition-status').textContent='保存しました。アプリを再起動すると反映します。';}catch(error){showError(error);}};
-for(const tab of ['avatar','motion'])$(tab+'-tab').onclick=()=>{for(const name of ['avatar','motion']){$(name+'-tab').setAttribute('aria-selected',name===tab);$(name+'-settings').hidden=name!==tab;}};
 function maximize(value){maximized=value;$('main').classList.toggle('maximized',value);$('maximize').textContent=value?'元に戻す':'最大化';}
 $('maximize').onclick=()=>maximize(!maximized);document.addEventListener('keydown',event=>{if(event.key==='Escape')maximize(false);});
 const held=new Set();let shortcut=null;

@@ -170,7 +170,7 @@ public sealed partial class MainWindow : Window
         MouthSensitivityLabel.Text = $"口の感度：{MouthSensitivity.Value:0.0}倍";
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "Branding", "YuiTracking.ico"));
         var workArea = Microsoft.UI.Windowing.DisplayArea.GetFromWindowId(AppWindow.Id, Microsoft.UI.Windowing.DisplayAreaFallback.Primary).WorkArea;
-        var windowWidth = Math.Min(1560, workArea.Width); var windowHeight = Math.Min(1010, workArea.Height);
+        var windowWidth = Math.Min(1800, workArea.Width); var windowHeight = Math.Min(1010, workArea.Height);
         AppWindow.MoveAndResize(new Windows.Graphics.RectInt32(workArea.X + (workArea.Width - windowWidth) / 2, workArea.Y + (workArea.Height - windowHeight) / 2, windowWidth, windowHeight));
         MainContent.SizeChanged += (_, _) => UpdateSettingsColumnWidth();
         if (VirtualCamera.IsRegistered()) RegisterButton.Visibility = Visibility.Collapsed;
@@ -317,7 +317,7 @@ public sealed partial class MainWindow : Window
     }
     private void UpdateSettingsColumnWidth()
     {
-        const double settingsWidth = 460, singleRowActionsWidth = 470;
+        const double settingsWidth = 300, singleRowActionsWidth = 470;
         SettingsColumn.Width = new GridLength(previewMaximized ? 0 : settingsWidth);
         SetPreviewActionsCompact(!previewMaximized && MainContent.ActualWidth - MainContent.ColumnSpacing - settingsWidth < singleRowActionsWidth);
     }
@@ -594,13 +594,6 @@ public sealed partial class MainWindow : Window
         if (BackwardLeanStrengthLabel != null && BackwardLeanStrength != null) BackwardLeanStrengthLabel.Text = $"反りの強さ：{BackwardLeanStrength.Value:0.0}倍";
         if (BodyStrengthLabel != null && BodyStrength != null) BodyStrengthLabel.Text = $"体の動きの強さ：{BodyStrength.Value:0.0}倍";
         if (SensitivityLabel != null && Sensitivity != null) SensitivityLabel.Text = $"顔の動きの強さ：{Sensitivity.Value:0.0}倍";
-    }
-    private void SettingsTab_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is not Microsoft.UI.Xaml.Controls.Primitives.ToggleButton button || button.Tag is not string tab) return;
-        AvatarTab.IsChecked = tab == "avatar"; MotionTab.IsChecked = tab == "motion";
-        AvatarSettings.Visibility = tab == "avatar" ? Visibility.Visible : Visibility.Collapsed;
-        MotionSettings.Visibility = tab == "motion" ? Visibility.Visible : Visibility.Collapsed;
     }
     private void Settings_Changed(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
     { UpdateMotionLabels(); SendSettings(); }

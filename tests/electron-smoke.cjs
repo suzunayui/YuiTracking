@@ -34,7 +34,6 @@ const assert=require('node:assert/strict');
    console.log('PASS VRM dialog current folder, last custom folder after sample selection, and cancellation');
   }
   if(process.argv.includes('--gpu-recognition')){
-   await page.locator('#avatar-tab').click();
    await page.waitForFunction(()=>document.querySelector('#recognition-device option[value=GPU]'));
    const before=await page.evaluate(()=>window.yuiDesktop.getRecognitionSettings());assert.equal(before.current,'CPU');
    await page.locator('#recognition-device').selectOption('GPU');await page.locator('#save-recognition').click();
@@ -46,7 +45,6 @@ const assert=require('node:assert/strict');
   }
   assert.equal(await app.evaluate(async({session})=>(await session.defaultSession.fetch('https://example.invalid/yuitracking-network-check')).status),403,'External worker/session network requests must remain blocked');
   assert.equal(await page.evaluate(()=>document.querySelector('#tracking').textContent),'カメラを開始');
-  await page.locator('#motion-tab').click();
   assert.equal(await page.locator('#sensitivity').isDisabled(),false);
   await page.locator('#sensitivity').fill('4');
   await page.waitForFunction(async()=>(await window.yuiDesktop.getSettings()).sensitivity===4);
@@ -164,7 +162,7 @@ const assert=require('node:assert/strict');
   await page.waitForFunction(()=>document.querySelector('#tracking').textContent==='カメラを開始');
   if(await page.locator('#privacy').getAttribute('aria-pressed')!=='true')await page.locator('#privacy').click();
   if(process.platform==='darwin'){
-   await page.locator('#avatar-tab').click();await page.locator('#syphon').click();
+   await page.locator('#syphon').click();
    await page.waitForFunction(()=>document.querySelector('#output-status').textContent.includes('送信中'));
    await app.evaluate(({app})=>{const {TextureReceiver}=process.mainModule.require(app.getAppPath()+'/node_modules/@napolab/texture-bridge-core');globalThis.syphonReceiver=new TextureReceiver('YuiTracking');});
    const waitPixel=async expected=>{
@@ -180,11 +178,10 @@ const assert=require('node:assert/strict');
     await page.locator('#privacy').click();
     for(let attempt=0;attempt<100;attempt++){const alpha=await app.evaluate(()=>globalThis.syphonReceiver.receiveFrame()?.data[3]);if(alpha===0)break;if(attempt===99)throw new Error('Transparent Syphon frame not received');await page.waitForTimeout(50);}
     await page.locator('#privacy').click();await waitPixel([23,27,46]);
-    await page.locator('#avatar-tab').click();await page.locator('#syphon').click();
+    await page.locator('#syphon').click();
     console.log('PASS native Syphon receiver: avatar-only 720p, transparent output, emergency standby, stop');
    }finally{await app.evaluate(()=>globalThis.syphonReceiver.stop());}
   }
-  await page.locator('#avatar-tab').click();
   await page.locator('[data-sample=Z]').click();
   await page.waitForFunction(()=>document.querySelector('[data-sample=Z]').getAttribute('aria-pressed')==='true',null,{timeout:60000});
   assert.equal(await page.locator('#chestSpringStrength').isDisabled(),true,'Model without authored chest springs must not offer chest adjustment');
