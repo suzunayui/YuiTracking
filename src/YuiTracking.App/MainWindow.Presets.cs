@@ -35,7 +35,7 @@ public sealed partial class MainWindow
     private void UpdatePresetSelection()
     {
         var values = CurrentPresetValues();
-        foreach (var (button, preset) in presetButtons) button.IsChecked = MotionPresets.Matches(preset, SelectedGazeMode, values);
+        foreach (var (button, preset) in presetButtons) button.IsChecked = MotionPresets.Matches(preset, SelectedGazeMode, values, disabledSliders);
     }
 
     private void RebuildPresetButtons()
@@ -49,7 +49,7 @@ public sealed partial class MainWindow
             ToolTipService.SetToolTip(button, "押すとこの動きの調整に切り替えます。\n右クリックで上書き・名前変更・削除ができます。");
             button.Click += (_, _) => ApplyPreset(preset);
             var menu = new MenuFlyout();
-            menu.Items.Add(PresetMenuItem("今の設定で上書き", () => { SavePresets(MotionPresets.Overwritten(presets, preset.Name, SelectedGazeMode, CurrentPresetValues())); return Task.CompletedTask; }));
+            menu.Items.Add(PresetMenuItem("今の設定で上書き", () => { SavePresets(MotionPresets.Overwritten(presets, preset.Name, SelectedGazeMode, CurrentPresetValues(), disabledSliders.ToList())); return Task.CompletedTask; }));
             menu.Items.Add(PresetMenuItem("名前を変更…", () => RenamePresetAsync(preset)));
             menu.Items.Add(new MenuFlyoutSeparator());
             menu.Items.Add(PresetMenuItem("削除", () => { SavePresets(MotionPresets.Without(presets, preset.Name)); return Task.CompletedTask; }));
@@ -84,7 +84,7 @@ public sealed partial class MainWindow
             if (presetSliders.TryGetValue(key, out var slider)) slider.Value = Math.Clamp(value, slider.Minimum, slider.Maximum);
         foreach (var item in GazeMode.Items)
             if (item is ComboBoxItem { Tag: string tag } choice && tag == preset.GazeMode) GazeMode.SelectedItem = choice;
-        UpdatePresetSelection();
+        SetDisabledSliders(preset.Disabled ?? new List<string>());
     }
 
     private void SavePresets(IReadOnlyList<MotionPreset> updated)
@@ -97,7 +97,7 @@ public sealed partial class MainWindow
     private async Task AddPresetAsync()
     {
         var name = await AskPresetNameAsync("プリセットを保存", MotionPresets.NextName(presets), null);
-        if (name != null) SavePresets(MotionPresets.Added(presets, new MotionPreset(name, SelectedGazeMode, CurrentPresetValues())));
+        if (name != null) SavePresets(MotionPresets.Added(presets, new MotionPreset(name, SelectedGazeMode, CurrentPresetValues(), disabledSliders.ToList())));
     }
 
     private async Task RenamePresetAsync(MotionPreset preset)

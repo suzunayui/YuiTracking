@@ -13,7 +13,7 @@ self.onmessage=async({data})=>{
    self.postMessage({type:'ready',delegate:backend.delegate,renderer:backend.renderer});
   }else if(data.type==='frame'){
    const started=performance.now();
-   const result={type:'result',time:data.time,generation:data.generation,face:face.detectForVideo(data.bitmap,data.time),hands:hands.detectForVideo(data.bitmap,data.time)};
+   const result={type:'result',time:data.time,generation:data.generation,face:face.detectForVideo(data.bitmap,data.time),hands:data.detectHands===false?{landmarks:[],worldLandmarks:[],handedness:[]}:hands.detectForVideo(data.bitmap,data.time)};
    if(data.time-lastPose>=95){lastPose=data.time;result.pose=pose.detectForVideo(data.bitmap,data.time);}
    result.duration=performance.now()-started;self.postMessage(result);
   }

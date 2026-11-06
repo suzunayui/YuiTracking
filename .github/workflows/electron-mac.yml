@@ -23,6 +23,8 @@ jobs:
         working-directory: electron
       - run: npm test
         working-directory: electron
+        env:
+          YUI_SMOKE_SCREENSHOTS: ${{ runner.temp }}
       - run: npm run package:mac
         working-directory: electron
         env:

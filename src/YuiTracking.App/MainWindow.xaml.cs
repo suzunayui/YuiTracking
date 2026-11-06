@@ -175,6 +175,8 @@ public sealed partial class MainWindow : Window
         catch (Exception ex) { App.Log(ex.Message); }
         MouthStrengthLabel.Text = $"口の開き具合：{MouthStrength.Value:0.0}倍";
         MouthSensitivityLabel.Text = $"口の感度：{MouthSensitivity.Value:0.0}倍";
+        try { HandTracking.IsChecked = AppSettings.HandTrackingEnabled; } catch (Exception ex) { App.Log(ex.Message); }
+        ShowHandStatus(null);
         InitializePresets();
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "Branding", "YuiTracking.ico"));
         var workArea = Microsoft.UI.Windowing.DisplayArea.GetFromWindowId(AppWindow.Id, Microsoft.UI.Windowing.DisplayAreaFallback.Primary).WorkArea;
@@ -503,7 +505,7 @@ public sealed partial class MainWindow : Window
                 case "error": TrackingStatus.Text = root.GetProperty("text").GetString(); App.Log(TrackingStatus.Text ?? "Renderer error"); break;
                 case "tracking":
                     cameraStarting = false; tracking = root.GetProperty("active").GetBoolean(); UpdateTrackingPowerPolicy();
-                    HandDetectionStatus.Text = tracking ? "手：認識を準備中…" : "手：カメラ停止中";
+                    ShowHandStatus(null);
                     TrackButton.Content = tracking ? "カメラを停止" : "カメラを開始";
                     SetCameraButtonColor(tracking);
                     ToolTipService.SetToolTip(TrackButton, tracking
@@ -521,7 +523,7 @@ public sealed partial class MainWindow : Window
                     break;
                 case "handDetection":
                     if (root.TryGetProperty("count", out var count) && count.TryGetInt32(out var handCount) && handCount >= 0 && handCount <= 2)
-                        HandDetectionStatus.Text = handCount == 0 ? "手：未検出" : $"手：{handCount}つ検出";
+                        ShowHandStatus(handCount == 0 ? "手：未検出" : $"手：{handCount}つ検出");
                     break;
                 case "cameraListWarning":
                     App.Log(root.GetProperty("text").GetString() ?? "Camera list warning");
@@ -644,7 +646,7 @@ public sealed partial class MainWindow : Window
     private void SendSettings()
     {
         if (!ready) return;
-        Send(new { type = "settings", farZoomStrength = FarZoomStrength.Value, nearZoomStrength = NearZoomStrength.Value, zoomCenterX = ZoomCenterX.Value, zoomCenterY = ZoomCenterY.Value, gazeMode = SelectedGazeMode, gazeStrength = GazeStrength.Value, gazeRange = GazeRange.Value, smoothing = Smoothness.Value, sensitivity = Sensitivity.Value, bodyStrength = BodyStrength.Value, forwardLeanStrength = ForwardLeanStrength.Value, backwardLeanStrength = BackwardLeanStrength.Value, sideTiltStrength = SideTiltStrength.Value, mouthOpenStrength = MouthStrength.Value, mouthSensitivity = MouthSensitivity.Value, springStrength = SpringStrength.Value, chestSpringStrength = ChestSpringStrength.Value });
+        Send(new { type = "settings", farZoomStrength = Effective(FarZoomStrength), nearZoomStrength = Effective(NearZoomStrength), zoomCenterX = Effective(ZoomCenterX), zoomCenterY = Effective(ZoomCenterY), handTracking = HandTracking.IsChecked == true, gazeMode = SelectedGazeMode, gazeStrength = Effective(GazeStrength), gazeRange = Effective(GazeRange), smoothing = Effective(Smoothness), sensitivity = Effective(Sensitivity), bodyStrength = Effective(BodyStrength), forwardLeanStrength = Effective(ForwardLeanStrength), backwardLeanStrength = Effective(BackwardLeanStrength), sideTiltStrength = Effective(SideTiltStrength), mouthOpenStrength = Effective(MouthStrength), mouthSensitivity = Effective(MouthSensitivity), springStrength = Effective(SpringStrength), chestSpringStrength = Effective(ChestSpringStrength) });
     }
     private void Privacy_Click(object sender, RoutedEventArgs e)
     {

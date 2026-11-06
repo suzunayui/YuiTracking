@@ -42,3 +42,9 @@ Check(MotionPresets.Without(list, "配信").Count == 0, "delete removes the pres
 var saved = System.Text.Json.JsonSerializer.Serialize(list);
 var loaded = System.Text.Json.JsonSerializer.Deserialize<List<MotionPreset>>(saved)!;
 Check(loaded[0].Name == "配信" && loaded[0].GazeMode == "camera" && loaded[0].Values["b"] == 2, "presets survive saving and loading");
+var withOff = new MotionPreset("x", "camera", V(1), new List<string> { "b" });
+Check(MotionPresets.Matches(withOff, "camera", V(1), new[] { "b" }) && !MotionPresets.Matches(withOff, "camera", V(1)) && !MotionPresets.Matches(withOff, "camera", V(1), new[] { "a" }), "match includes which sliders are off");
+Check(MotionPresets.Matches(new MotionPreset("old", "camera", V(1)), "camera", V(1)), "an older preset without the list means all on");
+Check(MotionPresets.Overwritten(new[] { withOff }, "x", "camera", V(1), new List<string> { "a" })[0].Disabled![0] == "a", "overwrite saves which sliders are off");
+var offLoaded = System.Text.Json.JsonSerializer.Deserialize<MotionPreset>(System.Text.Json.JsonSerializer.Serialize(withOff))!;
+Check(offLoaded.Disabled![0] == "b", "the off list survives saving and loading");

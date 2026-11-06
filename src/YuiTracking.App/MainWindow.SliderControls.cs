@@ -8,28 +8,59 @@ namespace YuiTracking;
 
 public sealed partial class MainWindow
 {
+    private HashSet<string> disabledSliders = new();
+    private readonly Dictionary<string, (string Key, double Off)> sliderOffValues = new();
+    private readonly Dictionary<string, Action<bool>> sliderEnabledViews = new();
+
+    // What the renderer receives: a disabled slider sends its neutral value and keeps its own.
+    private double Effective(Slider slider) =>
+        sliderOffValues.TryGetValue(slider.Name, out var item) && disabledSliders.Contains(item.Key) ? item.Off : slider.Value;
+
+    private void SetDisabledSliders(IEnumerable<string> keys)
+    {
+        disabledSliders = keys.Where(sliderEnabledViews.ContainsKey).ToHashSet();
+        foreach (var (key, show) in sliderEnabledViews) show(!disabledSliders.Contains(key));
+        try { AppSettings.SaveDisabledSliders(disabledSliders); } catch (Exception ex) { App.Log(ex.Message); }
+        SendSettings();
+        UpdatePresetSelection();
+    }
+
+    private void HandTracking_Click(object sender, RoutedEventArgs e)
+    {
+        try { AppSettings.SaveHandTracking(HandTracking.IsChecked == true); } catch (Exception ex) { App.Log(ex.Message); }
+        SendSettings();
+        ShowHandStatus(null);
+    }
+
+    private void ShowHandStatus(string? text)
+    {
+        if (HandTracking.IsChecked != true) HandDetectionStatus.Text = "手：オフ";
+        else HandDetectionStatus.Text = text ?? (tracking ? "手：認識を準備中…" : "手：カメラ停止中");
+    }
+
     // Call before saved settings load, so each slider's XAML value becomes its reset value.
     private void AddSliderControls()
     {
-        AddSliderControls(GazeStrengthLabel, GazeStrength);
-        AddSliderControls(GazeRangeLabel, GazeRange);
-        AddSliderControls(SmoothnessLabel, Smoothness, scale: 100, digits: 0);
-        AddSliderControls(SensitivityLabel, Sensitivity);
-        AddSliderControls(MouthStrengthLabel, MouthStrength);
-        AddSliderControls(MouthSensitivityLabel, MouthSensitivity);
-        AddSliderControls(SpringStrengthLabel, SpringStrength);
-        AddSliderControls(ChestSpringStrengthLabel, ChestSpringStrength);
-        AddSliderControls(BodyStrengthLabel, BodyStrength);
-        AddSliderControls(ForwardLeanStrengthLabel, ForwardLeanStrength);
-        AddSliderControls(BackwardLeanStrengthLabel, BackwardLeanStrength);
-        AddSliderControls(SideTiltStrengthLabel, SideTiltStrength);
-        AddSliderControls(NearZoomStrengthLabel, NearZoomStrength);
-        AddSliderControls(FarZoomStrengthLabel, FarZoomStrength);
-        AddSliderControls(ZoomCenterXLabel, ZoomCenterX, step: 1);
-        AddSliderControls(ZoomCenterYLabel, ZoomCenterY, step: 1);
+        try { disabledSliders = AppSettings.DisabledSliders.ToHashSet(); } catch (Exception ex) { App.Log(ex.Message); }
+        AddSliderControls(GazeStrengthLabel, GazeStrength, "gazeStrength", 1);
+        AddSliderControls(GazeRangeLabel, GazeRange, "gazeRange", 1);
+        AddSliderControls(SmoothnessLabel, Smoothness, "smoothing", 0, scale: 100, digits: 0);
+        AddSliderControls(SensitivityLabel, Sensitivity, "sensitivity", 1);
+        AddSliderControls(MouthStrengthLabel, MouthStrength, "mouthOpenStrength", 1);
+        AddSliderControls(MouthSensitivityLabel, MouthSensitivity, "mouthSensitivity", 1);
+        AddSliderControls(SpringStrengthLabel, SpringStrength, "springStrength", 1);
+        AddSliderControls(ChestSpringStrengthLabel, ChestSpringStrength, "chestSpringStrength", 1);
+        AddSliderControls(BodyStrengthLabel, BodyStrength, "bodyStrength", 0);
+        AddSliderControls(ForwardLeanStrengthLabel, ForwardLeanStrength, "forwardLeanStrength", 0);
+        AddSliderControls(BackwardLeanStrengthLabel, BackwardLeanStrength, "backwardLeanStrength", 0);
+        AddSliderControls(SideTiltStrengthLabel, SideTiltStrength, "sideTiltStrength", 0);
+        AddSliderControls(NearZoomStrengthLabel, NearZoomStrength, "nearZoomStrength", 0);
+        AddSliderControls(FarZoomStrengthLabel, FarZoomStrength, "farZoomStrength", 0);
+        AddSliderControls(ZoomCenterXLabel, ZoomCenterX, "zoomCenterX", 0, step: 1);
+        AddSliderControls(ZoomCenterYLabel, ZoomCenterY, "zoomCenterY", 0, step: 1);
     }
 
-    private void AddSliderControls(TextBlock label, Slider slider, double scale = 1, int digits = 1, double? step = null)
+    private void AddSliderControls(TextBlock label, Slider slider, string key, double offValue, double scale = 1, int digits = 1, double? step = null)
     {
         static int IndexOfName(StackPanel owner, string name)
         {
@@ -93,12 +124,18 @@ public sealed partial class MainWindow
         slider.RegisterPropertyChangedCallback(Control.IsEnabledProperty, (_, _) => SyncEnabled());
         SyncEnabled();
 
+        var enabled = new CheckBox { MinWidth = 0, Width = 22, MinHeight = 0, Height = 24, Padding = new Thickness(0), VerticalAlignment = VerticalAlignment.Center, IsChecked = !disabledSliders.Contains(key) };
+        AutomationProperties.SetName(enabled, name + "を使う");
+        ToolTipService.SetToolTip(enabled, "外すとこの機能を止めます。値は覚えていて、入れ直すと戻ります。");
         var head = new Grid { ColumnSpacing = 6 };
+        head.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         head.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         head.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         label.VerticalAlignment = VerticalAlignment.Center;
+        head.Children.Add(enabled);
+        Grid.SetColumn(label, 1);
         head.Children.Add(label);
-        Grid.SetColumn(reset, 1);
+        Grid.SetColumn(reset, 2);
         head.Children.Add(reset);
 
         var row = new Grid { ColumnSpacing = 4 };
@@ -115,6 +152,16 @@ public sealed partial class MainWindow
         Grid.SetColumn(box, 3);
         row.Children.Add(box);
 
+        void ShowEnabled(bool on) { enabled.IsChecked = on; row.Opacity = reset.Opacity = on ? 1 : .4; row.IsHitTestVisible = reset.IsHitTestVisible = on; }
+        sliderOffValues[slider.Name] = (key, offValue);
+        sliderEnabledViews[key] = ShowEnabled;
+        ShowEnabled(!disabledSliders.Contains(key));
+        enabled.Click += (_, _) =>
+        {
+            var next = new HashSet<string>(disabledSliders);
+            if (enabled.IsChecked == true) next.Remove(key); else next.Add(key);
+            SetDisabledSliders(next);
+        };
         panel.Children.Insert(index, head);
         panel.Children.Insert(index + 1, row);
     }

@@ -155,6 +155,8 @@
         <TextBlock x:Name="SideTiltStrengthLabel" Text="左右の傾き：1.0倍" Foreground="#9DA7C0" FontSize="12" TextTrimming="CharacterEllipsis"/>
         <Slider x:Name="SideTiltStrength" Minimum="0" Maximum="5" Value="1" StepFrequency="0.1" ToolTipService.ToolTip="体を左右に倒したときの傾きを調整します。&#10;1倍：肩の傾きと同じ／0：オフ。&#10;まっすぐ座った状態でキャリブレーションしてください。" ValueChanged="FaceSensitivity_Changed"/>
        </StackPanel>
+       <TextBlock Text="手" FontSize="13" FontWeight="SemiBold" Margin="0,12,0,0"/>
+       <CheckBox x:Name="HandTracking" Content="手をトラッキングする" FontSize="12" IsChecked="True" Click="HandTracking_Click" ToolTipService.ToolTip="オフにすると手の認識を止めて、腕を下ろした姿勢にします。&#10;手を動かさないときは、認識の負荷も減ります。"/>
        <TextBlock Text="ズーム" FontSize="13" FontWeight="SemiBold" Margin="0,12,0,0"/>
        <StackPanel Background="Transparent" ToolTipService.ToolTip="カメラに近づいたときにアバターを大きくする強さです。&#10;0：オフ／大きいほど少ない移動で変化。顔を中心に拡大します。&#10;普段の距離でキャリブレーションしてください。">
         <TextBlock x:Name="NearZoomStrengthLabel" Text="近距離による拡大：オフ" Foreground="#9DA7C0" FontSize="12" TextTrimming="CharacterEllipsis"/>

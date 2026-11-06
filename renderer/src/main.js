@@ -139,7 +139,7 @@ const key=new THREE.DirectionalLight(0xffffff,Math.PI*.85); key.position.set(1,3
 let vrm=null,demo=null,head=null,eyes=[],arms={},privacy=false,output=false;
 const bodyFromHead=true,bodyLeanEnabled=true;
 let springStrength=1,chestSpringStrength=1,springControl=null;
-let smoothing=.65,sensitivity=1,bodyStrength=1,forwardLeanStrength=1,backwardLeanStrength=1,sideTiltStrength=1,mouthOpenStrength=1,mouthSensitivity=1.8,tracking=false,video,stream,initializing=false;
+let smoothing=.65,sensitivity=1,bodyStrength=1,forwardLeanStrength=1,backwardLeanStrength=1,sideTiltStrength=1,handTracking=true,mouthOpenStrength=1,mouthSensitivity=1.8,tracking=false,video,stream,initializing=false;
 let latestFace=null,latestHands=null,frameNumber=0,lastVideoTime=-1,lastDetect=0,lastRender=0;
 let calibration=new THREE.Quaternion(),rawHead=new THREE.Quaternion(),haveFace=false;
 let blinkBaseline={left:0,right:0};
@@ -348,7 +348,7 @@ function detect(now){
  const generation=trackingGeneration;
  createImageBitmap(video).then(bitmap=>{
   if(!tracking||generation!==trackingGeneration||!trackingWorker){bitmap.close();if(generation===trackingGeneration)workerBusy=false;return;}
-  trackingWorker.postMessage({type:'frame',bitmap,time:now,generation},[bitmap]);
+  trackingWorker.postMessage({type:'frame',bitmap,time:now,generation,detectHands:handTracking},[bitmap]);
  }).catch(e=>{if(generation!==trackingGeneration)return;workerBusy=false;stopTracking();post('error',{text:'認識を停止しました：'+e.message});});
 }
 function calibrateFace(automatic=false){
@@ -650,6 +650,7 @@ host?.addEventListener('message',async e=>{
    if(Number.isFinite(m.gazeStrength))gazeStrength=clamp(m.gazeStrength,0,3);
    if(Number.isFinite(m.forwardLeanStrength))forwardLeanStrength=clamp(m.forwardLeanStrength,0,3);
    if(Number.isFinite(m.sideTiltStrength))sideTiltStrength=clamp(m.sideTiltStrength,0,5);
+   if(typeof m.handTracking==='boolean'){handTracking=m.handTracking;if(!handTracking)latestHands=null;}
    if(Number.isFinite(m.backwardLeanStrength))backwardLeanStrength=clamp(m.backwardLeanStrength,0,3);
    if(Number.isFinite(m.bodyStrength))bodyStrength=clamp(m.bodyStrength,0,20);
    if(Number.isFinite(m.sensitivity))sensitivity=clamp(m.sensitivity,.3,5);

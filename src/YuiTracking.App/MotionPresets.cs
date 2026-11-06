@@ -1,6 +1,6 @@
 namespace YuiTracking;
 
-internal record MotionPreset(string Name, string GazeMode, Dictionary<string, double> Values);
+internal record MotionPreset(string Name, string GazeMode, Dictionary<string, double> Values, List<string>? Disabled = null);
 
 internal static class MotionPresets
 {
@@ -31,8 +31,8 @@ internal static class MotionPresets
     internal static IReadOnlyList<MotionPreset> Added(IEnumerable<MotionPreset> presets, MotionPreset preset) =>
         presets.Append(preset with { Name = preset.Name.Trim() }).Take(MaximumPresets).ToList();
 
-    internal static IReadOnlyList<MotionPreset> Overwritten(IEnumerable<MotionPreset> presets, string name, string gazeMode, Dictionary<string, double> values) =>
-        presets.Select(preset => SameName(preset.Name, name) ? preset with { GazeMode = gazeMode, Values = values } : preset).ToList();
+    internal static IReadOnlyList<MotionPreset> Overwritten(IEnumerable<MotionPreset> presets, string name, string gazeMode, Dictionary<string, double> values, List<string>? disabled = null) =>
+        presets.Select(preset => SameName(preset.Name, name) ? preset with { GazeMode = gazeMode, Values = values, Disabled = disabled } : preset).ToList();
 
     internal static IReadOnlyList<MotionPreset> Renamed(IEnumerable<MotionPreset> presets, string name, string newName) =>
         presets.Select(preset => SameName(preset.Name, name) ? preset with { Name = newName.Trim() } : preset).ToList();
@@ -41,6 +41,7 @@ internal static class MotionPresets
         presets.Where(preset => !SameName(preset.Name, name)).ToList();
 
     // Keys added in a later version are not part of an older preset, so only saved values are compared.
-    internal static bool Matches(MotionPreset preset, string gazeMode, IReadOnlyDictionary<string, double> current) =>
-        preset.GazeMode == gazeMode && preset.Values.All(item => current.TryGetValue(item.Key, out var value) && Math.Abs(value - item.Value) <= Tolerance);
+    internal static bool Matches(MotionPreset preset, string gazeMode, IReadOnlyDictionary<string, double> current, IEnumerable<string>? disabled = null) =>
+        preset.GazeMode == gazeMode && preset.Values.All(item => current.TryGetValue(item.Key, out var value) && Math.Abs(value - item.Value) <= Tolerance)
+        && (preset.Disabled ?? new List<string>()).ToHashSet().SetEquals(disabled ?? Array.Empty<string>());
 }

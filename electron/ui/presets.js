@@ -2,18 +2,19 @@
 (()=>{
  let presets=[],menuPreset=null;
  const bar=$('preset-bar'),menu=$('preset-menu'),dialog=$('preset-name-dialog'),input=$('preset-name-input'),problem=$('preset-name-problem'),save=$('preset-name-save');
- const motionValues=()=>{const {gazeMode,...rest}=values();return rest;};
+ const motionValues=()=>{const {gazeMode,handTracking,disabledSliders:off,...rest}=values();return rest;};
  function refresh(){
   const current=motionValues(),gazeMode=$('gazeMode').value;
   for(const button of bar.querySelectorAll('.preset-button')){
    const preset=presets.find(item=>item.name===button.dataset.name);
-   button.setAttribute('aria-pressed',!!preset&&PresetLogic.matches(preset,gazeMode,current));
+   button.setAttribute('aria-pressed',!!preset&&PresetLogic.matches(preset,gazeMode,current,disabledSliders));
   }
  }
  window.refreshPresetSelection=refresh;
  function applyPreset(preset){
   for(const [key,value] of Object.entries(preset.values))if(keys.includes(key))$(key).value=value;
   if([...$('gazeMode').options].some(option=>option.value===preset.gazeMode))$('gazeMode').value=preset.gazeMode;
+  setDisabledSliders(preset.disabled);
   apply();
  }
  function render(){
@@ -47,7 +48,7 @@
  }
  async function addPreset(){
   const name=await askName('プリセットを保存',PresetLogic.nextName(presets),null);
-  if(name)await store(PresetLogic.added(presets,{name,gazeMode:$('gazeMode').value,values:motionValues()}));
+  if(name)await store(PresetLogic.added(presets,{name,gazeMode:$('gazeMode').value,values:motionValues(),disabled:disabledSliders}));
  }
  function showMenu(x,y,preset){
   menuPreset=preset;menu.hidden=false;
@@ -56,7 +57,7 @@
  }
  function hideMenu(){menu.hidden=true;}
  const fromMenu=action=>()=>{const preset=menuPreset;hideMenu();if(preset)action(preset).catch(showError);};
- $('preset-menu-overwrite').onclick=fromMenu(preset=>store(PresetLogic.overwritten(presets,preset.name,$('gazeMode').value,motionValues())));
+ $('preset-menu-overwrite').onclick=fromMenu(preset=>store(PresetLogic.overwritten(presets,preset.name,$('gazeMode').value,motionValues(),disabledSliders)));
  $('preset-menu-rename').onclick=fromMenu(async preset=>{const name=await askName('名前を変更',preset.name,preset.name);if(name)await store(PresetLogic.renamed(presets,preset.name,name));});
  $('preset-menu-delete').onclick=fromMenu(preset=>store(PresetLogic.without(presets,preset.name)));
  document.addEventListener('click',event=>{if(!menu.hidden&&!menu.contains(event.target))hideMenu();});

@@ -13,7 +13,8 @@ new MutationObserver(()=>{$('status').hidden=['VRMを表示中','内蔵サンプ
 function setStatus(text,temporary=false){clearTimeout(statusTimer);const revision=++statusRevision;$('status').textContent=text;if(temporary)statusTimer=setTimeout(()=>{if(statusRevision===revision)$('status').textContent=active?'トラッキング中':'VRMを表示中';},3000);}
 function showError(error){setStatus(error.message||String(error));}
 function send(type,rest={}){host.command({type,...rest});}
-function values(){return {...Object.fromEntries(keys.map(key=>[key,Number($(key).value)])),gazeMode:$('gazeMode').value};}
+let disabledSliders=[];
+function values(){return {...Object.fromEntries(keys.map(key=>[key,Number($(key).value)])),gazeMode:$('gazeMode').value,handTracking:$('handTracking').checked,disabledSliders};}
 function labels(){
  if(typeof sliderSync!=='undefined')for(const sync of sliderSync)sync();
  window.refreshPresetSelection?.();
@@ -26,8 +27,10 @@ function labels(){
   }else $(key+'-value').textContent=['nearZoomStrength','farZoomStrength','sideTiltStrength'].includes(key)&&value===0?'オフ':key==='smoothing'?Math.round(value*100)+'%':value.toFixed(1)+'倍';
  }
 }
-function apply(){labels();send('settings',values());clearTimeout(timer);timer=setTimeout(()=>host.saveSettings(values()).catch(showError),200);}
-const sliderSync=keys.map(key=>addSliderControls($(key),key==='smoothing'?100:1,apply));
+function setDisabledSliders(value){disabledSliders=PresetLogic.safeDisabled(value);for(const key of keys)$(key).closest('.slider-control').classList.toggle('slider-off',disabledSliders.includes(key));for(const key of keys)$(key+'-enabled').checked=!disabledSliders.includes(key);}
+function apply(){labels();const {disabledSliders:off,...current}=values();send('settings',PresetLogic.effective(current,off));clearTimeout(timer);timer=setTimeout(()=>host.saveSettings(values()).catch(showError),200);}
+const sliderSync=keys.map(key=>addSliderControls($(key),key==='smoothing'?100:1,apply,on=>{setDisabledSliders(on?disabledSliders.filter(item=>item!==key):[...disabledSliders,key]);apply();}));
+$('handTracking').addEventListener('change',apply);
 for(const key of keys)$(key).addEventListener('input',apply);
 $('gazeMode').addEventListener('change',apply);
 host.getRecognitionSettings().then(info=>{
@@ -68,7 +71,7 @@ host.onEvent(message=>{
  if(message.type==='avatar'){$('model').textContent=message.label;for(const button of document.querySelectorAll('[data-sample]'))button.setAttribute('aria-pressed',button.dataset.sample===message.sample);}
  if(message.type==='togglePreviewMaximized')maximize(!maximized);if(message.type==='restorePreview')maximize(false);
 });
-host.getSettings().then(saved=>{if(['tracking','camera','fixed'].includes(saved.gazeMode))$('gazeMode').value=saved.gazeMode;for(const key of keys)if(Number.isFinite(saved[key]))$(key).value=saved[key];labels();}).catch(showError);
+host.getSettings().then(saved=>{if(['tracking','camera','fixed'].includes(saved.gazeMode))$('gazeMode').value=saved.gazeMode;for(const key of keys)if(Number.isFinite(saved[key]))$(key).value=saved[key];if(typeof saved.handTracking==='boolean')$('handTracking').checked=saved.handTracking;setDisabledSliders(saved.disabledSliders);labels();}).catch(showError);
 async function updateCameraPermission(){const info=await host.info();document.title='YuiTracking '+info.version;
  const names={granted:'許可済み','not-determined':'未確認（開始時に確認）',denied:'拒否されています。システム設定 → プライバシーとセキュリティ → カメラで許可し、アプリを再起動してください。',restricted:'macOS側で使用が制限されています。',unknown:'状態を確認できません。'};
  $('camera-permission').textContent=info.platform==='darwin'?'カメラ権限：'+(names[info.cameraPermission]||'不明'):'';

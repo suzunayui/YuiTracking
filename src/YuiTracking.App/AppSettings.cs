@@ -19,6 +19,16 @@ internal static class AppSettings
         ? JsonNode.Parse(File.ReadAllText(FilePath)) as JsonObject ?? throw new InvalidDataException("設定ファイルはJSONオブジェクトで指定してください。")
         : new JsonObject();
 
+    public static IReadOnlyList<string> DisabledSliders => Read()["disabledSliders"]?.Deserialize<List<string>>() ?? new List<string>();
+    public static void SaveDisabledSliders(IEnumerable<string> keys)
+    {
+        var settings = Read(); settings["disabledSliders"] = JsonSerializer.SerializeToNode(keys.ToList()); Save(settings);
+    }
+    public static bool HandTrackingEnabled => Read()["handTracking"]?.GetValue<bool>() ?? true;
+    public static void SaveHandTracking(bool enabled)
+    {
+        var settings = Read(); settings["handTracking"] = enabled; Save(settings);
+    }
     public static IReadOnlyList<MotionPreset> MotionPresets => Read()["motionPresets"]?.Deserialize<List<MotionPreset>>() ?? new List<MotionPreset>();
     public static void SaveMotionPresets(IReadOnlyList<MotionPreset> presets)
     {

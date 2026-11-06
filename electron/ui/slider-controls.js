@@ -1,6 +1,6 @@
 'use strict';
 // Adds minus, plus, numeric entry and reset controls around a range input.
-function addSliderControls(input,scale,onChange){
+function addSliderControls(input,scale,onChange,onToggle){
  const label=input.closest('label');
  const element=(tag,className,text)=>{const item=document.createElement(tag);if(className)item.className=className;if(text)item.textContent=text;return item;};
  const min=Number(input.min),max=Number(input.max),step=Number(input.step),resetValue=Number(input.defaultValue);
@@ -16,7 +16,10 @@ function addSliderControls(input,scale,onChange){
  while(label.firstChild&&label.firstChild!==input)text.appendChild(label.firstChild);
  const reset=stepButton('↺',`${name}を初期値（${Number((resetValue*scale).toFixed(1))}）に戻す`,0);
  reset.onclick=()=>set(resetValue);
- head.append(text,reset);
+ const enabled=element('input','slider-enabled');
+ enabled.type='checkbox';enabled.id=input.id+'-enabled';enabled.checked=true;enabled.title='外すとこの機能を止めます。値は覚えていて、入れ直すと戻ります。';enabled.setAttribute('aria-label',`${name}を使う`);
+ enabled.onchange=()=>onToggle(enabled.checked);
+ head.append(enabled,text,reset);
 
  const number=element('input','slider-number');
  number.type='number';number.min=min*scale;number.max=max*scale;number.step='any';

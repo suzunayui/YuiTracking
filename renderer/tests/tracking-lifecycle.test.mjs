@@ -28,7 +28,7 @@ test('stopping the camera releases recognition worker and webcam, allowing fresh
 for(const failed of [false,true])test('late '+(failed?'failed':'completed')+' camera frame cannot interrupt a restarted tracking session',async()=>{
  let resolve,reject,closed=0,stopped=0;
  const pending=new Promise((yes,no)=>{resolve=yes;reject=no;});
- const context={bodyTilt:{reset(){},calibrate(){}},eyeGaze:{reset(){}},workerBusy:false,tracking:true,video:{readyState:2,currentTime:1},lastVideoTime:0,lastDetect:0,
+ const context={handTracking:true,bodyTilt:{reset(){},calibrate(){}},eyeGaze:{reset(){}},workerBusy:false,tracking:true,video:{readyState:2,currentTime:1},lastVideoTime:0,lastDetect:0,
   trackingGeneration:1,trackingWorker:{postMessage(){throw new Error('Stale frame sent');}},
   createImageBitmap:()=>pending,stopTracking(){stopped++;},post(){}};
  runInNewContext(source.slice(source.indexOf('function detect(now)'),source.indexOf('function calibrateFace')),context);
@@ -40,7 +40,7 @@ for(const failed of [false,true])test('late '+(failed?'failed':'completed')+' ca
 
 test('recognition accepts consecutive 30fps camera frames and never queues while busy',async()=>{
  let frames=0;
- const context={bodyTilt:{reset(){},calibrate(){}},eyeGaze:{reset(){}},workerBusy:false,tracking:true,video:{readyState:2,currentTime:1},lastVideoTime:0,lastDetect:0,trackingGeneration:1,
+ const context={handTracking:true,bodyTilt:{reset(){},calibrate(){}},eyeGaze:{reset(){}},workerBusy:false,tracking:true,video:{readyState:2,currentTime:1},lastVideoTime:0,lastDetect:0,trackingGeneration:1,
   createImageBitmap:async()=>({close(){}}),trackingWorker:{postMessage(){frames++;}},stopTracking(){},post(){}};
  runInNewContext(source.slice(source.indexOf('function detect(now)'),source.indexOf('function calibrateFace')),context);
  context.detect(100);await Promise.resolve();assert.equal(frames,1);
