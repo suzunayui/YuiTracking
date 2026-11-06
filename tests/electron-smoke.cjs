@@ -177,14 +177,11 @@ const assert=require('node:assert/strict');
    };
    try{
     await waitPixel([23,27,46]);
-    await page.locator('#privacy').click();await waitPixel([0,255,0]);
-    await page.locator('[data-background="#0000ff"]').click();await waitPixel([0,0,255]);
-    await page.locator('[data-background=transparent]').click();
-    await page.waitForFunction(async()=>(await window.yuiDesktop.getSettings()).background==='transparent');
+    await page.locator('#privacy').click();
     for(let attempt=0;attempt<100;attempt++){const alpha=await app.evaluate(()=>globalThis.syphonReceiver.receiveFrame()?.data[3]);if(alpha===0)break;if(attempt===99)throw new Error('Transparent Syphon frame not received');await page.waitForTimeout(50);}
     await page.locator('#privacy').click();await waitPixel([23,27,46]);
     await page.locator('#avatar-tab').click();await page.locator('#syphon').click();
-    console.log('PASS native Syphon receiver: avatar-only 720p, blue/green channels, emergency standby, stop');
+    console.log('PASS native Syphon receiver: avatar-only 720p, transparent output, emergency standby, stop');
    }finally{await app.evaluate(()=>globalThis.syphonReceiver.stop());}
   }
   await page.locator('#avatar-tab').click();

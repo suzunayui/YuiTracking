@@ -217,7 +217,7 @@ try{
   await page.waitForTimeout(200);
   const first=await page.evaluate(()=>({count:window.hostMessages.filter(m=>m.type==='frameReady').length,pixel:[...new Uint8Array(window.testFrameBuffer).slice(0,4)]}));
   assert.equal(first.count,1,'Only one frame may be in flight');
-  assert.deepEqual(first.pixel,[0,255,0,255],'Shared frame must contain avatar canvas pixels');
+  assert.deepEqual(first.pixel,[0,0,0,0],'Shared frame must contain avatar canvas pixels');
   await page.evaluate(()=>window.hostListener({data:{type:'privacy',value:true}}));
   await page.evaluate(()=>window.hostListener({data:{type:'frameAck'}}));await page.waitForTimeout(100);
   const next=await page.evaluate(()=>({count:window.hostMessages.filter(m=>m.type==='frameReady').length,pixel:[...new Uint8Array(window.testFrameBuffer).slice(0,4)]}));

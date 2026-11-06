@@ -22,7 +22,6 @@ import {SpringStrength} from './spring-strength.js';
 import {DistanceZoom,distanceCamera,MAX_NEAR_ZOOM_STRENGTH} from './distance-zoom.js';
 import {EyeGaze,applyVrmGaze} from './eye-gaze.js';
 import {openCameraStream,selectableCameras} from './camera-selection.js';
-import {AvatarBackground} from './background.js';
 import {FrameCapture} from './frame-capture.js';
 import {avatarTextures} from './avatar-textures.js';
 
@@ -34,8 +33,7 @@ const host=window.yuiHost ?? window.chrome?.webview ?? (window.parent!==window ?
 }:null);
 const post=(type,rest={})=>host?.postMessage({type,...rest});
 const status=(text,temporary=false)=>post('status',{text,temporary});
-const scene=new THREE.Scene(); scene.background=new THREE.Color('#00ff00');
-const avatarBackground=new AvatarBackground(scene);
+const scene=new THREE.Scene();
 const cameraTarget=new THREE.Vector3(0,1.1,0);
 const camera=new THREE.PerspectiveCamera(32,W/H,0.01,100); camera.position.set(0,1.35,3.1); camera.lookAt(cameraTarget);
 const renderCamera=camera.clone(),distanceAnchor=new THREE.Vector3();
@@ -631,10 +629,6 @@ host?.addEventListener('message',async e=>{
   case'refreshCameras':await listCameras();break;
   case'stopTracking':stopTracking();break;
   case'calibrate':calibrateFace();break;
-  case'background':
-   try{if(await avatarBackground.set(m))post('backgroundLoaded',{requestId:m.requestId});}
-   catch(err){post('backgroundFailed',{requestId:m.requestId,text:'背景画像を読み込めませんでした。'});}
-   break;
   case'settings':
    if(['tracking','camera','fixed'].includes(m.gazeMode))gazeMode=m.gazeMode;
    if(Number.isFinite(m.farZoomStrength))farZoomStrength=clamp(m.farZoomStrength,0,5);

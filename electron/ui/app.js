@@ -32,7 +32,7 @@ host.getRecognitionSettings().then(info=>{
  $('recognition-status').textContent='現在の認識設定：'+info.currentName+(info.saved!==info.current?'（保存した設定と異なります）':'');
 }).catch(showError);
 $('save-recognition').onclick=async()=>{try{await host.saveRecognitionSettings($('recognition-device').value);$('recognition-status').textContent='保存しました。アプリを再起動すると反映します。';}catch(error){showError(error);}};
-for(const tab of ['avatar','motion'])$(tab+'-tab').onclick=()=>{for(const name of ['avatar','motion']){$(name+'-tab').setAttribute('aria-selected',name===tab);$(name+'-settings').hidden=name!==tab;}$('main').classList.toggle('motion-active',tab==='motion');};
+for(const tab of ['avatar','motion'])$(tab+'-tab').onclick=()=>{for(const name of ['avatar','motion']){$(name+'-tab').setAttribute('aria-selected',name===tab);$(name+'-settings').hidden=name!==tab;}};
 function maximize(value){maximized=value;$('main').classList.toggle('maximized',value);$('maximize').textContent=value?'元に戻す':'最大化';}
 $('maximize').onclick=()=>maximize(!maximized);document.addEventListener('keydown',event=>{if(event.key==='Escape')maximize(false);});
 const held=new Set();let shortcut=null;
@@ -40,8 +40,6 @@ document.addEventListener('keydown',event=>{held.add(event.code);if(!event.repea
 document.addEventListener('keyup',event=>{if(shortcut===event.code&&held.size===1)send('calibrate');held.delete(event.code);shortcut=null;});window.addEventListener('blur',()=>{held.clear();shortcut=null;});
 $('open').onclick=()=>host.openModel().catch(showError);
 for(const button of document.querySelectorAll('[data-sample]'))button.onclick=()=>host.selectSample(button.dataset.sample).catch(showError);
-for(const button of document.querySelectorAll('[data-background]'))button.onclick=()=>host.selectBackground(button.dataset.background).catch(showError);
-$('background-image').onclick=()=>host.selectBackground('image').catch(showError);
 $('calibrate').onclick=()=>send('calibrate');$('reset').onclick=()=>send('resetFraming');
 $('privacy').onclick=()=>{const value=$('privacy').getAttribute('aria-pressed')!=='true';$('privacy').setAttribute('aria-pressed',value);send('privacy',{value});};
 $('tracking').onclick=()=>{const choice=$('cameras').value;send(active?'stopTracking':'startTracking',{singleNativeCamera:choice.startsWith('native:')&&nativeLabels.length===1,deviceId:choice==='default:'||choice.startsWith('native:')?'':choice,cameraLabel:choice.startsWith('native:')?$('cameras').selectedOptions[0]?.textContent:undefined});$('tracking').disabled=true;};
@@ -63,7 +61,6 @@ host.onEvent(message=>{
  if(message.type==='recognitionReady')$('recognition-status').textContent='認識中：'+message.delegate+(message.renderer?' / '+message.renderer:'');
  if(message.type==='springCapabilities'){$('chestSpringStrength').disabled=!(message.chestJoints>0);const control=$('chest-spring-control');const status=message.chestJoints>0?'胸の揺れ設定を検出しました。':'このモデルには対応する胸の揺れ設定がありません。';control.title=status+'\n'+control.title.substring(control.title.indexOf('\n')+1);}
  if(message.type==='avatar'){$('model').textContent=message.label;for(const button of document.querySelectorAll('[data-sample]'))button.setAttribute('aria-pressed',button.dataset.sample===message.sample);}
- if(message.type==='background'){for(const button of document.querySelectorAll('[data-background]'))button.setAttribute('aria-pressed',!message.image&&button.dataset.background===message.color);$('background-image').setAttribute('aria-pressed',message.image);}
  if(message.type==='togglePreviewMaximized')maximize(!maximized);if(message.type==='restorePreview')maximize(false);
 });
 host.getSettings().then(saved=>{if(['tracking','camera','fixed'].includes(saved.gazeMode))$('gazeMode').value=saved.gazeMode;for(const key of keys)if(Number.isFinite(saved[key]))$(key).value=saved[key];labels();}).catch(showError);

@@ -6,7 +6,7 @@ const {promisify}=require('node:util');
 const {pathToFileURL}=require('node:url');
 const {SyphonOutput}=require('./syphon-output.cjs');
 app.setName('YuiTracking');
-let window,settings={},avatarPath=null,backgroundPath=null,pendingModel=null,pendingBackground=null,sequence=0;
+let window,settings={},avatarPath=null,pendingModel=null,sequence=0;
 let rendererReady=false,restoreOutput=false,recoveryOpen=false,currentVrmPath=null;
 let recognitionDelegate='CPU',recognitionGpuName='',macGpuPromise;
 function macGpu(){
@@ -19,7 +19,6 @@ function macGpu(){
  })();
 }
 const origin='https://yuitracking.local';
-const colors=['transparent','#00ff00','#ff0000','#0000ff','#000000'];
 const syphon=new SyphonOutput((...args)=>{
  if(process.platform!=='darwin')throw new Error('Syphon出力はMac版で利用できます。');
  const {TextureSender}=require('@napolab/texture-bridge-core');return new TextureSender(...args);
@@ -43,7 +42,6 @@ function selectModel(file,sample){
  if(sample==='robot'){currentVrmPath=null;pendingModel=null;syphon.setLoading(false);command({type:'demo'});settings.defaultSample='robot';notify({type:'avatar',sample,label:'内蔵ロボット'});return persist();}
  const requestId=++sequence;pendingModel={file,sample,requestId,previous:avatarPath};avatarPath=file;syphon.setLoading(true);command({type:'loadModel',requestId});
 }
-function selectBackground(color,file){backgroundPath=file||null;const requestId=++sequence;pendingBackground={color,file,requestId};command({type:'background',color,imageUrl:file?origin+'/background-image?v='+requestId:undefined,requestId});}
 ipcMain.handle('settings',event=>trusted(event,'ui')?settings:{});
 ipcMain.handle('info',event=>trusted(event,'ui')?{version:app.getVersion(),platform:process.platform,cameraPermission:process.platform==='darwin'?systemPreferences.getMediaAccessStatus('camera'):undefined}:{});
 ipcMain.handle('native-cameras',async event=>{if(!trusted(event,'ui')||process.platform!=='darwin')return [];try{const {stdout}=await promisify(execFile)('/usr/sbin/system_profiler',['SPCameraDataType','-json'],{timeout:5000,maxBuffer:1024*1024});return (JSON.parse(stdout).SPCameraDataType||[]).map(item=>item._name).filter(name=>typeof name==='string');}catch{return [];}});
@@ -63,10 +61,6 @@ ipcMain.handle('save-recognition-settings',async(event,value)=>{
  settings.recognitionDelegate=value;await persist();
 });
 ipcMain.handle('sample',(event,sample)=>{if(trusted(event,'ui')&&['Y','Z','robot'].includes(sample))return selectModel(sample==='robot'?null:samplePath(sample),sample);});
-ipcMain.handle('background',async(event,color)=>{if(!trusted(event,'ui'))return;if(colors.includes(color)){selectBackground(color,null);return;}if(color!=='image')return;
- const result=await dialog.showOpenDialog(window,{filters:[{name:'背景画像',extensions:['png','jpg','jpeg','bmp']}],properties:['openFile']});if(result.canceled)return;
- const file=result.filePaths[0];if((await fs.stat(file)).size>32*1024*1024)throw new Error('背景画像は32MB以下にしてください。');selectBackground(settings.background||'#00ff00',file);
-});
 ipcMain.handle('open-model',async event=>{if(!trusted(event,'ui'))return;const defaultPath=await require('./vrm-picker.cjs')(currentVrmPath,settings.defaultVrmPath);const result=await dialog.showOpenDialog(window,{defaultPath,filters:[{name:'VRM avatar',extensions:['vrm']}],properties:['openFile']});if(result.canceled)return;const chosen=result.filePaths[0];if((await fs.stat(chosen)).size>200*1024*1024)throw new Error('VRMは200MB以下にしてください。');selectModel(chosen,null);});
 ipcMain.on('ui-command',(event,message)=>{
  if(!trusted(event,'ui'))return;
@@ -82,7 +76,6 @@ ipcMain.on('renderer-event',async(event,message)=>{
   command({type:'recognitionConfig',delegate:recognitionDelegate,expectedRenderer:recognitionGpuName});
   rendererReady=true;command({type:'settings',farZoomStrength:0,nearZoomStrength:0,zoomCenterX:0,zoomCenterY:0,gazeMode:'tracking',gazeStrength:1,gazeRange:1,smoothing:.65,sensitivity:1,bodyStrength:1,forwardLeanStrength:1,backwardLeanStrength:1,mouthOpenStrength:1,mouthSensitivity:1.8,springStrength:1,chestSpringStrength:1,...safeSettings(settings)});
   if(settings.framing)command({type:'restoreFraming',...settings.framing});
-  selectBackground(colors.includes(settings.background)?settings.background:'#00ff00',settings.backgroundImagePath);
   if(settings.defaultSample||!settings.defaultVrmPath)selectModel(samplePath(settings.defaultSample==='Z'?'Z':'Y'),settings.defaultSample||'Y');else selectModel(settings.defaultVrmPath,null);
   if(restoreOutput){restoreOutput=false;setOutput(true,false);}
  }
@@ -91,7 +84,6 @@ ipcMain.on('renderer-event',async(event,message)=>{
   if(message.type==='modelLoaded'){currentVrmPath=pending.sample?null:pending.file;settings.defaultSample=pending.sample;if(!pending.sample)settings.defaultVrmPath=pending.file;await persist();notify({type:'avatar',sample:pending.sample,label:pending.sample==='Y'?'女の子':pending.sample==='Z'?'男の子':path.basename(pending.file)});}
   else avatarPath=pending.previous;
  }
- if(['backgroundLoaded','backgroundFailed'].includes(message.type)&&pendingBackground?.requestId===message.requestId){const pending=pendingBackground;pendingBackground=null;if(message.type==='backgroundLoaded'){settings.background=pending.color;settings.backgroundImagePath=pending.file||null;await persist();notify({type:'background',color:pending.color,image:!!pending.file});}else notify({type:'error',text:message.text});}
  if(message.type==='calibrateRequest')command({type:'calibrate'});
  if(message.type==='error'){syphon.setPrivacy(true);notify({type:'safety',active:true});}
  if(message.type==='framingChanged'&&['zoom','x','y','z'].every(key=>Number.isFinite(message[key]))){settings.framing=Object.fromEntries(['zoom','x','y','z','targetX','targetY','targetZ'].filter(key=>Number.isFinite(message[key])).map(key=>[key,message[key]]));await persist();}
@@ -106,7 +98,6 @@ app.whenReady().then(async()=>{
  protocol.handle('https',async request=>{
   const url=new URL(request.url);if(url.origin!==origin)return new Response('Blocked',{status:403});let file;
   if(url.pathname==='/avatar.vrm'&&avatarPath)file=avatarPath;
-  else if(url.pathname==='/background-image'&&backgroundPath)file=backgroundPath;
   else{const relative=decodeURIComponent(url.pathname).replace(/^\//,'');if(!/^(ui|renderer)\//.test(relative))return new Response('Not found',{status:404});file=path.resolve(__dirname,relative);const rel=path.relative(__dirname,file);if(rel.startsWith('..')||path.isAbsolute(rel))return new Response('Blocked',{status:403});}
   try{return await net.fetch(pathToFileURL(file).href);}catch{return new Response('Not found',{status:404});}
  });

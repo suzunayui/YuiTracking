@@ -24,12 +24,7 @@
      <button id="open" class="wide" disabled title="PCに保存したVRMファイルを開きます。">VRMを開く</button><p id="model">サンプルを準備中</p>
      <p class="label" title="同梱のアバターに切り替えます。青色が現在の選択です。">サンプル</p>
      <div class="three-buttons"><button data-sample="Y" aria-pressed="false" title="女の子のサンプル（Y）に切り替えます。">女の子</button><button data-sample="Z" aria-pressed="false" title="男の子のサンプル（Z）に切り替えます。">男の子</button><button id="demo" data-sample="robot" aria-pressed="false" title="内蔵ロボットに切り替えます。">ロボット</button></div>
-     <p class="label background-label" title="アバターの背景を選びます。次回起動時も復元します。">背景</p>
-     <div class="three-buttons backgrounds">
-      <button data-background="transparent" aria-pressed="false" title="透明な背景でアバターを出力します。&#10;MacではOBSのSyphonクライアントで受信します。&#10;映像キャプチャデバイス向けの出力ではありません。">透過</button><button data-background="#00ff00" aria-pressed="true" title="背景をグリーンにします。OBSのクロマキーで背景を抜くときに使えます。">グリーン</button><button id="background-image" aria-pressed="false" title="PNG・JPEG・BMPの画像を選んで背景にします。&#10;比率を保って画面全体に配置します。">背景を選択</button>
-      <button data-background="#ff0000" aria-pressed="false" title="背景をレッドにします。">レッド</button><button data-background="#0000ff" aria-pressed="false" title="背景をブルーにします。">ブルー</button><button data-background="#000000" aria-pressed="false" title="背景をブラックにします。">ブラック</button>
-     </div>
-     <button id="syphon" class="wide output-button" disabled title="アバターと背景だけをSyphonへ送信します。&#10;OBS → Syphonクライアント → YuiTracking を選びます。">Syphon出力を開始</button>
+     <button id="syphon" class="wide output-button" disabled title="透過背景のアバター映像をSyphonへ送信します。&#10;OBS → Syphonクライアント → YuiTracking を選びます。">Syphon出力を開始</button>
      <label for="recognition-device">認識に使うデバイス</label>
      <select id="recognition-device"><option value="CPU">CPU</option></select>
      <button id="save-recognition" class="wide">認識デバイスを保存</button>
