@@ -135,7 +135,7 @@ renderer.domElement.addEventListener('wheel',event=>{
 },{passive:false});
 scene.add(new THREE.HemisphereLight(0xffffff,0xffffff,.35));
 const key=new THREE.DirectionalLight(0xffffff,Math.PI*.85); key.position.set(1,3,3); scene.add(key);
-let vrm=null,demo=null,head=null,eyes=[],arms={},loading=false,privacy=false,output=false;
+let vrm=null,demo=null,head=null,eyes=[],arms={},privacy=false,output=false;
 const bodyFromHead=true,bodyLeanEnabled=true;
 let springStrength=1,chestSpringStrength=1,springControl=null;
 let smoothing=.65,sensitivity=1,bodyStrength=1,forwardLeanStrength=1,backwardLeanStrength=1,mouthOpenStrength=1,mouthSensitivity=1.8,tracking=false,video,stream,initializing=false;
@@ -172,6 +172,9 @@ function stabilizeHands(result,time){
  return result;
 }
 let framePending=false,loadVersion=0;
+// Stay transparent while an avatar loads and settles out of its T pose.
+const AVATAR_SETTLE_MS=1000;
+let avatarHidden=true,avatarRevealAt=null;
 let sharedFramePixels=null;
 let perfLast=0,perfFrames=0,perfSent=0,perfDetect=0,perfCapture=0,perfAck=0,perfPendingAt=0;
 const perfStats={renderFps:0,frameFps:0,detectMs:0,captureMs:0,ackMs:0};
@@ -220,10 +223,10 @@ function makeDemo(){
   arms[side]={upper,lower,hand,fingers};
   mesh(new THREE.CapsuleGeometry(.073,.24,6,12),'#b9b8ea',demo,sign*.1,.40,0);
  }
- loading=false;status('内蔵サンプルを表示中');
+ avatarHidden=false;avatarRevealAt=null;status('内蔵サンプルを表示中');
 }
 async function loadModel(requestId){
- const version=++loadVersion;loading=true;status('VRMを読み込み中…');
+ const version=++loadVersion;avatarHidden=true;avatarRevealAt=null;status('VRMを読み込み中…');
  try{
   const manager=new THREE.LoadingManager();
   manager.setURLModifier(url=>{
@@ -245,10 +248,10 @@ async function loadModel(requestId){
    const nodes=Object.fromEntries(fingerBones.flat().map(name=>[name,bone(side+name)]));
    handRest[side]=captureHandRest(hand,nodes,side==='left'?1:-1);
   }
+  avatarRevealAt=performance.now()+AVATAR_SETTLE_MS;
   status('VRMを表示中');
   post('modelLoaded',{requestId});
- }catch(e){if(version===loadVersion){post('modelFailed',{requestId});post('error',{text:'VRM読み込み失敗：'+e.message});}}
- finally{if(version===loadVersion)loading=false;}
+ }catch(e){if(version===loadVersion){if(vrm||demo)avatarHidden=false;else makeDemo();post('modelFailed',{requestId});post('error',{text:'VRM読み込み失敗：'+e.message});}}
 }
 let trackingWorker,workerReady,workerBusy=false,trackingGeneration=0;
 let detectionTimer=null;
@@ -585,8 +588,11 @@ function restartRenderLoop(){if(loopTimer)clearTimeout(loopHandle);else cancelAn
 function loop(now){
  if(now-lastRender<renderInterval()-1.5){scheduleLoop();return;}
  const dt=Math.min((now-lastRender)/1000,.1);lastRender=now;scheduleLoop();
- animate(now,dt);
- if(privacy||loading)renderer.render(standby,standbyCam);else renderer.render(scene,renderCamera);
+ if(vrm||demo)animate(now,dt);
+ if(avatarHidden&&avatarRevealAt!==null&&now>=avatarRevealAt)avatarHidden=false;
+ if(privacy)renderer.render(standby,standbyCam);
+ else if(avatarHidden)renderer.clear();
+ else renderer.render(scene,renderCamera);
  sendFrame();frameNumber++;
  perfFrames++;
  if(now-perfLast>=3000){
@@ -652,6 +658,6 @@ host?.addEventListener('message',async e=>{
 });
 window.addEventListener('error',e=>{privacy=true;post('error',{text:e.message});});
 window.addEventListener('unhandledrejection',e=>{privacy=true;post('error',{text:String(e.reason)});});
-makeDemo();scheduleLoop();post('ready');
+scheduleLoop();post('ready');
 listCameras().catch(()=>{});
 navigator.mediaDevices?.addEventListener('devicechange',()=>listCameras().catch(()=>{}));

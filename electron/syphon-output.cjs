@@ -3,6 +3,7 @@ const WIDTH=1280,HEIGHT=720,BYTES=WIDTH*HEIGHT*4;
 class SyphonOutput {
  constructor(createSender,onError,now=()=>performance.now()){
   this.createSender=createSender;this.onError=onError;this.now=now;this.sender=null;this.timer=null;this.last=null;this.privacy=false;this.loading=false;this.receivedAt=0;
+  this.transparent=Buffer.alloc(BYTES);
   this.standby=Buffer.alloc(BYTES);
   for(let y=0;y<HEIGHT;y++)for(let x=0;x<WIDTH;x++){
    const p=(y*WIDTH+x)*4,bar=y>=312&&y<408&&((x>=610&&x<630)||(x>=650&&x<670));
@@ -21,7 +22,8 @@ class SyphonOutput {
  }
  setPrivacy(value){this.privacy=!!value;this.last=null;this.tick();}
  setLoading(value){this.loading=!!value;this.last=null;this.tick();}
- tick(){if(!this.sender)return;try{this.sender.sendRgbaBuffer(!this.privacy&&!this.loading&&this.last&&this.now()-this.receivedAt<700?this.last:this.standby,WIDTH,HEIGHT);}catch(error){this.stop();this.onError(error);}}
+ frame(){if(this.privacy)return this.standby;if(this.loading)return this.transparent;return this.last&&this.now()-this.receivedAt<700?this.last:this.standby;}
+ tick(){if(!this.sender)return;try{this.sender.sendRgbaBuffer(this.frame(),WIDTH,HEIGHT);}catch(error){this.stop();this.onError(error);}}
  stop(){if(this.timer)clearInterval(this.timer);this.timer=null;const sender=this.sender;this.sender=null;this.last=null;if(sender){try{sender.sendRgbaBuffer(this.standby,WIDTH,HEIGHT);}finally{sender.stop();}}}
 }
 module.exports={SyphonOutput,WIDTH,HEIGHT,BYTES};

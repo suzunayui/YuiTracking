@@ -26,7 +26,7 @@ const assert=require('node:assert/strict');
    await page.waitForFunction(()=>document.querySelector('#model').textContent==='picker-avatar.vrm');
    await page.evaluate(()=>window.yuiDesktop.openModel());
    assert.equal(await app.evaluate(()=>globalThis.pickerCalls[1].defaultPath),model.folder);
-   await page.locator('[data-sample=Y]').click();
+   await page.evaluate(()=>{document.querySelector('#samples').open=true;});await page.locator('[data-sample=Y]').click();
    await page.waitForFunction(()=>document.querySelector('[data-sample=Y]').getAttribute('aria-pressed')==='true');
    await page.evaluate(()=>window.yuiDesktop.openModel());
    assert.equal(await app.evaluate(()=>globalThis.pickerCalls[2].defaultPath),model.folder,'Built-in sample must fall back to last custom VRM folder');
@@ -182,7 +182,7 @@ const assert=require('node:assert/strict');
     console.log('PASS native Syphon receiver: avatar-only 720p, transparent output, emergency standby, stop');
    }finally{await app.evaluate(()=>globalThis.syphonReceiver.stop());}
   }
-  await page.locator('[data-sample=Z]').click();
+  await page.evaluate(()=>{document.querySelector('#samples').open=true;});await page.locator('[data-sample=Z]').click();
   await page.waitForFunction(()=>document.querySelector('[data-sample=Z]').getAttribute('aria-pressed')==='true',null,{timeout:60000});
   assert.equal(await page.locator('#chestSpringStrength').isDisabled(),true,'Model without authored chest springs must not offer chest adjustment');
   await page.locator('#maximize').click();

@@ -414,7 +414,7 @@ public sealed partial class MainWindow : Window
                     var defaultModel = AppSettings.DefaultVrmPath;
                     var defaultSample = AppSettings.DefaultSample;
                     if (defaultSample is "Y" or "Z") await LoadSampleAsync(defaultSample);
-                    else if (defaultSample == "robot") { ModelLabel.Text = "内蔵ロボット"; SelectSample("robot"); RestoreOutput(); }
+                    else if (defaultSample == "robot") { ModelLabel.Text = "内蔵ロボット"; Send(new { type = "demo" }); SelectSample("robot"); RestoreOutput(); }
                     else if (!string.IsNullOrWhiteSpace(defaultModel)) await LoadModelAsync(defaultModel);
                     else await LoadSampleAsync("Y");
                     break;
@@ -594,6 +594,12 @@ public sealed partial class MainWindow : Window
         if (BackwardLeanStrengthLabel != null && BackwardLeanStrength != null) BackwardLeanStrengthLabel.Text = $"反りの強さ：{BackwardLeanStrength.Value:0.0}倍";
         if (BodyStrengthLabel != null && BodyStrength != null) BodyStrengthLabel.Text = $"体の動きの強さ：{BodyStrength.Value:0.0}倍";
         if (SensitivityLabel != null && Sensitivity != null) SensitivityLabel.Text = $"顔の動きの強さ：{Sensitivity.Value:0.0}倍";
+    }
+    private void SamplesToggle_Click(object sender, RoutedEventArgs e)
+    {
+        var open = SampleButtons.Visibility != Visibility.Visible;
+        SampleButtons.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+        SamplesChevron.Glyph = open ? "\uE70E" : "\uE70D";
     }
     private void Settings_Changed(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
     { UpdateMotionLabels(); SendSettings(); }

@@ -53,11 +53,20 @@
     <Border Grid.Row="1" BorderBrush="#2D3447" BorderThickness="1" CornerRadius="8" Background="#171B27" Padding="10,10,0,10">
      <ScrollViewer VerticalScrollBarVisibility="Auto">
       <StackPanel Spacing="4" Margin="0,0,14,0">
-       <TextBlock Text="アバター" FontSize="13" FontWeight="SemiBold"/>
+       <Grid ColumnSpacing="10">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+        <TextBlock Text="アバター" FontSize="13" FontWeight="SemiBold"/>
+        <TextBlock x:Name="ModelLabel" Grid.Column="1" Text="サンプルを準備中" Foreground="#9DA7C0" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{Binding Text, ElementName=ModelLabel}"/>
+       </Grid>
       <Button x:Name="ModelButton" ToolTipService.ToolTip="PCに保存したVRMファイルを開いて、&#10;使用するアバターを切り替えます。" Content="VRMを開く" HorizontalAlignment="Stretch" Click="OpenModel_Click" IsEnabled="False"/>
-      <TextBlock x:Name="ModelLabel" Text="サンプルを準備中" Foreground="#9DA7C0" TextTrimming="CharacterEllipsis" FontSize="12"/>
-      <TextBlock Text="サンプル" ToolTipService.ToolTip="同梱のアバターに切り替えます。&#10;青色のボタンが現在の選択です。" Foreground="#9DA7C0" FontSize="12"/>
-       <Grid ColumnSpacing="6">
+       <Button AutomationProperties.Name="サンプル" Click="SamplesToggle_Click" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" ToolTipService.ToolTip="同梱のアバターに切り替えます。&#10;青色のボタンが現在の選択です。">
+        <Grid>
+         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+         <TextBlock Text="サンプル"/>
+         <FontIcon x:Name="SamplesChevron" Grid.Column="1" Glyph="&#xE70D;" FontSize="12"/>
+        </Grid>
+       </Button>
+       <Grid x:Name="SampleButtons" ColumnSpacing="6" Visibility="Collapsed">
        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
        <ToggleButton x:Name="SampleGirl" ToolTipService.ToolTip="女の子のサンプル（Y）に切り替えます。&#10;選択中のボタンは青色で表示します。" Content="女の子" Tag="Y" Click="Sample_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
        <ToggleButton x:Name="SampleBoy" ToolTipService.ToolTip="男の子のサンプル（Z）に切り替えます。&#10;選択中のボタンは青色で表示します。" Grid.Column="1" Content="男の子" Tag="Z" Click="Sample_Click" HorizontalAlignment="Stretch" Padding="6,4"/>
