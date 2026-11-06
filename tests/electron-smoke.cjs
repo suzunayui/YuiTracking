@@ -18,7 +18,8 @@ const waitForAsync=async(page,check,argument,{timeout=30000}={})=>{const end=Dat
   app.process().stderr?.on('data',data=>startupLog.push('stderr: '+String(data).slice(0,300)));
   page.on('console',message=>{if(['error','warning'].includes(message.type()))startupLog.push('console: '+message.text().slice(0,300));});
   page.on('pageerror',error=>startupLog.push('pageerror: '+String(error).slice(0,300)));
-  await page.waitForFunction(()=>document.querySelector('[data-sample=Y]')?.getAttribute('aria-pressed')==='true').catch(async error=>{
+  const startupBegan=Date.now();
+  await page.waitForFunction(()=>document.querySelector('[data-sample=Y]')?.getAttribute('aria-pressed')==='true',null,{timeout:150000}).then(()=>console.log(`Startup took ${Math.round((Date.now()-startupBegan)/1000)}s`),async error=>{
    console.log('Startup status:',await page.locator('#status').textContent(),'| model:',await page.locator('#model').textContent());
    console.log(startupLog.slice(-20).join('\n'));
    throw error;
