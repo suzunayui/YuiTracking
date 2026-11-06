@@ -16,6 +16,7 @@ function send(type,rest={}){host.command({type,...rest});}
 function values(){return {...Object.fromEntries(keys.map(key=>[key,Number($(key).value)])),gazeMode:$('gazeMode').value};}
 function labels(){
  if(typeof sliderSync!=='undefined')for(const sync of sliderSync)sync();
+ window.refreshPresetSelection?.();
  $('gazeRange').disabled=$('gazeMode').value==='fixed';$('gazeStrength').disabled=$('gazeMode').value!=='tracking';
  for(const key of keys){
   const value=Number($(key).value);
@@ -41,7 +42,7 @@ $('maximize').onclick=()=>maximize(!maximized);document.addEventListener('keydow
 const held=new Set();let shortcut=null;
 document.addEventListener('keydown',event=>{held.add(event.code);if(!event.repeat&&held.size===1&&['ControlRight','ShiftRight'].includes(event.code))shortcut=event.code;else if(event.code!==shortcut)shortcut=null;});
 document.addEventListener('keyup',event=>{if(shortcut===event.code&&held.size===1)send('calibrate');held.delete(event.code);shortcut=null;});window.addEventListener('blur',()=>{held.clear();shortcut=null;});
-$('open').onclick=()=>host.openModel().catch(showError);
+$('open').onclick=()=>window.openVrmDialog();
 for(const button of document.querySelectorAll('[data-sample]'))button.onclick=()=>host.selectSample(button.dataset.sample).catch(showError);
 $('calibrate').onclick=()=>send('calibrate');$('reset').onclick=()=>send('resetFraming');
 function showPrivacy(value){$('privacy').setAttribute('aria-pressed',value);$('standby-notice').hidden=!value;}

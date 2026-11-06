@@ -5,6 +5,7 @@ const {execFile}=require('node:child_process');
 const {promisify}=require('node:util');
 const {pathToFileURL}=require('node:url');
 const {SyphonOutput}=require('./syphon-output.cjs');
+const vrmHistory=require('./vrm-history.cjs');
 app.setName('YuiTracking');
 let window,settings={},avatarPath=null,pendingModel=null,sequence=0;
 let rendererReady=false,restoreOutput=false,recoveryOpen=false,currentVrmPath=null;
@@ -43,6 +44,49 @@ function selectModel(file,sample){
  const requestId=++sequence;pendingModel={file,sample,requestId,previous:avatarPath};avatarPath=file;syphon.setLoading(true);command({type:'loadModel',requestId});
 }
 ipcMain.handle('settings',event=>trusted(event,'ui')?settings:{});
+const thumbnailPath=file=>path.join(app.getPath('userData'),'VrmThumbnails',vrmHistory.thumbnailName(file));
+async function vrmEntry(file){
+ const exists=await fs.stat(file).then(info=>info.isFile(),()=>false);
+ const thumbnail=await fs.readFile(thumbnailPath(file)).then(vrmHistory.encodeThumbnail,()=>null);
+ return {file,name:path.basename(file,path.extname(file)),exists,current:file===currentVrmPath,thumbnail};
+}
+ipcMain.handle('vrm-history',async event=>{
+ if(!trusted(event,'ui'))return [];
+ return Promise.all(vrmHistory.withUsed(settings.vrmHistory,'').filter(Boolean).map(vrmEntry));
+});
+ipcMain.handle('open-vrm',async(event,file)=>{
+ if(!trusted(event,'ui'))return;
+ // Only files the user already opened can be reopened from the renderer.
+ if(!Array.isArray(settings.vrmHistory)||!settings.vrmHistory.includes(file))throw new Error('一覧にないファイルは開けません。');
+ const info=await fs.stat(file).catch(()=>null);
+ if(!info?.isFile())throw new Error('ファイルが見つかりません。');
+ if(info.size>200*1024*1024)throw new Error('VRMは200MB以下にしてください。');
+ return selectModel(file,null);
+});
+ipcMain.handle('remove-vrm',async(event,file)=>{
+ if(!trusted(event,'ui')||typeof file!=='string')return;
+ settings.vrmHistory=vrmHistory.without(settings.vrmHistory,file);
+ await fs.rm(thumbnailPath(file),{force:true});
+ await persist();
+});
+function safePresets(value){
+ if(!Array.isArray(value))return [];
+ const names=new Set();
+ return value.flatMap(item=>{
+  const name=typeof item?.name==='string'?item.name.trim():'';
+  if(!name||name.length>20||names.has(name.toLowerCase())||!['tracking','camera','fixed'].includes(item.gazeMode)||!item.values||typeof item.values!=='object')return [];
+  names.add(name.toLowerCase());
+  const {gazeMode:_ignored,...values}=safeSettings(item.values);
+  return [{name,gazeMode:item.gazeMode,values}];
+ }).slice(0,30);
+}
+ipcMain.handle('presets',event=>trusted(event,'ui')?safePresets(settings.motionPresets):[]);
+ipcMain.handle('save-presets',async(event,value)=>{
+ if(!trusted(event,'ui'))return [];
+ settings.motionPresets=safePresets(value);
+ await persist();
+ return settings.motionPresets;
+});
 ipcMain.handle('info',event=>trusted(event,'ui')?{version:app.getVersion(),platform:process.platform,cameraPermission:process.platform==='darwin'?systemPreferences.getMediaAccessStatus('camera'):undefined}:{});
 ipcMain.handle('native-cameras',async event=>{if(!trusted(event,'ui')||process.platform!=='darwin')return [];try{const {stdout}=await promisify(execFile)('/usr/sbin/system_profiler',['SPCameraDataType','-json'],{timeout:5000,maxBuffer:1024*1024});return (JSON.parse(stdout).SPCameraDataType||[]).map(item=>item._name).filter(name=>typeof name==='string');}catch{return [];}});
 ipcMain.handle('memory',event=>{if(!trusted(event,'ui'))return;const metrics=app.getAppMetrics();return {mb:metrics.reduce((sum,item)=>sum+item.memory.workingSetSize,0)/1024,processes:metrics.map(item=>({type:item.type,mb:item.memory.workingSetSize/1024}))};});
@@ -81,8 +125,12 @@ ipcMain.on('renderer-event',async(event,message)=>{
  }
  if(['modelLoaded','modelFailed'].includes(message.type)&&pendingModel?.requestId===message.requestId){
   const pending=pendingModel;pendingModel=null;syphon.setLoading(false);
-  if(message.type==='modelLoaded'){currentVrmPath=pending.sample?null:pending.file;settings.defaultSample=pending.sample;if(!pending.sample)settings.defaultVrmPath=pending.file;await persist();notify({type:'avatar',sample:pending.sample,label:pending.sample==='Y'?'女の子':pending.sample==='Z'?'男の子':path.basename(pending.file)});}
+  if(message.type==='modelLoaded'){currentVrmPath=pending.sample?null:pending.file;settings.defaultSample=pending.sample;if(!pending.sample){settings.defaultVrmPath=pending.file;settings.vrmHistory=vrmHistory.withUsed(settings.vrmHistory,pending.file);}await persist();notify({type:'avatar',sample:pending.sample,label:pending.sample==='Y'?'女の子':pending.sample==='Z'?'男の子':path.basename(pending.file)});}
   else avatarPath=pending.previous;
+ }
+ if(message.type==='modelThumbnail'&&currentVrmPath){
+  const bytes=vrmHistory.decodeThumbnail(message.dataUrl);
+  if(bytes){const file=thumbnailPath(currentVrmPath);await fs.mkdir(path.dirname(file),{recursive:true});await fs.writeFile(file,bytes);}
  }
  if(message.type==='calibrateRequest')command({type:'calibrate'});
  if(message.type==='error'){syphon.setPrivacy(true);notify({type:'safety',active:true});}

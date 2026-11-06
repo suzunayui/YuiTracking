@@ -1,5 +1,5 @@
 <!doctype html><html lang="ja"><head><meta charset="utf-8"><title>YuiTracking</title>
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; frame-src 'self'; connect-src 'self';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; frame-src 'self'; connect-src 'self';">
 <link rel="stylesheet" href="style.css"></head><body>
 <main id="main">
  <section class="preview-panel">
@@ -15,6 +15,7 @@
     <button id="maximize" title="プレビューを最大化します。&#10;Escで元に戻します。ダブルクリックでも切り替えられます。">最大化</button>
     <button id="privacy" aria-pressed="false" title="アバターを隠します。&#10;オンの間は透過だけを出力します。">待機画面</button>
    </div>
+   <div id="preset-bar"></div>
    <div class="status-line"><span id="model">サンプルを準備中</span><span id="status">描画エンジンの準備中…</span><span id="output-status">Syphon：停止中</span><span id="memory">メモリ：計測中</span></div>
    <div class="status-line"><span id="input">カメラ入力：720p / 最大30fps</span><span id="recognition-summary">認識：確認中</span></div>
   </div>
@@ -53,4 +54,8 @@
    <p id="recognition-status" aria-live="polite"></p>
   </div>
  </aside>
-</main><script src="camera-picker.js"></script><script src="slider-controls.js"></script><script src="app.js"></script></body></html>
+</main>
+<dialog id="vrm-dialog" aria-labelledby="vrm-dialog-title"><h2 id="vrm-dialog-title">VRMを選ぶ</h2><div id="vrm-cards"></div><div class="dialog-actions"><button id="vrm-file" type="button">ファイルから開く…</button><button id="vrm-close" type="button">閉じる</button></div></dialog>
+<dialog id="preset-name-dialog" aria-labelledby="preset-name-title"><form method="dialog"><h2 id="preset-name-title">プリセットを保存</h2><label for="preset-name-input">名前</label><input id="preset-name-input" type="text" maxlength="20"><p id="preset-name-problem" aria-live="polite"></p><div class="dialog-actions"><button id="preset-name-save" value="save">保存</button><button id="preset-name-cancel" value="cancel">キャンセル</button></div></form></dialog>
+<div id="preset-menu" role="menu" hidden><button id="preset-menu-overwrite" type="button" role="menuitem">今の設定で上書き</button><button id="preset-menu-rename" type="button" role="menuitem">名前を変更…</button><button id="preset-menu-delete" type="button" role="menuitem">削除</button></div>
+<script src="camera-picker.js"></script><script src="slider-controls.js"></script><script src="preset-logic.js"></script><script src="app.js"></script><script src="vrm-dialog.js"></script><script src="presets.js"></script></body></html>

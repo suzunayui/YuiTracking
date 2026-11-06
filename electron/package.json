@@ -1,13 +1,13 @@
 {
   "name": "yuitracking-desktop",
   "productName": "YuiTracking",
-  "version": "2026.1021.3",
+  "version": "2026.1106.5",
   "private": true,
   "author": "suzunayui",
   "description": "YuiTracking Electron desktop",
   "main": "main.cjs",
   "scripts": {
-    "test": "npm run prepare:renderer && node --test ../tests/syphon-output.test.cjs && node ../tests/electron-smoke.cjs",
+    "test": "npm run prepare:renderer && node --test ../tests/syphon-output.test.cjs ../tests/vrm-history.test.cjs ../tests/preset-logic.test.cjs && node ../tests/electron-smoke.cjs",
     "prepare:renderer": "node prepare-syphon.cjs && node prepare-renderer.cjs",
     "start": "npm run prepare:renderer && electron .",
     "package:mac": "npm run prepare:renderer && electron-builder --mac --arm64",
