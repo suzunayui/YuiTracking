@@ -165,21 +165,22 @@ const assert=require('node:assert/strict');
    await page.locator('#syphon').click();
    await page.waitForFunction(()=>document.querySelector('#output-status').textContent.includes('送信中'));
    await app.evaluate(({app})=>{const {TextureReceiver}=process.mainModule.require(app.getAppPath()+'/node_modules/@napolab/texture-bridge-core');globalThis.syphonReceiver=new TextureReceiver('YuiTracking');});
-   const waitPixel=async expected=>{
+   const waitTransparent=async()=>{
     for(let attempt=0;attempt<100;attempt++){
-     const pixel=await app.evaluate(()=>{const frame=globalThis.syphonReceiver.receiveFrame();return frame?{width:frame.width,height:frame.height,rgba:[...frame.data.subarray(0,4)]}:null;});
-     if(pixel&&pixel.rgba.slice(0,3).every((value,i)=>Math.abs(value-expected[i])<=2)){assert.equal(pixel.width,1280);assert.equal(pixel.height,720);return;}
+     const pixel=await app.evaluate(()=>{const frame=globalThis.syphonReceiver.receiveFrame();return frame?{width:frame.width,height:frame.height,alpha:frame.data[3]}:null;});
+     if(pixel?.alpha===0){assert.equal(pixel.width,1280);assert.equal(pixel.height,720);return;}
      await page.waitForTimeout(50);
     }
-    throw new Error('Syphon receiver did not receive expected avatar pixel '+expected);
+    throw new Error('Transparent Syphon frame not received');
    };
    try{
-    await waitPixel([23,27,46]);
+    await waitTransparent();
     await page.locator('#privacy').click();
-    for(let attempt=0;attempt<100;attempt++){const alpha=await app.evaluate(()=>globalThis.syphonReceiver.receiveFrame()?.data[3]);if(alpha===0)break;if(attempt===99)throw new Error('Transparent Syphon frame not received');await page.waitForTimeout(50);}
-    await page.locator('#privacy').click();await waitPixel([23,27,46]);
+    await waitTransparent();
+    await page.locator('#privacy').click();
+    await waitTransparent();
     await page.locator('#syphon').click();
-    console.log('PASS native Syphon receiver: avatar-only 720p, transparent output, emergency standby, stop');
+    console.log('PASS native Syphon receiver: avatar-only 720p, transparent output and hidden state, stop');
    }finally{await app.evaluate(()=>globalThis.syphonReceiver.stop());}
   }
   await page.evaluate(()=>{document.querySelector('#samples').open=true;});await page.locator('[data-sample=Z]').click();

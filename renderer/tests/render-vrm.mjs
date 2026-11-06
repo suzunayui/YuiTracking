@@ -222,7 +222,7 @@ try{
   await page.evaluate(()=>window.hostListener({data:{type:'frameAck'}}));await page.waitForTimeout(100);
   const next=await page.evaluate(()=>({count:window.hostMessages.filter(m=>m.type==='frameReady').length,pixel:[...new Uint8Array(window.testFrameBuffer).slice(0,4)]}));
   assert.equal(next.count,2,'Acknowledgment must release backpressure');
-  assert.deepEqual(next.pixel,[23,27,46,255],'Shared output must preserve the privacy screen');
+  assert.deepEqual(next.pixel,[0,0,0,0],'Shared output must stay transparent while the avatar is hidden');
   await page.evaluate(()=>{window.hostListener({data:{type:'output',value:false}});window.hostListener({data:{type:'frameAck'}});});
   console.log('PASS shared-frame pixels, backpressure, acknowledgment and privacy');
  }

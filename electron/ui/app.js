@@ -40,7 +40,8 @@ document.addEventListener('keyup',event=>{if(shortcut===event.code&&held.size===
 $('open').onclick=()=>host.openModel().catch(showError);
 for(const button of document.querySelectorAll('[data-sample]'))button.onclick=()=>host.selectSample(button.dataset.sample).catch(showError);
 $('calibrate').onclick=()=>send('calibrate');$('reset').onclick=()=>send('resetFraming');
-$('privacy').onclick=()=>{const value=$('privacy').getAttribute('aria-pressed')!=='true';$('privacy').setAttribute('aria-pressed',value);send('privacy',{value});};
+function showPrivacy(value){$('privacy').setAttribute('aria-pressed',value);$('standby-notice').hidden=!value;}
+$('privacy').onclick=()=>{const value=$('privacy').getAttribute('aria-pressed')!=='true';showPrivacy(value);send('privacy',{value});};
 $('tracking').onclick=()=>{const choice=$('cameras').value;send(active?'stopTracking':'startTracking',{singleNativeCamera:choice.startsWith('native:')&&nativeLabels.length===1,deviceId:choice==='default:'||choice.startsWith('native:')?'':choice,cameraLabel:choice.startsWith('native:')?$('cameras').selectedOptions[0]?.textContent:undefined});$('tracking').disabled=true;};
 $('pan-mode').onclick=()=>{const value=$('pan-mode').getAttribute('aria-pressed')!=='true';$('pan-mode').setAttribute('aria-pressed',value);send('navigationMode',{pan:value});};
 $('refresh-cameras').onclick=async()=>{try{$('refresh-cameras').disabled=true;nativeLabels=await host.nativeCameras();send('refreshCameras');updateCameras();await updateCameraPermission();}catch(error){showError(error);}finally{$('refresh-cameras').disabled=false;}};
@@ -48,7 +49,7 @@ host.syphonAvailable().then(available=>{$('syphon').disabled=!available;if(!avai
 $('syphon').onclick=async()=>{try{$('syphon').disabled=true;await host.setSyphon(!syphonActive);}catch(error){showError(error);}finally{$('syphon').disabled=false;}};
 host.onEvent(message=>{
  if(message.type==='ready'){$('open').disabled=false;$('tracking').disabled=false;}
- if(message.type==='safety')$('privacy').setAttribute('aria-pressed',true);
+ if(message.type==='safety')showPrivacy(true);
  if(message.type==='syphon'){syphonActive=message.active;$('syphon').textContent=syphonActive?'Syphon出力を停止':'Syphon出力を開始';$('output-status').textContent=message.error||(syphonActive?'送信中：YuiTracking / 1280 × 720':'Syphon：停止中');}
  if(['status','error'].includes(message.type))setStatus(message.text,message.temporary===true);
  if(message.type==='error')$('tracking').disabled=false;

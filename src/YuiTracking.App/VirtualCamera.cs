@@ -12,7 +12,7 @@ public sealed class VirtualCamera : IDisposable
     public const string FilterRevision = "quiet-v1";
     private readonly string suffix; // Production: ASCII '0' + slot 42 = 'Z'
     private readonly object gate = new();
-    private readonly byte[] standby = CreateStandby();
+    private readonly byte[] transparent = new byte[FrameBytes];
     private byte[]? latest;
     private byte[] back = new byte[FrameBytes];
     private long lastFrame;
@@ -54,7 +54,7 @@ public sealed class VirtualCamera : IDisposable
                     memory ??= MemoryMappedFile.OpenExisting("UnityCapture_Data" + suffix);
                     view = memory.CreateViewAccessor(0, 32L + FrameBytes);
                 }
-                var frame = privacy || latest == null || Environment.TickCount64 - lastFrame > 700 ? standby : latest;
+                var frame = privacy || latest == null || Environment.TickCount64 - lastFrame > 700 ? transparent : latest;
                 bool acquired;
                 try { acquired = mutex!.WaitOne(10); } catch (AbandonedMutexException) { acquired = true; }
                 if (!acquired) return;
@@ -67,25 +67,12 @@ public sealed class VirtualCamera : IDisposable
                 }
                 finally { mutex!.ReleaseMutex(); }
                 sent!.Set();
-                Status = want.WaitOne(0) ? (ReferenceEquals(frame, standby) ? "待機画面を送信中" : "アバターを送信中") : "OBSの接続待ち";
+                Status = want.WaitOne(0) ? (ReferenceEquals(frame, transparent) ? "透過を送信中" : "アバターを送信中") : "OBSの接続待ち";
             }
             catch (WaitHandleCannotBeOpenedException) { Status = "OBSの接続待ち"; }
             catch (FileNotFoundException) { Status = "OBSの接続待ち"; }
             catch (Exception ex) { Status = "出力エラー: " + ex.Message; ResetConnection(); }
         }
-    }
-    public static byte[] CreateStandby()
-    {
-        var data = new byte[FrameBytes];
-        for (var y = 0; y < Height; y++) for (var x = 0; x < Width; x++)
-        {
-            var p = (y * Width + x) * 4;
-            var center = Math.Abs(x - Width / 2) < 48 && Math.Abs(y - Height / 2) < 48;
-            var bars = center && ((x > Width/2-30 && x < Width/2-10) || (x > Width/2+10 && x < Width/2+30));
-            data[p] = (byte)(bars ? 130 : 23); data[p+1] = (byte)(bars ? 226 : 27);
-            data[p+2] = (byte)(bars ? 192 : 46); data[p+3] = 255;
-        }
-        return data;
     }
     public static bool IsRegistered()
     {

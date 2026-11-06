@@ -634,9 +634,10 @@ public sealed partial class MainWindow : Window
         var standby = Privacy.IsChecked == true;
         output?.SetPrivacy(standby);
         Send(new { type = "privacy", value = standby });
+        StandbyNotice.Visibility = standby ? Visibility.Visible : Visibility.Collapsed;
         ToolTipService.SetToolTip(Privacy, standby
-            ? "待機画面を表示中です。\nもう一度押すとアバターの表示・出力に戻ります。"
-            : "待機画面に切り替えます。\nオンの間はアバターの代わりに待機画面を出力します。");
+            ? "アバターを隠しています。\nもう一度押すとアバターの表示・出力に戻ります。"
+            : "アバターを隠します。\nオンの間は透過だけを出力します。");
     }
     private void Register_Click(object sender, RoutedEventArgs e)
     {

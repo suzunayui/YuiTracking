@@ -181,9 +181,6 @@ const perfStats={renderFps:0,frameFps:0,detectMs:0,captureMs:0,ackMs:0};
 const capture=new FrameCapture(renderer,W,H);
 // Only this WebGL canvas is ever copied to the outbound frame buffer. The input
 // video is kept detached and is passed exclusively to the landmark detectors.
-const standby=new THREE.Scene(); standby.background=new THREE.Color('#171b2e');
-const standbyCam=new THREE.OrthographicCamera(-W/2,W/2,H/2,-H/2,.1,10);standbyCam.position.z=1;
-for (const x of [-20,20]) {const b=new THREE.Mesh(new THREE.PlaneGeometry(20,96),new THREE.MeshBasicMaterial({color:'#82e2c0'}));b.position.x=x;standby.add(b);}
 function mesh(geometry,color,parent,x=0,y=0,z=0) {
  const o=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({color,roughness:.55})); o.position.set(x,y,z);parent.add(o);return o;
 }
@@ -590,8 +587,7 @@ function loop(now){
  const dt=Math.min((now-lastRender)/1000,.1);lastRender=now;scheduleLoop();
  if(vrm||demo)animate(now,dt);
  if(avatarHidden&&avatarRevealAt!==null&&now>=avatarRevealAt)avatarHidden=false;
- if(privacy)renderer.render(standby,standbyCam);
- else if(avatarHidden)renderer.clear();
+ if(privacy||avatarHidden)renderer.clear();
  else renderer.render(scene,renderCamera);
  sendFrame();frameNumber++;
  perfFrames++;
