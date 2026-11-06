@@ -318,9 +318,23 @@ public sealed partial class MainWindow : Window
     }
     private void UpdateSettingsColumnWidth()
     {
-        const double settingsWidth = 300, singleRowActionsWidth = 470;
+        const double settingsWidth = 300, singleRowActionsWidth = 470, singleRowCameraWidth = 620;
         SettingsColumn.Width = new GridLength(previewMaximized ? 0 : settingsWidth);
-        SetPreviewActionsCompact(!previewMaximized && MainContent.ActualWidth - MainContent.ColumnSpacing - settingsWidth < singleRowActionsWidth);
+        var previewWidth = MainContent.ActualWidth - MainContent.ColumnSpacing - settingsWidth;
+        SetPreviewActionsCompact(!previewMaximized && previewWidth < singleRowActionsWidth);
+        SetCameraControlsCompact(!previewMaximized && previewWidth < singleRowCameraWidth);
+    }
+    private bool cameraControlsCompact;
+    private void SetCameraControlsCompact(bool compact)
+    {
+        if (compact == cameraControlsCompact) return;
+        cameraControlsCompact = compact;
+        // The camera list takes its own row when the buttons would squeeze it too far.
+        Grid.SetColumnSpan(Cameras, compact ? 4 : 1);
+        Grid.SetColumn(TrackButton, compact ? 0 : 1);
+        Grid.SetColumnSpan(TrackButton, compact ? 2 : 1);
+        foreach (var element in new FrameworkElement[] { TrackButton, RefreshCamerasButton, OutputButtons })
+            Grid.SetRow(element, compact ? 1 : 0);
     }
     private bool previewActionsCompact;
     private void SetPreviewActionsCompact(bool compact)

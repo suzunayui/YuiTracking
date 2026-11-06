@@ -6,6 +6,7 @@
   <iframe id="preview" src="/renderer/index.html" allow="camera" title="アバターのプレビュー"></iframe>
   <p id="standby-notice" hidden>待機中：アバターを隠して透過で出力しています</p>
   <div class="preview-status">
+   <div class="camera-section"><div class="camera-row"><select id="cameras" title="トラッキングに使うカメラを選びます。"></select><button id="refresh-cameras" title="Macとブラウザーのカメラ一覧を再取得します。">更新</button></div><button id="tracking" class="wide" disabled title="選択したカメラで顔・手・体の認識を開始します。">カメラを開始</button><p id="camera-note" aria-live="polite"></p><p id="camera-permission" aria-live="polite"></p><button id="syphon" class="wide output-button" disabled title="透過背景のアバター映像をSyphonへ送信します。&#10;OBS → Syphonクライアント → YuiTracking を選びます。">Syphon出力を開始</button></div>
    <div class="preview-actions">
     <button id="calibrate" title="今の顔の向きを正面として合わせます。&#10;Macの共通ショートカット：⌘⇧C&#10;アプリが前面なら右Control／右Shift単独でも実行します。">キャリブレーション</button>
     <button id="reset" title="拡大率・移動位置・カメラの回転を最初の状態に戻します。">初期位置に戻す</button>
@@ -18,7 +19,6 @@
   </div>
  </section>
  <aside>
-  <div class="camera-section"><div class="camera-row"><select id="cameras" title="トラッキングに使うカメラを選びます。"></select><button id="refresh-cameras" title="Macとブラウザーのカメラ一覧を再取得します。">更新</button></div><button id="tracking" class="wide" disabled title="選択したカメラで顔・手・体の認識を開始します。">カメラを開始</button><p id="camera-note" aria-live="polite"></p><p id="camera-permission" aria-live="polite"></p><button id="syphon" class="wide output-button" disabled title="透過背景のアバター映像をSyphonへ送信します。&#10;OBS → Syphonクライアント → YuiTracking を選びます。">Syphon出力を開始</button></div>
   <div class="settings">
    <div class="title-row"><h2 class="section-title">アバター</h2><p id="model">サンプルを準備中</p></div>
    <button id="open" class="wide" disabled title="PCに保存したVRMファイルを開きます。">VRMを開く</button>

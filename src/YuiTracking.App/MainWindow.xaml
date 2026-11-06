@@ -40,8 +40,19 @@
     </Border>
     <Border x:Name="PreviewStatus" Grid.Row="1" Padding="12,8" Background="#1A1E2B" CornerRadius="8">
      <Grid RowSpacing="6">
-      <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+      <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
       <Grid ColumnSpacing="6" RowSpacing="6">
+       <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+       <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+       <ComboBox x:Name="Cameras" ToolTipService.ToolTip="トラッキングに使うカメラを選びます。&#10;製品名ではなく「USB 2.0 Camera」などの名前で出る場合があります。" PlaceholderText="カメラを選択" HorizontalAlignment="Stretch" DisplayMemberPath="Label" MaxDropDownHeight="320"/>
+       <Button Grid.Column="1" x:Name="TrackButton" ToolTipService.ToolTip="選択したカメラで顔・手・体の認識を開始します。" Content="カメラを開始" Click="Track_Click" IsEnabled="False" HorizontalAlignment="Stretch"/>
+       <Button Grid.Column="2" x:Name="RefreshCamerasButton" Content="一覧を更新" Click="RefreshCameras_Click" IsEnabled="False" ToolTipService.ToolTip="接続しているカメラの一覧を取得し直します。トラッキング停止中に使えます。"/>
+       <StackPanel x:Name="OutputButtons" Grid.Column="3" Orientation="Horizontal" Spacing="6">
+        <Button x:Name="OutputButton" Content="仮想カメラ出力を開始" Click="Output_Click" HorizontalAlignment="Stretch" IsEnabled="False" ToolTipService.ToolTip="透過背景のアバター映像を仮想カメラへ出力します。&#10;OBSで「映像キャプチャデバイス」を追加して&#10;「YuiTracking Camera」を選び、&#10;映像フォーマットを「ARGB」にしてください。&#10;必要に応じて解像度/FPSタイプを「カスタム」にし、&#10;解像度を1280×720に設定してください。"/>
+        <Button x:Name="RegisterButton" ToolTipService.ToolTip="OBSなどから使える仮想カメラを登録します。&#10;初回のみ実行してください。" Content="仮想カメラを登録（初回）" Click="Register_Click" HorizontalAlignment="Stretch"/>
+       </StackPanel>
+      </Grid>
+      <Grid Grid.Row="1" ColumnSpacing="6" RowSpacing="6">
        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
        <Button x:Name="CalibrateButton" Content="キャリブレーション" HorizontalAlignment="Stretch" ToolTipService.ToolTip="今の顔・体の向きと目の開き具合を基準に合わせます。&#10;正面を向いて実行してください。&#10;ショートカット：右Ctrl／右Shift" Click="Calibrate_Click"/>
@@ -49,13 +60,13 @@
        <Button x:Name="MaximizeButton" Grid.Column="2" Content="最大化" Click="MaximizePreview_Click" ToolTipService.ToolTip="プレビューを最大化します。&#10;Esc：元に戻す&#10;ダブルクリックでも切り替えられます。"/>
        <ToggleButton x:Name="Privacy" Grid.Column="3" VerticalAlignment="Center" Content="待機画面" ToolTipService.ToolTip="アバターを隠します。&#10;オンの間は透過だけを出力します。" Click="Privacy_Click"/>
       </Grid>
-      <Grid Grid.Row="1" ColumnSpacing="12">
+      <Grid Grid.Row="2" ColumnSpacing="12">
        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" MaxWidth="180"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
        <TextBlock x:Name="TrackingStatus" Text="描画エンジンを準備しています…" TextTrimming="CharacterEllipsis" FontSize="12" ToolTipService.ToolTip="{Binding Text, ElementName=TrackingStatus}"/>
        <TextBlock x:Name="OutputStatus" Grid.Column="1" Text="仮想カメラ：停止中" Foreground="#9DA7C0" TextTrimming="CharacterEllipsis" FontSize="12" ToolTipService.ToolTip="{Binding Text, ElementName=OutputStatus}"/>
        <TextBlock x:Name="MemoryStatus" Grid.Column="2" Text="メモリ：計測中" Foreground="#9DA7C0" FontSize="12" ToolTipService.ToolTip="本体と関連WebView2のメモリ使用量を合計します。"/>
       </Grid>
-      <Grid Grid.Row="2" ColumnSpacing="12">
+      <Grid Grid.Row="3" ColumnSpacing="12">
        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
        <TextBlock x:Name="CameraInputStatus" Text="カメラ入力：720p / 最大30fps" Foreground="#9DA7C0" FontSize="12" TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{Binding Text, ElementName=CameraInputStatus}"/>
        <TextBlock x:Name="HandDetectionStatus" Grid.Column="1" Text="手：カメラ停止中" Foreground="#9DA7C0" FontSize="12"/>
@@ -63,18 +74,8 @@
      </Grid>
     </Border>
    </Grid>
-   <Grid x:Name="SettingsPanel" Grid.Column="1" RowSpacing="12">
-    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-    <StackPanel Spacing="6">
-     <ComboBox x:Name="Cameras" ToolTipService.ToolTip="トラッキングに使うカメラを選びます。&#10;製品名ではなく「USB 2.0 Camera」などの名前で出る場合があります。" PlaceholderText="カメラを選択" HorizontalAlignment="Stretch" DisplayMemberPath="Label" MaxDropDownHeight="320"/>
-     <Grid ColumnSpacing="6"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-      <Button x:Name="TrackButton" ToolTipService.ToolTip="選択したカメラで顔・手・体の認識を開始します。" Content="カメラを開始" Click="Track_Click" IsEnabled="False" HorizontalAlignment="Stretch"/>
-      <Button x:Name="RefreshCamerasButton" Grid.Column="1" Content="一覧を更新" Click="RefreshCameras_Click" IsEnabled="False" ToolTipService.ToolTip="接続しているカメラの一覧を取得し直します。トラッキング停止中に使えます。"/>
-     </Grid>
-       <Button x:Name="OutputButton" Content="仮想カメラ出力を開始" Click="Output_Click" HorizontalAlignment="Stretch" IsEnabled="False" ToolTipService.ToolTip="透過背景のアバター映像を仮想カメラへ出力します。&#10;OBSで「映像キャプチャデバイス」を追加して&#10;「YuiTracking Camera」を選び、&#10;映像フォーマットを「ARGB」にしてください。&#10;必要に応じて解像度/FPSタイプを「カスタム」にし、&#10;解像度を1280×720に設定してください。"/>
-       <Button x:Name="RegisterButton" ToolTipService.ToolTip="OBSなどから使える仮想カメラを登録します。&#10;初回のみ実行してください。" Content="仮想カメラを登録（初回）" Click="Register_Click" HorizontalAlignment="Stretch"/>
-    </StackPanel>
-    <Border Grid.Row="1" BorderBrush="#2D3447" BorderThickness="1" CornerRadius="8" Background="#171B27" Padding="10,10,0,10">
+   <Grid x:Name="SettingsPanel" Grid.Column="1">
+    <Border BorderBrush="#2D3447" BorderThickness="1" CornerRadius="8" Background="#171B27" Padding="10,10,0,10">
      <ScrollViewer VerticalScrollBarVisibility="Auto">
       <StackPanel x:Name="SettingsList" Spacing="4" Margin="0,0,14,0">
        <Grid ColumnSpacing="10">
