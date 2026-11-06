@@ -14,6 +14,7 @@ const waitForAsync=async(page,check,argument,{timeout=30000}={})=>{const end=Dat
   const launch=()=>_electron.launch({executablePath:packaged?path.resolve(__dirname,'../dist/electron/mac-arm64/YuiTracking.app/Contents/MacOS/YuiTracking'):require('../electron/node_modules/electron'),args:[...(packaged?[]:[path.resolve(__dirname,'../electron')]),'--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream','--user-data-dir='+profile],env});
   app=await launch();let page=await app.firstWindow();
   // Startup problems on CI are otherwise invisible: keep what the app reported.
+  app.process().on('exit',(code,signal)=>console.log(`App exited: code ${code} signal ${signal}`));
   const startupLog=[];
   app.process().stderr?.on('data',data=>startupLog.push('stderr: '+String(data).slice(0,300)));
   page.on('console',message=>{if(['error','warning'].includes(message.type()))startupLog.push('console: '+message.text().slice(0,300));});
@@ -191,9 +192,13 @@ const waitForAsync=async(page,check,argument,{timeout=30000}={})=>{const end=Dat
     await waitTransparent();
     await page.locator('#privacy').click();
     await waitTransparent();
+    // The receiver belongs to this test: close it first, so any crash from here on comes from the app.
+    await app.evaluate(()=>{globalThis.syphonReceiver.stop();globalThis.syphonReceiver=null;});
+    console.log('Syphon receiver closed');
     await page.locator('#syphon').click();
+    await page.waitForFunction(()=>document.querySelector('#syphon').textContent.includes('開始'));
     console.log('PASS native Syphon receiver: avatar-only 720p, transparent output and hidden state, stop');
-   }finally{await app.evaluate(()=>globalThis.syphonReceiver.stop());}
+   }finally{await app.evaluate(()=>{globalThis.syphonReceiver?.stop();}).catch(()=>{});}
   }
   const screenshotDir=process.env.YUI_SMOKE_SCREENSHOTS||require('node:os').tmpdir();
   const shot=name=>page.screenshot({path:path.join(screenshotDir,name)});
