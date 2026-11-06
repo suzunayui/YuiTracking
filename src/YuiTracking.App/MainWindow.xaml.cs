@@ -142,6 +142,7 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
         AddSliderControls();
+        InitializeSettingsScrollbar();
         cameraPresenter = new CameraChoicePresenter(Cameras, cameraChoices);
         Cameras.DropDownOpened += (_, _) => App.Log("Camera dropdown opened: " + string.Join(" / ", Cameras.Items.OfType<CameraItem>().Select(c => c.Label)));
         Cameras.SelectionChanged += (_, _) => { if (Cameras.SelectedItem is CameraItem item) App.Log("Camera selected: " + item.Label); };

@@ -75,9 +75,14 @@
     </Border>
    </Grid>
    <Grid x:Name="SettingsPanel" Grid.Column="1">
-    <Border BorderBrush="#2D3447" BorderThickness="1" CornerRadius="8" Background="#171B27" Padding="10,10,0,10">
-     <ScrollViewer VerticalScrollBarVisibility="Auto">
-      <StackPanel x:Name="SettingsList" Spacing="4" Margin="0,0,14,0">
+    <Border BorderBrush="#2D3447" BorderThickness="1" CornerRadius="8" Background="#171B27" Padding="10">
+     <Grid ColumnSpacing="12">
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <Grid x:Name="SettingsScrollTrack" Grid.Column="1" Width="12" Background="#1FFFFFFF" CornerRadius="6">
+       <Border x:Name="SettingsScrollThumb" VerticalAlignment="Top" Background="#73FFFFFF" CornerRadius="6"/>
+      </Grid>
+     <ScrollViewer x:Name="SettingsScroll" VerticalScrollMode="Enabled" VerticalScrollBarVisibility="Hidden">
+      <StackPanel x:Name="SettingsList" Spacing="4">
        <Grid ColumnSpacing="10">
         <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
         <TextBlock Text="アバター" FontSize="13" FontWeight="SemiBold"/>
@@ -186,6 +191,7 @@
        <TextBlock x:Name="RecognitionStatus" TextWrapping="Wrap" FontSize="12" Foreground="#9DA7C0"/>
       </StackPanel>
      </ScrollViewer>
+     </Grid>
     </Border>
    </Grid>
   </Grid>
