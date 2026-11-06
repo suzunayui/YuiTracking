@@ -14,6 +14,7 @@ function showError(error){setStatus(error.message||String(error));}
 function send(type,rest={}){host.command({type,...rest});}
 function values(){return {...Object.fromEntries(keys.map(key=>[key,Number($(key).value)])),gazeMode:$('gazeMode').value};}
 function labels(){
+ if(typeof sliderSync!=='undefined')for(const sync of sliderSync)sync();
  $('gazeRange').disabled=$('gazeMode').value==='fixed';$('gazeStrength').disabled=$('gazeMode').value!=='tracking';
  for(const key of keys){
   const value=Number($(key).value);
@@ -24,6 +25,7 @@ function labels(){
  }
 }
 function apply(){labels();send('settings',values());clearTimeout(timer);timer=setTimeout(()=>host.saveSettings(values()).catch(showError),200);}
+const sliderSync=keys.map(key=>addSliderControls($(key),key==='smoothing'?100:1,apply));
 for(const key of keys)$(key).addEventListener('input',apply);
 $('gazeMode').addEventListener('change',apply);
 host.getRecognitionSettings().then(info=>{

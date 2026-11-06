@@ -19,6 +19,8 @@ try {
     if ($LASTEXITCODE) { throw 'Camera selection tests failed' }
     & $dotnetPath run --project tests/GpuSmoke/GpuSmoke.csproj -- --selection
     if ($LASTEXITCODE) { throw 'GPU selection tests failed' }
+    & $dotnetPath run --project tests/SliderSmoke/SliderSmoke.csproj
+    if ($LASTEXITCODE) { throw 'Slider tests failed' }
     & $dotnetPath run --project tests/CameraSmoke/CameraSmoke.csproj
     if ($LASTEXITCODE) { throw 'Virtual-camera tests failed' }
     & $dotnetPath publish src/YuiTracking.App/YuiTracking.App.csproj -c Release -p:OutputPath=bin/Package/ -o dist/YuiTracking

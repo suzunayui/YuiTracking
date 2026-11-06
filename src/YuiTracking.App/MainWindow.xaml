@@ -12,6 +12,13 @@
    <SolidColorBrush x:Key="ComboBoxBorderBrush" Color="#73FFFFFF"/>
    <SolidColorBrush x:Key="ComboBoxBorderBrushPointerOver" Color="#B3FFFFFF"/>
    <SolidColorBrush x:Key="ComboBoxBorderBrushPressed" Color="#99FFFFFF"/>
+   <SolidColorBrush x:Key="RepeatButtonBorderBrush" Color="#73FFFFFF"/>
+   <SolidColorBrush x:Key="RepeatButtonBorderBrushPointerOver" Color="#B3FFFFFF"/>
+   <SolidColorBrush x:Key="RepeatButtonBorderBrushPressed" Color="#99FFFFFF"/>
+   <SolidColorBrush x:Key="RepeatButtonBorderBrushDisabled" Color="#2EFFFFFF"/>
+   <SolidColorBrush x:Key="TextControlBorderBrush" Color="#73FFFFFF"/>
+   <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="#B3FFFFFF"/>
+   <SolidColorBrush x:Key="TextControlBorderBrushDisabled" Color="#2EFFFFFF"/>
    <SolidColorBrush x:Key="ComboBoxBorderBrushDisabled" Color="#2EFFFFFF"/>
   </Grid.Resources>
   <Grid x:Name="MainContent" ColumnSpacing="16">
@@ -69,7 +76,7 @@
     </StackPanel>
     <Border Grid.Row="1" BorderBrush="#2D3447" BorderThickness="1" CornerRadius="8" Background="#171B27" Padding="10,10,0,10">
      <ScrollViewer VerticalScrollBarVisibility="Auto">
-      <StackPanel Spacing="4" Margin="0,0,14,0">
+      <StackPanel x:Name="SettingsList" Spacing="4" Margin="0,0,14,0">
        <Grid ColumnSpacing="10">
         <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
         <TextBlock Text="アバター" FontSize="13" FontWeight="SemiBold"/>
