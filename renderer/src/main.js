@@ -513,7 +513,7 @@ function animate(now,dt){
  // Pose landmarks remain available to the existing shoulder-relative hand IK.
  const pose=!bodyFromHead&&safeTracking(latestPose,now)?bodyPose(latestPose.result.worldLandmarks?.[0]):null;
  const body=bodyFromHead?null:bodyStabilizer.update(pose?relativeBodyPose(pose,bodyNeutral):null,latestPose?.time,now);
- const sideTilt=bodyFromHead?scaledBodyTilt(bodyTilt.update(safeTracking(latestPose,now)?shoulderRoll(latestPose.result.worldLandmarks?.[0]):null,latestPose?.time,now),sideTiltStrength):0;
+ const sideTilt=bodyFromHead?scaledBodyTilt(bodyTilt.update(safeTracking(latestPose,now)&&video?.videoHeight?shoulderRoll(latestPose.result.landmarks?.[0],video.videoWidth/video.videoHeight):null,latestPose?.time,now),sideTiltStrength):0;
  const bodyTarget=away?new THREE.Quaternion():bodyFromHead?linkedBodyRotation(bodyHeadTarget,bodyLeanEnabled?scaledBodyLean(bodyLean.value,forwardLeanStrength,backwardLeanStrength):0,basis,bodyStrength,sideTilt):avatarBodyRotation(body,basis);
  const headNode=vrm?bone('head'):head;
  const rigRoot=vrm?vrm.humanoid.normalizedHumanBonesRoot:scene;

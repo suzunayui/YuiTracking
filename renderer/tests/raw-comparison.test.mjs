@@ -222,7 +222,8 @@ test('side tilt leans the torso from the shoulders while the head direction stay
   context.bodyFromHead=true;context.sideTiltStrength=strength;
   const expected=avatarHeadRotation(head,1,new THREE.Quaternion());
   const points=[];points[11]={x:.2,y:0};points[12]={x:-.2,y:.2};
-  context.latestPose.result={...context.latestPose.result,worldLandmarks:[points]};
+  context.video={videoWidth:1280,videoHeight:720};
+  context.latestPose.result={...context.latestPose.result,landmarks:[points]};
   for(let i=1;i<=30;i++){context.latestPose.time=i*100;context.animate(i*100,1/60);}
   assert.ok(headRotationInRoot(nodes.head,context.vrm.humanoid.normalizedHumanBonesRoot).angleTo(expected)<1e-6);
   return nodes.spine.quaternion.angleTo(linkedBodyRotation(expected));

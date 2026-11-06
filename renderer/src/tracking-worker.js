@@ -14,7 +14,8 @@ self.onmessage=async({data})=>{
   }else if(data.type==='frame'){
    const started=performance.now();
    const result={type:'result',time:data.time,generation:data.generation,face:face.detectForVideo(data.bitmap,data.time),hands:data.detectHands===false?{landmarks:[],worldLandmarks:[],handedness:[]}:hands.detectForVideo(data.bitmap,data.time)};
-   if(data.time-lastPose>=95){lastPose=data.time;result.pose=pose.detectForVideo(data.bitmap,data.time);}
+   // Every second camera frame at 30fps, about 15 times a second: enough for a smooth side tilt.
+   if(data.time-lastPose>=60){lastPose=data.time;result.pose=pose.detectForVideo(data.bitmap,data.time);}
    result.duration=performance.now()-started;self.postMessage(result);
   }
  }catch(error){face?.close();hands?.close();pose?.close();self.postMessage({type:'error',message:error.message});}

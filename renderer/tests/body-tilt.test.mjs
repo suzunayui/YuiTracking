@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {readFileSync} from 'node:fs';
 import assert from 'node:assert/strict';
 import {Quaternion,Vector3} from 'three';
 import {BodyTilt,MAX_BODY_TILT,scaledBodyTilt,shoulderRoll} from '../src/body-tilt.js';
@@ -60,6 +61,8 @@ test('a new recognition result glides over several display frames instead of jum
  const tilt=new BodyTilt();
  let now=0;
  for(let i=1;i<=60;i++){now+=33;tilt.update(0,now,now);}
+ // One sample could be a spike, so the second one starts the movement.
+ tilt.update(.3,now+33,now+33);now+=33;
  tilt.update(.3,now+33,now+33);now+=33;
  let previous=tilt.value,largest=0;
  for(let frame=1;frame<=4;frame++){now+=16;const value=tilt.update(.3,now-frame*16,now);largest=Math.max(largest,Math.abs(value-previous));previous=value;}
@@ -79,6 +82,58 @@ test('shoulder noise is reduced even at high strength',()=>{
  assert.ok(largest<.02,`largest step at five times ${largest}`);
 });
 
+test('a recorded still person does not move the avatar, and recorded leans do',()=>{
+ const windows=JSON.parse(readFileSync(new URL('./fixtures/shoulder-roll-recording.json',import.meta.url),'utf8'));
+ const tilt=new BodyTilt();
+ const DEGREE=Math.PI/180,spans=[],peaks=[];
+ let time=0,now=0;
+ windows.forEach((samples,index)=>{
+  let low=Infinity,high=-Infinity;
+  for(const sample of samples){
+   time+=3000/samples.length;
+   for(;now<time;now+=16.67){const value=tilt.update(sample*DEGREE,time,now)/DEGREE;low=Math.min(low,value);high=Math.max(high,value);}
+  }
+  spans[index]=high-low;peaks[index]=[low,high];
+ });
+ // Windows 1-12 and 19-41 were recorded sitting still; the person leaned during 13-17.
+ for(const index of spans.keys())if(index>=1&&index<=12||index>=19)assert.ok(spans[index]<.001,`moved ${spans[index]} degrees in still window ${index}`);
+ assert.ok(peaks[14][0]<-5,'follows the lean to the left');
+ assert.ok(Math.max(peaks[16][1],peaks[17][1])>6,'follows the lean to the right');
+});
+
+test('a recorded lean moves without a staircase of stops and starts',()=>{
+ const windows=JSON.parse(readFileSync(new URL('./fixtures/shoulder-roll-recording.json',import.meta.url),'utf8'));
+ const tilt=new BodyTilt();
+ const DEGREE=Math.PI/180;
+ let time=0,now=0,previous=0,previousStep=0,kink=0;
+ windows.forEach((samples,index)=>{
+  for(const sample of samples){
+   time+=3000/samples.length;
+   for(;now<time;now+=16.67){
+    const value=tilt.update(sample*DEGREE,time,now)/DEGREE,step=value-previous;
+    if(index>=13&&index<=17)kink=Math.max(kink,Math.abs(step-previousStep));
+    previous=value;previousStep=step;
+   }
+  }
+ });
+ assert.ok(kink<.15,`largest change of speed between frames is ${kink} degrees`);
+});
+
+test('a slight shift of about two degrees is treated as sitting still',()=>{
+ const tilt=new BodyTilt();
+ let now=0;
+ for(let i=0;i<120;i++){now+=100;tilt.update(i>60?.035:0,now,now);}
+ assert.equal(tilt.value,0);
+});
+
+test('sitting back up ends exactly level despite a little noise',()=>{
+ const tilt=new BodyTilt();
+ let now=0;
+ for(let i=0;i<40;i++){now+=100;tilt.update(.15,now,now);}
+ for(let i=0;i<60;i++){now+=100;tilt.update(.01+(i%2?.005:-.005),now,now);}
+ near(tilt.value,0,.0005);
+});
+
 test('a still body does not move at all at five times, even with shoulder noise',()=>{
  const tilt=new BodyTilt();
  let now=0,previous=null;
@@ -90,12 +145,12 @@ test('a still body does not move at all at five times, even with shoulder noise'
  }
 });
 
-test('a small real lean is followed all the way without a leftover offset',()=>{
+test('a light lean is followed all the way without a leftover offset',()=>{
  const tilt=new BodyTilt();
  let now=0;
  for(let i=0;i<60;i++){now+=33;tilt.update(0,now,now);}
- for(let i=0;i<60;i++){now+=33;tilt.update(.05,now,now);}
- near(tilt.value,.05,.003);
+ for(let i=0;i<60;i++){now+=33;tilt.update(.1,now,now);}
+ near(tilt.value,.1,.003);
  for(let i=0;i<60;i++){now+=33;tilt.update(0,now,now);}
  near(tilt.value,0,.003);
 });
