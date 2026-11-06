@@ -206,11 +206,6 @@ const waitForAsync=async(page,check,argument,{timeout=30000}={})=>{const end=Dat
    dialog.showOpenDialog=async()=>({canceled:false,filePaths:[file]});
    return file;
   });
-  // An unseen window pauses requestAnimationFrame on macOS; Syphon output renders on a timer instead.
-  const previewFrame=page.frames().find(f=>f.url().includes('/renderer/'));
-  console.log('Preview state',await previewFrame.evaluate(()=>new Promise(resolve=>{let frames=0;const count=()=>{frames++;requestAnimationFrame(count);};requestAnimationFrame(count);setTimeout(()=>resolve({visibility:document.visibilityState,framesIn500ms:frames}),500);})));
-  const timedRender=process.platform==='darwin';
-  if(timedRender){await page.locator('#syphon').click();await page.waitForFunction(()=>document.querySelector('#output-status').textContent.includes('送信中'));}
   await page.locator('#open').click();
   assert.equal(await page.locator('#vrm-dialog').evaluate(element=>element.open),true);
   await page.locator('#vrm-file').click();
@@ -221,7 +216,6 @@ const waitForAsync=async(page,check,argument,{timeout=30000}={})=>{const end=Dat
   assert.equal(await page.locator('.vrm-badge').textContent(),'使用中');
   await shot('yuitracking-mac-vrm-dialog.png');
   await page.locator('#vrm-close').click();
-  if(timedRender)await page.locator('#syphon').click();
   await assert.rejects(page.evaluate(()=>window.yuiDesktop.openVrm('/etc/passwd')),/一覧にないファイル/);
   console.log('PASS VRM dialog history, thumbnail, current marker, and rejection of other paths');
   await page.locator('#smoothing').fill('0.5');

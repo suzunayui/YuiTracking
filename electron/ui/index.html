@@ -3,7 +3,7 @@
 <link rel="stylesheet" href="style.css"></head><body>
 <main id="main">
  <section class="preview-panel">
-  <iframe id="preview" src="/renderer/index.html" allow="camera" title="アバターのプレビュー"></iframe>
+  <iframe id="preview" allow="camera" title="アバターのプレビュー"></iframe>
   <p id="standby-notice" hidden>待機中：アバターを隠して透過で出力しています</p>
   <div class="preview-status">
    <div class="camera-section"><button id="syphon" class="wide output-button" disabled title="透過背景のアバター映像をSyphonへ送信します。&#10;OBS → Syphonクライアント → YuiTracking を選びます。">Syphon出力を開始</button><div class="camera-row"><select id="cameras" title="トラッキングに使うカメラを選びます。"></select><button id="refresh-cameras" title="Macとブラウザーのカメラ一覧を再取得します。">更新</button></div><button id="tracking" class="wide" disabled title="選択したカメラで顔・手・体の認識を開始します。">カメラを開始</button><p id="camera-note" aria-live="polite"></p><p id="camera-permission" aria-live="polite"></p></div>

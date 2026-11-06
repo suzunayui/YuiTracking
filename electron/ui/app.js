@@ -9,6 +9,8 @@ function updateCameras(){
 }
 window.yuiHost.addEventListener('message',event=>$('preview').contentWindow.postMessage({yuiCommand:event.data},location.origin));
 window.addEventListener('message',event=>{if(event.source!==$('preview').contentWindow||event.origin!==location.origin)return;if(event.data?.yuiRenderer)window.yuiHost.postMessage(event.data.yuiRenderer);if(event.data?.yuiAvatarFrame instanceof ArrayBuffer&&event.data.yuiAvatarFrame.byteLength===1280*720*4)host.sendAvatarFrame(event.data.yuiAvatarFrame).catch(showError).finally(()=>$('preview').contentWindow.postMessage({yuiCommand:{type:'frameAck'}},location.origin));});
+// Load the renderer only now: a ready message sent before this listener exists would be lost and the app would stay on its loading text.
+$('preview').src='/renderer/index.html';
 new MutationObserver(()=>{$('status').hidden=['VRMを表示中','内蔵サンプルを表示中'].includes($('status').textContent);}).observe($('status'),{childList:true,characterData:true,subtree:true});
 function setStatus(text,temporary=false){clearTimeout(statusTimer);const revision=++statusRevision;$('status').textContent=text;if(temporary)statusTimer=setTimeout(()=>{if(statusRevision===revision)$('status').textContent=active?'トラッキング中':'VRMを表示中';},3000);}
 // Errors from the main process arrive wrapped in Electron's own wording.
