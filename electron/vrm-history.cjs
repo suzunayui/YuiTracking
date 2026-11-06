@@ -8,8 +8,8 @@ function without(history,file){return list(history).filter(item=>item!==file);}
 function thumbnailName(file){return crypto.createHash('sha256').update(file,'utf8').digest('hex')+'.png';}
 
 // Only accepts the PNG data URL the renderer produces.
-function decodeThumbnail(dataUrl){
- if(typeof dataUrl!=='string'||!dataUrl.startsWith(PNG_PREFIX)||dataUrl.length>MAX_THUMBNAIL_BYTES*4/3+PNG_PREFIX.length)return null;
+function decodeThumbnail(dataUrl,maxBytes=MAX_THUMBNAIL_BYTES){
+ if(typeof dataUrl!=='string'||!dataUrl.startsWith(PNG_PREFIX)||dataUrl.length>maxBytes*4/3+PNG_PREFIX.length)return null;
  const encoded=dataUrl.slice(PNG_PREFIX.length);
  if(!/^[A-Za-z0-9+/]+={0,2}$/.test(encoded))return null;
  const bytes=Buffer.from(encoded,'base64');

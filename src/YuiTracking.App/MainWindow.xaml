@@ -87,6 +87,7 @@
       </Grid>
      <ScrollViewer x:Name="SettingsScroll" VerticalScrollMode="Enabled" VerticalScrollBarVisibility="Hidden">
       <StackPanel x:Name="SettingsList" Spacing="4">
+       <Button Content="設定を画像で保存" Click="SettingsCard_Click" HorizontalAlignment="Stretch" Margin="0,0,0,8" ToolTipService.ToolTip="動きの調整を1枚の画像にして保存します。&#10;画像はクリップボードにもコピーされます。&#10;VRMやカメラの名前は入りません。"/>
        <TextBlock Text="目線" FontSize="13" FontWeight="SemiBold"/>
        <StackPanel Background="Transparent" ToolTipService.ToolTip="目線対応のVRMで使えます。自分の目に追従する場合は、カメラを見てキャリブレーションしてください。">
         <TextBlock Text="目線モード" Foreground="#9DA7C0" FontSize="12" TextTrimming="CharacterEllipsis"/>

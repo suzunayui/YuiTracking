@@ -491,6 +491,10 @@ public sealed partial class MainWindow : Window
                     try { SaveVrmThumbnail(root.GetProperty("dataUrl").GetString()); }
                     catch (Exception ex) { App.Log(ex.Message); }
                     break;
+                case "settingsCard":
+                    try { await SaveSettingsCardAsync(root.GetProperty("dataUrl").GetString()); }
+                    catch (Exception ex) { Report(ex); }
+                    break;
                 case "modelFailed":
                     if (root.GetProperty("requestId").GetInt32() == modelRequestId)
                     { pendingModelPath = pendingSample = null; ModelButton.IsEnabled = true; RestoreOutput(); }

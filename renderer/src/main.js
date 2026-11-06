@@ -1,3 +1,4 @@
+import {drawSettingsCard} from './settings-card.js';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
@@ -630,6 +631,7 @@ host?.addEventListener('message',async e=>{
    endPan();endOrbit();camera.zoom=1;camera.position.set(0,1.35,3.1);cameraTarget.set(0,1.1,0);camera.lookAt(cameraTarget);camera.updateProjectionMatrix();saveFraming();break;
   case'loadModel':await loadModel(m.requestId);break;
   case'demo':loadVersion++;makeDemo();break;
+  case'settingsCard':post('settingsCard',{dataUrl:drawSettingsCard(document.createElement('canvas'),m.card).toDataURL('image/png')});break;
   case'startTracking':await startTracking(m.deviceId,m.cameraLabel,m.singleNativeCamera);break;
   case'recognitionConfig':
    if(initializing||tracking)throw new Error('認識デバイスを変更する前にカメラを停止してください。');
