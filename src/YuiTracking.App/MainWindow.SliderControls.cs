@@ -22,6 +22,7 @@ public sealed partial class MainWindow
         AddSliderControls(BodyStrengthLabel, BodyStrength);
         AddSliderControls(ForwardLeanStrengthLabel, ForwardLeanStrength);
         AddSliderControls(BackwardLeanStrengthLabel, BackwardLeanStrength);
+        AddSliderControls(SideTiltStrengthLabel, SideTiltStrength);
         AddSliderControls(NearZoomStrengthLabel, NearZoomStrength);
         AddSliderControls(FarZoomStrengthLabel, FarZoomStrength);
         AddSliderControls(ZoomCenterXLabel, ZoomCenterX, step: 1);

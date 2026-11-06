@@ -11,6 +11,7 @@ import {applyBodyTurn} from '../src/body-turn.js';
 import {EyeGaze,applyVrmGaze} from '../src/eye-gaze.js';
 import {TrackingPresence} from '../src/tracking-presence.js';
 import {linkedBodyRotation,headRotationInRoot,applyLinkedHeadRotation} from '../src/head-linked-body.js';
+import {BodyTilt,scaledBodyTilt,shoulderRoll} from '../src/body-tilt.js';
 
 function fixture(smoothing=0){
  const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
@@ -20,7 +21,7 @@ function fixture(smoothing=0){
  const root=new THREE.Object3D();root.add(nodes.spine);nodes.spine.add(nodes.chest);nodes.chest.add(nodes.upperChest);nodes.upperChest.add(nodes.head);
  let rigUpdates=0,expressionUpdates=0,springUpdates=0;const order=[];
  const transition={update:(detected,time,now,dt,alpha)=>({mode:detected?'tracked':'idle',alpha}),reset(){}};
- const context={updateDistanceFraming(){},eyeGaze:new EyeGaze(),applyVrmGaze,camera:new THREE.PerspectiveCamera(),gazeMode:"tracking",gazeStrength:1,gazeRange:1,THREE,clamp,applyBodyTurn,handSmoothingAlpha,sensitivity:1,bodyStrength:1,forwardLeanStrength:1,backwardLeanStrength:1,scaledBodyLean,wristDepthFilters:{left:{reset(){}},right:{reset(){}}},handTransitions:{left:transition,right:transition},elbowTransitions:{left:transition,right:transition},trackingPresence:{isAway:()=>false},smoothing,bodyFromHead:false,bodyLeanEnabled:true,bodyLean:{value:0,update(){}},linkedBodyRotation,headRotationInRoot,applyLinkedHeadRotation,smoothingAlpha,latestPose:{result:{worldLandmarks:[[]]},time:0},latestFace:null,latestHands:null,
+ const context={bodyTilt:new BodyTilt(),scaledBodyTilt,shoulderRoll,sideTiltStrength:0,updateDistanceFraming(){},eyeGaze:new EyeGaze(),applyVrmGaze,camera:new THREE.PerspectiveCamera(),gazeMode:"tracking",gazeStrength:1,gazeRange:1,THREE,clamp,applyBodyTurn,handSmoothingAlpha,sensitivity:1,bodyStrength:1,forwardLeanStrength:1,backwardLeanStrength:1,scaledBodyLean,wristDepthFilters:{left:{reset(){}},right:{reset(){}}},handTransitions:{left:transition,right:transition},elbowTransitions:{left:transition,right:transition},trackingPresence:{isAway:()=>false},smoothing,bodyFromHead:false,bodyLeanEnabled:true,bodyLean:{value:0,update(){}},linkedBodyRotation,headRotationInRoot,applyLinkedHeadRotation,smoothingAlpha,latestPose:{result:{worldLandmarks:[[]]},time:0},latestFace:null,latestHands:null,
   safeTracking:value=>!!value,bodyPose:()=>body,relativeBodyPose,bodyNeutral:null,bodyStabilizer:{update:value=>value},avatarBodyRotation,avatarHeadRotation,
   headStabilizer:{value:head},bone:name=>nodes[name],mouthShapes:()=>({aa:0}),mouthSensitivity:1,mouthOpenStrength:1,
   blinkBaseline:{left:0,right:0},calibratedBlink:value=>value,
@@ -213,4 +214,21 @@ test('rendering turns hips and legs with a backward torso while preserving the t
  assert.ok(nodes.spine.quaternion.angleTo(new THREE.Quaternion())<1e-7,'No 180 degree twist left at the waist');
  assert.ok(leg.getWorldQuaternion(new THREE.Quaternion()).angleTo(back)<1e-7);
  assert.ok(headRotationInRoot(nodes.head,root).angleTo(back)<1e-7);
+});
+
+test('side tilt leans the torso from the shoulders while the head direction stays',()=>{
+ const run=strength=>{
+  const {context,nodes,head}=fixture(0);
+  context.bodyFromHead=true;context.sideTiltStrength=strength;
+  const expected=avatarHeadRotation(head,1,new THREE.Quaternion());
+  const points=[];points[11]={x:.2,y:0};points[12]={x:-.2,y:.2};
+  context.latestPose.result={...context.latestPose.result,worldLandmarks:[points]};
+  for(let i=1;i<=30;i++){context.latestPose.time=i*100;context.animate(i*100,1/60);}
+  assert.ok(headRotationInRoot(nodes.head,context.vrm.humanoid.normalizedHumanBonesRoot).angleTo(expected)<1e-6);
+  return nodes.spine.quaternion.angleTo(linkedBodyRotation(expected));
+ };
+ assert.ok(run(0)<1e-7,'strength zero turns the tilt off');
+ const normal=run(1),strong=run(2);
+ assert.ok(normal>.1,`tilt ${normal}`);
+ assert.ok(strong>normal*1.5,`stronger tilt ${strong}`);
 });

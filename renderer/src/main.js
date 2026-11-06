@@ -6,6 +6,7 @@ import { placeAvatar } from './avatar-placement.js';
 import { avatarHeadRotation } from './head-rotation.js';
 import {applyBodyTurn} from './body-turn.js';
 import {linkedBodyRotation,headRotationInRoot,applyLinkedHeadRotation} from './head-linked-body.js';
+import {BodyTilt,scaledBodyTilt,shoulderRoll} from './body-tilt.js';
 import {bodyPose,relativeBodyPose,avatarBodyRotation} from './body-pose.js';
 import {fingerBones,palmBasis,fingerSegments,captureHandRest,shoulderWristTarget,handWristTarget,wristDepthRatio,trackedElbowTarget,elbowPoleDirection,keepElbowInFront} from './hand-rig.js';
 import {LandmarkFilter,handFilterOptions} from './landmark-filter.js';
@@ -138,12 +139,13 @@ const key=new THREE.DirectionalLight(0xffffff,Math.PI*.85); key.position.set(1,3
 let vrm=null,demo=null,head=null,eyes=[],arms={},privacy=false,output=false;
 const bodyFromHead=true,bodyLeanEnabled=true;
 let springStrength=1,chestSpringStrength=1,springControl=null;
-let smoothing=.65,sensitivity=1,bodyStrength=1,forwardLeanStrength=1,backwardLeanStrength=1,mouthOpenStrength=1,mouthSensitivity=1.8,tracking=false,video,stream,initializing=false;
+let smoothing=.65,sensitivity=1,bodyStrength=1,forwardLeanStrength=1,backwardLeanStrength=1,sideTiltStrength=1,mouthOpenStrength=1,mouthSensitivity=1.8,tracking=false,video,stream,initializing=false;
 let latestFace=null,latestHands=null,frameNumber=0,lastVideoTime=-1,lastDetect=0,lastRender=0;
 let calibration=new THREE.Quaternion(),rawHead=new THREE.Quaternion(),haveFace=false;
 let blinkBaseline={left:0,right:0};
 const eyeGaze=new EyeGaze();let gazeMode='tracking',gazeStrength=1,gazeRange=1,nearZoomStrength=0,farZoomStrength=0,zoomCenterX=0,zoomCenterY=0;
 const autoCalibration=new AutoCalibration();
+const bodyTilt=new BodyTilt();
 let latestPose=null,lastPoseDetect=0,bodyNeutral=null;
 let lastHandDetection=-1;
 const bodyStabilizer=new BodyStabilizer();
@@ -338,7 +340,7 @@ function stopTracking(){
  // Stopped tracking should release all three WASM recognition engines.
  trackingWorker?.terminate();trackingWorker=null;workerReady=null;workerBusy=false;
  if(video){video.pause();video.srcObject=null;video=null;}
- latestFace=latestHands=latestPose=null;bodyNeutral=null;haveFace=false;post('tracking',{active:false});status('カメラ停止中。待機ポーズを表示しています。');
+ latestFace=latestHands=latestPose=null;bodyNeutral=null;bodyTilt.reset();haveFace=false;post('tracking',{active:false});status('カメラ停止中。待機ポーズを表示しています。');
 }
 function detect(now){
  if(workerBusy||!tracking||!video||video.readyState<2||video.currentTime===lastVideoTime||now-lastDetect<24)return;
@@ -356,6 +358,7 @@ function calibrateFace(automatic=false){
     autoCalibration.stop();
     const pose=safeTracking(latestPose,performance.now())?bodyPose(latestPose.result.worldLandmarks?.[0]):null;
     bodyNeutral=pose?{...pose}:null;
+    bodyTilt.calibrate();
     bodyStabilizer.reset();headStabilizer.reset();bodyLean.calibrate(matrix,latestFace.time);distanceZoom.calibrate(matrix,latestFace.time);resetArmTransitions();
     for(const filter of elbowFilters)filter.reset();
     const weights=Object.fromEntries((latestFace.result.faceBlendshapes?.[0]?.categories??[]).map(c=>[c.categoryName,c.score]));
@@ -509,7 +512,8 @@ function animate(now,dt){
  // Pose landmarks remain available to the existing shoulder-relative hand IK.
  const pose=!bodyFromHead&&safeTracking(latestPose,now)?bodyPose(latestPose.result.worldLandmarks?.[0]):null;
  const body=bodyFromHead?null:bodyStabilizer.update(pose?relativeBodyPose(pose,bodyNeutral):null,latestPose?.time,now);
- const bodyTarget=away?new THREE.Quaternion():bodyFromHead?linkedBodyRotation(bodyHeadTarget,bodyLeanEnabled?scaledBodyLean(bodyLean.value,forwardLeanStrength,backwardLeanStrength):0,basis,bodyStrength):avatarBodyRotation(body,basis);
+ const sideTilt=bodyFromHead?scaledBodyTilt(bodyTilt.update(safeTracking(latestPose,now)?shoulderRoll(latestPose.result.worldLandmarks?.[0]):null,latestPose?.time,now),sideTiltStrength):0;
+ const bodyTarget=away?new THREE.Quaternion():bodyFromHead?linkedBodyRotation(bodyHeadTarget,bodyLeanEnabled?scaledBodyLean(bodyLean.value,forwardLeanStrength,backwardLeanStrength):0,basis,bodyStrength,sideTilt):avatarBodyRotation(body,basis);
  const headNode=vrm?bone('head'):head;
  const rigRoot=vrm?vrm.humanoid.normalizedHumanBonesRoot:scene;
  const previousHead=bodyFromHead&&headNode?headRotationInRoot(headNode,rigRoot):null;
@@ -645,6 +649,7 @@ host?.addEventListener('message',async e=>{
    if(Number.isFinite(m.gazeRange))gazeRange=clamp(m.gazeRange,1,5);
    if(Number.isFinite(m.gazeStrength))gazeStrength=clamp(m.gazeStrength,0,3);
    if(Number.isFinite(m.forwardLeanStrength))forwardLeanStrength=clamp(m.forwardLeanStrength,0,3);
+   if(Number.isFinite(m.sideTiltStrength))sideTiltStrength=clamp(m.sideTiltStrength,0,5);
    if(Number.isFinite(m.backwardLeanStrength))backwardLeanStrength=clamp(m.backwardLeanStrength,0,3);
    if(Number.isFinite(m.bodyStrength))bodyStrength=clamp(m.bodyStrength,0,20);
    if(Number.isFinite(m.sensitivity))sensitivity=clamp(m.sensitivity,.3,5);

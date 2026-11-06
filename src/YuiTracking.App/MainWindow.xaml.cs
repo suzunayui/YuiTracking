@@ -90,7 +90,7 @@ public sealed partial class MainWindow : Window
     {
         mouthTimer.Stop();
         if (!pendingMouthSettings) return;
-        try { AppSettings.SaveMotionSettings(MouthStrength.Value, MouthSensitivity.Value, Sensitivity.Value, BodyStrength.Value, ForwardLeanStrength.Value, BackwardLeanStrength.Value, SelectedGazeMode, GazeStrength.Value, GazeRange.Value, NearZoomStrength.Value, FarZoomStrength.Value, ZoomCenterX.Value, ZoomCenterY.Value); pendingMouthSettings = false; }
+        try { AppSettings.SaveMotionSettings(MouthStrength.Value, MouthSensitivity.Value, Sensitivity.Value, BodyStrength.Value, ForwardLeanStrength.Value, BackwardLeanStrength.Value, SideTiltStrength.Value, SelectedGazeMode, GazeStrength.Value, GazeRange.Value, NearZoomStrength.Value, FarZoomStrength.Value, ZoomCenterX.Value, ZoomCenterY.Value); pendingMouthSettings = false; }
         catch (Exception ex) { App.Log(ex.Message); }
     }
     private AppSettings.Framing? pendingFraming;
@@ -144,6 +144,7 @@ public sealed partial class MainWindow : Window
         InitializeComponent();
         AddSliderControls();
         InitializeSettingsScrollbar();
+        InitializeCameraButtonColors();
         // The VRM name is already shown beside it, so the idle status adds nothing.
         TrackingStatus.RegisterPropertyChangedCallback(TextBlock.TextProperty, (_, _) =>
             TrackingStatus.Visibility = TrackingStatus.Text is "VRMを表示中" or "内蔵サンプルを表示中" ? Visibility.Collapsed : Visibility.Visible);
@@ -170,10 +171,11 @@ public sealed partial class MainWindow : Window
         catch (Exception ex) { App.Log(ex.Message); }
         SpringStrengthLabel.Text = $"揺れものの強さ：{SpringStrength.Value:0.0}倍";
         ChestSpringStrengthLabel.Text = $"胸の揺れやすさ：{ChestSpringStrength.Value:0.0}倍";
-        try { MouthStrength.Value = AppSettings.MouthOpenStrength; MouthSensitivity.Value = AppSettings.MouthSensitivity; Sensitivity.Value = AppSettings.FaceSensitivity; BodyStrength.Value = AppSettings.BodyStrength; ForwardLeanStrength.Value = AppSettings.ForwardLeanStrength; BackwardLeanStrength.Value = AppSettings.BackwardLeanStrength; NearZoomStrength.Value = AppSettings.NearZoomStrength; ZoomCenterX.Value = AppSettings.ZoomCenterX; ZoomCenterY.Value = AppSettings.ZoomCenterY; FarZoomStrength.Value = AppSettings.FarZoomStrength; GazeStrength.Value = AppSettings.GazeStrength; GazeRange.Value = AppSettings.GazeRange; GazeMode.SelectedIndex = AppSettings.GazeMode switch { "camera" => 1, "fixed" => 2, _ => 0 }; UpdateMotionLabels(); }
+        try { MouthStrength.Value = AppSettings.MouthOpenStrength; MouthSensitivity.Value = AppSettings.MouthSensitivity; Sensitivity.Value = AppSettings.FaceSensitivity; BodyStrength.Value = AppSettings.BodyStrength; ForwardLeanStrength.Value = AppSettings.ForwardLeanStrength; BackwardLeanStrength.Value = AppSettings.BackwardLeanStrength; SideTiltStrength.Value = AppSettings.SideTiltStrength; NearZoomStrength.Value = AppSettings.NearZoomStrength; ZoomCenterX.Value = AppSettings.ZoomCenterX; ZoomCenterY.Value = AppSettings.ZoomCenterY; FarZoomStrength.Value = AppSettings.FarZoomStrength; GazeStrength.Value = AppSettings.GazeStrength; GazeRange.Value = AppSettings.GazeRange; GazeMode.SelectedIndex = AppSettings.GazeMode switch { "camera" => 1, "fixed" => 2, _ => 0 }; UpdateMotionLabels(); }
         catch (Exception ex) { App.Log(ex.Message); }
         MouthStrengthLabel.Text = $"口の開き具合：{MouthStrength.Value:0.0}倍";
         MouthSensitivityLabel.Text = $"口の感度：{MouthSensitivity.Value:0.0}倍";
+        InitializePresets();
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "Branding", "YuiTracking.ico"));
         var workArea = Microsoft.UI.Windowing.DisplayArea.GetFromWindowId(AppWindow.Id, Microsoft.UI.Windowing.DisplayAreaFallback.Primary).WorkArea;
         var windowWidth = Math.Min(1800, workArea.Width); var windowHeight = Math.Min(1010, workArea.Height);
@@ -323,7 +325,7 @@ public sealed partial class MainWindow : Window
     }
     private void UpdateSettingsColumnWidth()
     {
-        const double settingsWidth = 300, singleRowActionsWidth = 570, singleRowCameraWidth = 620;
+        const double settingsWidth = 300, singleRowActionsWidth = 570, singleRowCameraWidth = 560;
         SettingsColumn.Width = new GridLength(previewMaximized ? 0 : settingsWidth);
         var previewWidth = MainContent.ActualWidth - MainContent.ColumnSpacing - settingsWidth;
         SetPreviewActionsCompact(!previewMaximized && previewWidth < singleRowActionsWidth);
@@ -335,11 +337,13 @@ public sealed partial class MainWindow : Window
         if (compact == cameraControlsCompact) return;
         cameraControlsCompact = compact;
         // The camera list takes its own row when the buttons would squeeze it too far.
-        Grid.SetColumnSpan(Cameras, compact ? 4 : 1);
-        Grid.SetColumn(TrackButton, compact ? 0 : 1);
-        Grid.SetColumnSpan(TrackButton, compact ? 2 : 1);
-        foreach (var element in new FrameworkElement[] { TrackButton, RefreshCamerasButton, OutputButtons })
-            Grid.SetRow(element, compact ? 1 : 0);
+        Grid.SetColumnSpan(Cameras, compact ? 3 : 1);
+        Grid.SetRow(RefreshCamerasButton, compact ? 1 : 0);
+        Grid.SetColumn(RefreshCamerasButton, compact ? 0 : 2);
+        RefreshCamerasButton.HorizontalAlignment = compact ? HorizontalAlignment.Stretch : HorizontalAlignment.Left;
+        Grid.SetRow(TrackButton, compact ? 1 : 0);
+        Grid.SetColumn(TrackButton, compact ? 1 : 3);
+        Grid.SetColumnSpan(TrackButton, compact ? 3 : 1);
     }
     private bool previewActionsCompact;
     private void SetPreviewActionsCompact(bool compact)
@@ -501,6 +505,7 @@ public sealed partial class MainWindow : Window
                     cameraStarting = false; tracking = root.GetProperty("active").GetBoolean(); UpdateTrackingPowerPolicy();
                     HandDetectionStatus.Text = tracking ? "手：認識を準備中…" : "手：カメラ停止中";
                     TrackButton.Content = tracking ? "カメラを停止" : "カメラを開始";
+                    SetCameraButtonColor(tracking);
                     ToolTipService.SetToolTip(TrackButton, tracking
                         ? "カメラでの顔・手・体の認識を停止します。\nアバターの動きへの反映も止まります。"
                         : "選択したカメラで顔・手・体の認識を開始します。\n認識した動きをアバターに反映します。");
@@ -604,6 +609,7 @@ public sealed partial class MainWindow : Window
         if (SmoothnessLabel != null && Smoothness != null) SmoothnessLabel.Text = $"滑らかさ：{Smoothness.Value * 100:0}%";
         if (ForwardLeanStrengthLabel != null && ForwardLeanStrength != null) ForwardLeanStrengthLabel.Text = $"前傾の強さ：{ForwardLeanStrength.Value:0.0}倍";
         if (BackwardLeanStrengthLabel != null && BackwardLeanStrength != null) BackwardLeanStrengthLabel.Text = $"反りの強さ：{BackwardLeanStrength.Value:0.0}倍";
+        if (SideTiltStrengthLabel != null && SideTiltStrength != null) SideTiltStrengthLabel.Text = SideTiltStrength.Value == 0 ? "左右の傾き：オフ" : $"左右の傾き：{SideTiltStrength.Value:0.0}倍";
         if (BodyStrengthLabel != null && BodyStrength != null) BodyStrengthLabel.Text = $"体の動きの強さ：{BodyStrength.Value:0.0}倍";
         if (SensitivityLabel != null && Sensitivity != null) SensitivityLabel.Text = $"顔の動きの強さ：{Sensitivity.Value:0.0}倍";
     }
@@ -638,7 +644,7 @@ public sealed partial class MainWindow : Window
     private void SendSettings()
     {
         if (!ready) return;
-        Send(new { type = "settings", farZoomStrength = FarZoomStrength.Value, nearZoomStrength = NearZoomStrength.Value, zoomCenterX = ZoomCenterX.Value, zoomCenterY = ZoomCenterY.Value, gazeMode = SelectedGazeMode, gazeStrength = GazeStrength.Value, gazeRange = GazeRange.Value, smoothing = Smoothness.Value, sensitivity = Sensitivity.Value, bodyStrength = BodyStrength.Value, forwardLeanStrength = ForwardLeanStrength.Value, backwardLeanStrength = BackwardLeanStrength.Value, mouthOpenStrength = MouthStrength.Value, mouthSensitivity = MouthSensitivity.Value, springStrength = SpringStrength.Value, chestSpringStrength = ChestSpringStrength.Value });
+        Send(new { type = "settings", farZoomStrength = FarZoomStrength.Value, nearZoomStrength = NearZoomStrength.Value, zoomCenterX = ZoomCenterX.Value, zoomCenterY = ZoomCenterY.Value, gazeMode = SelectedGazeMode, gazeStrength = GazeStrength.Value, gazeRange = GazeRange.Value, smoothing = Smoothness.Value, sensitivity = Sensitivity.Value, bodyStrength = BodyStrength.Value, forwardLeanStrength = ForwardLeanStrength.Value, backwardLeanStrength = BackwardLeanStrength.Value, sideTiltStrength = SideTiltStrength.Value, mouthOpenStrength = MouthStrength.Value, mouthSensitivity = MouthSensitivity.Value, springStrength = SpringStrength.Value, chestSpringStrength = ChestSpringStrength.Value });
     }
     private void Privacy_Click(object sender, RoutedEventArgs e)
     {

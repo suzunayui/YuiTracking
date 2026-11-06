@@ -1,5 +1,5 @@
 const $=id=>document.getElementById(id),host=window.yuiDesktop;
-const keys=['zoomCenterX','zoomCenterY','farZoomStrength','nearZoomStrength','gazeRange','gazeStrength','smoothing','sensitivity','bodyStrength','forwardLeanStrength','backwardLeanStrength','mouthOpenStrength','mouthSensitivity','springStrength','chestSpringStrength'];
+const keys=['zoomCenterX','zoomCenterY','farZoomStrength','nearZoomStrength','gazeRange','gazeStrength','smoothing','sensitivity','bodyStrength','forwardLeanStrength','backwardLeanStrength','sideTiltStrength','mouthOpenStrength','mouthSensitivity','springStrength','chestSpringStrength'];
 let active=false,timer,statusTimer,statusRevision=0,syphonActive=false,maximized=false,nativeLabels=[],browserLabels=false;
 const cameraPicker=new CameraPicker();let cameraMessage={items:[],labelsAvailable:false};
 function updateCameras(){
@@ -22,7 +22,7 @@ function labels(){
   if(['zoomCenterX','zoomCenterY'].includes(key)){
    const direction=key==='zoomCenterX'?(value<0?'左':'右'):(value<0?'下':'上');
    $(key+'-value').textContent=value===0?'顔の位置':direction+Math.abs(value).toFixed(1)+'%';
-  }else $(key+'-value').textContent=['nearZoomStrength','farZoomStrength'].includes(key)&&value===0?'オフ':key==='smoothing'?Math.round(value*100)+'%':value.toFixed(1)+'倍';
+  }else $(key+'-value').textContent=['nearZoomStrength','farZoomStrength','sideTiltStrength'].includes(key)&&value===0?'オフ':key==='smoothing'?Math.round(value*100)+'%':value.toFixed(1)+'倍';
  }
 }
 function apply(){labels();send('settings',values());clearTimeout(timer);timer=setTimeout(()=>host.saveSettings(values()).catch(showError),200);}
@@ -57,7 +57,7 @@ host.onEvent(message=>{
  if(message.type==='syphon'){syphonActive=message.active;$('syphon').textContent=syphonActive?'Syphon出力を停止':'Syphon出力を開始';$('output-status').textContent=message.error||(syphonActive?'送信中：YuiTracking / 1280 × 720':'Syphon：停止中');}
  if(['status','error'].includes(message.type))setStatus(message.text,message.temporary===true);
  if(message.type==='error')$('tracking').disabled=false;
- if(message.type==='tracking'){active=message.active;$('tracking').textContent=active?'カメラを停止':'カメラを開始';$('tracking').disabled=false;updateCameraPermission().catch(()=>{});}
+ if(message.type==='tracking'){active=message.active;$('tracking').textContent=active?'カメラを停止':'カメラを開始';$('tracking').classList.toggle('camera-active',active);$('tracking').disabled=false;updateCameraPermission().catch(()=>{});}
  if(message.type==='cameras'){browserLabels=browserLabels||message.labelsAvailable===true||message.selectionReady===true;cameraMessage=message;updateCameras();}
  if(message.type==='cameraListWarning')$('camera-note').textContent=message.text;
  if(message.type==='cameras')$('camera-note').textContent='';

@@ -19,6 +19,11 @@ internal static class AppSettings
         ? JsonNode.Parse(File.ReadAllText(FilePath)) as JsonObject ?? throw new InvalidDataException("設定ファイルはJSONオブジェクトで指定してください。")
         : new JsonObject();
 
+    public static IReadOnlyList<MotionPreset> MotionPresets => Read()["motionPresets"]?.Deserialize<List<MotionPreset>>() ?? new List<MotionPreset>();
+    public static void SaveMotionPresets(IReadOnlyList<MotionPreset> presets)
+    {
+        var settings = Read(); settings["motionPresets"] = JsonSerializer.SerializeToNode(presets); Save(settings);
+    }
     public static IReadOnlyList<string> VrmHistory => Read()["vrmHistory"]?.Deserialize<List<string>>() ?? new List<string>();
     public static void AddVrmToHistory(string path) => SaveVrmHistory(YuiTracking.VrmHistory.WithUsed(VrmHistory, path));
     public static void RemoveVrmFromHistory(string path)
@@ -62,6 +67,10 @@ internal static class AppSettings
         get { var value = Read()["bodyStrength"]?.GetValue<double>() ?? 1; return double.IsFinite(value) ? Math.Clamp(value, 0, 20) : 1; }
     }
     public static double ForwardLeanStrength => ReadLeanStrength("forwardLeanStrength");
+    public static double SideTiltStrength
+    {
+        get { var value = Read()["sideTiltStrength"]?.GetValue<double>() ?? 1; return double.IsFinite(value) ? Math.Clamp(value, 0, 5) : 1; }
+    }
     public static double BackwardLeanStrength => ReadLeanStrength("backwardLeanStrength");
     private static double ReadLeanStrength(string key)
     {
@@ -106,11 +115,11 @@ internal static class AppSettings
     {
         get { var settings = Read(); var value = settings["mouthSensitivity"]?.GetValue<double>() ?? settings["mouthOpenStrength"]?.GetValue<double>() ?? 1.8; return double.IsFinite(value) ? Math.Clamp(value, .5, 3) : 1.8; }
     }
-    public static void SaveMotionSettings(double opening, double sensitivity, double faceSensitivity, double bodyStrength, double forwardLeanStrength, double backwardLeanStrength, string gazeMode, double gazeStrength, double gazeRange, double nearZoomStrength, double farZoomStrength, double zoomCenterX, double zoomCenterY)
+    public static void SaveMotionSettings(double opening, double sensitivity, double faceSensitivity, double bodyStrength, double forwardLeanStrength, double backwardLeanStrength, double sideTiltStrength, string gazeMode, double gazeStrength, double gazeRange, double nearZoomStrength, double farZoomStrength, double zoomCenterX, double zoomCenterY)
     {
-        if (!double.IsFinite(opening) || !double.IsFinite(sensitivity) || !double.IsFinite(faceSensitivity) || !double.IsFinite(bodyStrength) || !double.IsFinite(forwardLeanStrength) || !double.IsFinite(backwardLeanStrength)) return;
+        if (!double.IsFinite(opening) || !double.IsFinite(sensitivity) || !double.IsFinite(faceSensitivity) || !double.IsFinite(bodyStrength) || !double.IsFinite(forwardLeanStrength) || !double.IsFinite(backwardLeanStrength) || !double.IsFinite(sideTiltStrength)) return;
         if (!double.IsFinite(zoomCenterX) || !double.IsFinite(zoomCenterY) || !double.IsFinite(farZoomStrength) || !double.IsFinite(nearZoomStrength) || !double.IsFinite(gazeRange) || !double.IsFinite(gazeStrength) || gazeMode is not ("tracking" or "camera" or "fixed")) return;
-        var settings = Read(); settings["zoomCenterX"] = Math.Clamp(zoomCenterX, -100, 100); settings["zoomCenterY"] = Math.Clamp(zoomCenterY, -100, 100); settings["farZoomStrength"] = Math.Clamp(farZoomStrength, 0, 5); settings["nearZoomStrength"] = Math.Clamp(nearZoomStrength, 0, 20); settings["gazeRange"] = Math.Clamp(gazeRange, 1, 5); settings["gazeMode"] = gazeMode; settings["gazeStrength"] = Math.Clamp(gazeStrength, 0, 3); settings["mouthOpenStrength"] = Math.Clamp(opening, .5, 3); settings["mouthSensitivity"] = Math.Clamp(sensitivity, .5, 3); settings["sensitivity"] = Math.Clamp(faceSensitivity, .3, 5); settings["bodyStrength"] = Math.Clamp(bodyStrength, 0, 20); settings["forwardLeanStrength"] = Math.Clamp(forwardLeanStrength, 0, 3); settings["backwardLeanStrength"] = Math.Clamp(backwardLeanStrength, 0, 3); Save(settings);
+        var settings = Read(); settings["zoomCenterX"] = Math.Clamp(zoomCenterX, -100, 100); settings["zoomCenterY"] = Math.Clamp(zoomCenterY, -100, 100); settings["farZoomStrength"] = Math.Clamp(farZoomStrength, 0, 5); settings["nearZoomStrength"] = Math.Clamp(nearZoomStrength, 0, 20); settings["gazeRange"] = Math.Clamp(gazeRange, 1, 5); settings["gazeMode"] = gazeMode; settings["gazeStrength"] = Math.Clamp(gazeStrength, 0, 3); settings["mouthOpenStrength"] = Math.Clamp(opening, .5, 3); settings["mouthSensitivity"] = Math.Clamp(sensitivity, .5, 3); settings["sensitivity"] = Math.Clamp(faceSensitivity, .3, 5); settings["bodyStrength"] = Math.Clamp(bodyStrength, 0, 20); settings["forwardLeanStrength"] = Math.Clamp(forwardLeanStrength, 0, 3); settings["backwardLeanStrength"] = Math.Clamp(backwardLeanStrength, 0, 3); settings["sideTiltStrength"] = Math.Clamp(sideTiltStrength, 0, 5); Save(settings);
     }
     public record Framing(double Zoom, double X, double Y, double Z, double? TargetX = null, double? TargetY = null, double? TargetZ = null);
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase };

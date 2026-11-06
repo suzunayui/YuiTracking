@@ -6,7 +6,7 @@
   <iframe id="preview" src="/renderer/index.html" allow="camera" title="アバターのプレビュー"></iframe>
   <p id="standby-notice" hidden>待機中：アバターを隠して透過で出力しています</p>
   <div class="preview-status">
-   <div class="camera-section"><div class="camera-row"><select id="cameras" title="トラッキングに使うカメラを選びます。"></select><button id="refresh-cameras" title="Macとブラウザーのカメラ一覧を再取得します。">更新</button></div><button id="tracking" class="wide" disabled title="選択したカメラで顔・手・体の認識を開始します。">カメラを開始</button><p id="camera-note" aria-live="polite"></p><p id="camera-permission" aria-live="polite"></p><button id="syphon" class="wide output-button" disabled title="透過背景のアバター映像をSyphonへ送信します。&#10;OBS → Syphonクライアント → YuiTracking を選びます。">Syphon出力を開始</button></div>
+   <div class="camera-section"><button id="syphon" class="wide output-button" disabled title="透過背景のアバター映像をSyphonへ送信します。&#10;OBS → Syphonクライアント → YuiTracking を選びます。">Syphon出力を開始</button><div class="camera-row"><select id="cameras" title="トラッキングに使うカメラを選びます。"></select><button id="refresh-cameras" title="Macとブラウザーのカメラ一覧を再取得します。">更新</button></div><button id="tracking" class="wide" disabled title="選択したカメラで顔・手・体の認識を開始します。">カメラを開始</button><p id="camera-note" aria-live="polite"></p><p id="camera-permission" aria-live="polite"></p></div>
    <div class="preview-actions">
     <button id="open" disabled title="PCに保存したVRMファイルを開きます。">VRMを開く</button>
     <button id="calibrate" title="今の顔の向きを正面として合わせます。&#10;Macの共通ショートカット：⌘⇧C&#10;アプリが前面なら右Control／右Shift単独でも実行します。">キャリブレーション</button>
@@ -37,6 +37,7 @@
    <label title="頭に連動する体の左右のひねりを調整します。&#10;1倍：今までと同じ／20倍：顔30度で体180度（左右180度まで）。0倍：左右のひねりなし。頭の向き・前後の傾きは変わりません。">体の動きの強さ：<output id="bodyStrength-value">1.0倍</output><input id="bodyStrength" type="range" min="0" max="20" step="0.1" value="1"></label>
    <label title="カメラとの距離による体の傾きを調整します。1倍：今までと同じ／0倍：この方向の傾きなし。">前傾の強さ：<output id="forwardLeanStrength-value">1.0倍</output><input id="forwardLeanStrength" type="range" min="0" max="3" step="0.1" value="1"></label>
    <label title="カメラとの距離による体の傾きを調整します。1倍：今までと同じ／0倍：この方向の傾きなし。">反りの強さ：<output id="backwardLeanStrength-value">1.0倍</output><input id="backwardLeanStrength" type="range" min="0" max="3" step="0.1" value="1"></label>
+   <label title="体を左右に倒したときの傾きを調整します。&#10;1倍：肩の傾きと同じ／0：オフ。&#10;まっすぐ座った状態でキャリブレーションしてください。">左右の傾き：<output id="sideTiltStrength-value">1.0倍</output><input id="sideTiltStrength" type="range" min="0" max="5" step="0.1" value="1"></label>
    <h2 class="section-title">ズーム</h2>
    <label title="カメラに近づいたときに大きくする強さです。0：オフ／大きいほど少ない移動で変化。普段の距離でキャリブレーションしてください。">近距離による拡大：<output id="nearZoomStrength-value">オフ</output><input id="nearZoomStrength" type="range" min="0" max="20" step="0.1" value="0"></label>
    <label title="カメラから離れたときに小さくする強さです。0：縮小なし／大きいほど少ない移動で変化。普段の距離でキャリブレーションしてください。">遠距離による縮小：<output id="farZoomStrength-value">オフ</output><input id="farZoomStrength" type="range" min="0" max="5" step="0.1" value="0"></label>
