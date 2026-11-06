@@ -21,13 +21,14 @@
   }
  }
  const added=(presets,preset)=>[...presets,{...preset,name:preset.name.trim()}].slice(0,MAX_PRESETS);
- const overwritten=(presets,name,gazeMode,values,disabled=[])=>presets.map(preset=>same(preset.name,name)?{...preset,gazeMode,values,disabled}:preset);
+ const overwritten=(presets,name,gazeMode,values,disabled=[],handTracking)=>presets.map(preset=>same(preset.name,name)?{...preset,gazeMode,values,disabled,...(typeof handTracking==='boolean'?{handTracking}:{})}:preset);
  const renamed=(presets,name,newName)=>presets.map(preset=>same(preset.name,name)?{...preset,name:newName.trim()}:preset);
  const without=(presets,name)=>presets.filter(preset=>!same(preset.name,name));
  // Keys added in a later version are not part of an older preset, so only saved values are compared.
- function matches(preset,gazeMode,current,disabled=[]){
+ // handTracking is missing in presets saved before it was added: they leave the switch alone.
+ function matches(preset,gazeMode,current,disabled=[],handTracking){
   const off=safeDisabled(preset.disabled),now=safeDisabled(disabled);
-  return preset.gazeMode===gazeMode&&Object.entries(preset.values).every(([key,value])=>Number.isFinite(current[key])&&Math.abs(current[key]-value)<=TOLERANCE)&&off.length===now.length&&off.every(key=>now.includes(key));
+  return preset.gazeMode===gazeMode&&Object.entries(preset.values).every(([key,value])=>Number.isFinite(current[key])&&Math.abs(current[key]-value)<=TOLERANCE)&&off.length===now.length&&off.every(key=>now.includes(key))&&(typeof preset.handTracking!=='boolean'||typeof handTracking!=='boolean'||preset.handTracking===handTracking);
  }
  // One preset per file, in the same format as the Windows app's PresetFile.cs.
  const MAX_FILE_BYTES=64*1024,FILE_FORMAT='yuitracking-preset',FILE_VERSION=1,UNREADABLE='プリセットのファイルとして読み込めません。';
@@ -36,7 +37,7 @@
   const code=text.charCodeAt(length-1),cut=code>=0xD800&&code<=0xDBFF?length-1:length;
   return text.slice(0,cut).trimEnd();
  }
- const serialized=preset=>JSON.stringify({format:FILE_FORMAT,version:FILE_VERSION,name:preset.name,gazeMode:preset.gazeMode,values:preset.values,disabled:safeDisabled(preset.disabled)},null,2);
+ const serialized=preset=>JSON.stringify({format:FILE_FORMAT,version:FILE_VERSION,name:preset.name,gazeMode:preset.gazeMode,values:preset.values,disabled:safeDisabled(preset.disabled),...(typeof preset.handTracking==='boolean'?{handTracking:preset.handTracking}:{})},null,2);
  // Other people's files are untrusted: only known sliders and finite numbers get through.
  function parsed(text){
   let file;
@@ -48,7 +49,7 @@
   const values={};
   if(file.values&&typeof file.values==='object'&&!Array.isArray(file.values))for(const [key,value] of Object.entries(file.values))if(Object.hasOwn(OFF_VALUES,key)&&Number.isFinite(value))values[key]=value;
   if(!Object.keys(values).length)throw new Error(UNREADABLE);
-  return {name,gazeMode:file.gazeMode,values,disabled:safeDisabled(file.disabled)};
+  return {name,gazeMode:file.gazeMode,values,disabled:safeDisabled(file.disabled),...(typeof file.handTracking==='boolean'?{handTracking:file.handTracking}:{})};
  }
  // An imported preset never replaces an existing one, so a taken name gets a number.
  function uniqueName(presets,name){

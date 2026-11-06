@@ -81,6 +81,16 @@ test('imported names never collide',()=>{
  const long='あ'.repeat(20);
  assert.equal(logic.uniqueName([{name:long}],long),'あ'.repeat(16)+' (2)');
 });
+test('the hand switch is part of a preset when it was saved',()=>{
+ const handOff={name:'x',gazeMode:'camera',values:{a:1},disabled:[],handTracking:false};
+ assert.ok(logic.matches(handOff,'camera',{a:1},[],false));
+ assert.ok(!logic.matches(handOff,'camera',{a:1},[],true));
+ assert.ok(logic.matches({name:'old',gazeMode:'camera',values:{a:1}},'camera',{a:1},[],false),'An older preset ignores the switch');
+ assert.equal(logic.overwritten([{name:'old',gazeMode:'camera',values:{a:1}}],'old','camera',{a:1},[],false)[0].handTracking,false);
+ assert.equal(logic.parsed(logic.serialized({name:'x',gazeMode:'camera',values:{smoothing:1},handTracking:false})).handTracking,false);
+ assert.equal(logic.parsed(sharedFile).handTracking,undefined);
+ assert.equal(logic.parsed(sharedFile.replace('"version":1','"handTracking":"no","version":1')).handTracking,undefined);
+});
 test('file names avoid characters Windows refuses',()=>{
  assert.equal(logic.fileName('配信'),'yuitracking-preset-配信.json');
  assert.equal(logic.fileName('a/b:c*'),'yuitracking-preset-a_b_c_.json');

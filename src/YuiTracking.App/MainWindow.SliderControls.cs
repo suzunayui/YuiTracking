@@ -27,6 +27,12 @@ public sealed partial class MainWindow
 
     private void HandTracking_Click(object sender, RoutedEventArgs e)
     {
+        ApplyHandTracking();
+        UpdatePresetSelection();
+    }
+
+    private void ApplyHandTracking()
+    {
         try { AppSettings.SaveHandTracking(HandTracking.IsChecked == true); } catch (Exception ex) { App.Log(ex.Message); }
         SendSettings();
         ShowHandStatus(null);

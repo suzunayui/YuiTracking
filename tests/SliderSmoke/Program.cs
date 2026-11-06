@@ -63,4 +63,10 @@ Check(PresetFile.Parsed(PresetFile.Serialized(new MotionPreset(new string('あ',
 var takenNames = new[] { new MotionPreset("配信", "camera", V(1)), new MotionPreset("配信 (2)", "camera", V(1)) };
 Check(PresetFile.UniqueName(takenNames, "雑談") == "雑談" && PresetFile.UniqueName(takenNames, "配信") == "配信 (3)", "imported names never collide");
 Check(PresetFile.UniqueName(new[] { new MotionPreset(new string('あ', 20), "camera", V(1)) }, new string('あ', 20)) == new string('あ', 16) + " (2)", "numbered names still fit the limit");
+var handOff = new MotionPreset("x", "camera", V(1), null, false);
+Check(MotionPresets.Matches(handOff, "camera", V(1), null, false) && !MotionPresets.Matches(handOff, "camera", V(1), null, true), "match includes the hand switch");
+Check(MotionPresets.Matches(new MotionPreset("old", "camera", V(1)), "camera", V(1), null, false), "an older preset ignores the hand switch");
+Check(MotionPresets.Overwritten(new[] { new MotionPreset("old", "camera", V(1)) }, "old", "camera", V(1), null, false)[0].HandTracking == false, "overwrite records the hand switch");
+Check(PresetFile.Parsed(PresetFile.Serialized(new MotionPreset("x", "camera", new Dictionary<string, double> { ["smoothing"] = 1 }, null, false))).HandTracking == false && PresetFile.Parsed(sharedFile).HandTracking == null, "preset files carry the hand switch when present");
+Check(PresetFile.Parsed(sharedFile.Replace("\"version\":1", "\"handTracking\":\"no\",\"version\":1")).HandTracking == null, "a wrong hand switch value is ignored");
 Check(PresetFile.FileName("配信") == "yuitracking-preset-配信.json" && PresetFile.FileName("a/b:c*") == "yuitracking-preset-a_b_c_.json" && PresetFile.FileName("...") == "yuitracking-preset.json", "file names avoid characters Windows refuses");

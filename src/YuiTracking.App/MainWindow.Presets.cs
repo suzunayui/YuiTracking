@@ -35,7 +35,7 @@ public sealed partial class MainWindow
     private void UpdatePresetSelection()
     {
         var values = CurrentPresetValues();
-        foreach (var (button, preset) in presetButtons) button.IsChecked = MotionPresets.Matches(preset, SelectedGazeMode, values, disabledSliders);
+        foreach (var (button, preset) in presetButtons) button.IsChecked = MotionPresets.Matches(preset, SelectedGazeMode, values, disabledSliders, HandTracking.IsChecked == true);
     }
 
     private void RebuildPresetButtons()
@@ -96,7 +96,7 @@ public sealed partial class MainWindow
                 button.Click += (_, _) => { chosen = action; dialog.Hide(); };
                 content.Children.Add(button);
             }
-            Add("今の設定で上書き", () => { SavePresets(MotionPresets.Overwritten(presets, preset.Name, SelectedGazeMode, CurrentPresetValues(), disabledSliders.ToList())); return Task.CompletedTask; });
+            Add("今の設定で上書き", () => { SavePresets(MotionPresets.Overwritten(presets, preset.Name, SelectedGazeMode, CurrentPresetValues(), disabledSliders.ToList(), HandTracking.IsChecked == true)); return Task.CompletedTask; });
             Add("名前を変更…", () => RenamePresetAsync(preset));
             Add("削除", () => { SavePresets(MotionPresets.Without(presets, preset.Name)); return Task.CompletedTask; });
             await dialog.ShowAsync();
@@ -117,6 +117,7 @@ public sealed partial class MainWindow
             if (presetSliders.TryGetValue(key, out var slider)) slider.Value = Math.Clamp(value, slider.Minimum, slider.Maximum);
         foreach (var item in GazeMode.Items)
             if (item is ComboBoxItem { Tag: string tag } choice && tag == preset.GazeMode) GazeMode.SelectedItem = choice;
+        if (preset.HandTracking is bool handTracking) { HandTracking.IsChecked = handTracking; ApplyHandTracking(); }
         SetDisabledSliders(preset.Disabled ?? new List<string>());
     }
 
@@ -184,7 +185,7 @@ public sealed partial class MainWindow
     private async Task AddPresetAsync()
     {
         var name = await AskPresetNameAsync("プリセットを保存", MotionPresets.NextName(presets), null);
-        if (name != null) SavePresets(MotionPresets.Added(presets, new MotionPreset(name, SelectedGazeMode, CurrentPresetValues(), disabledSliders.ToList())));
+        if (name != null) SavePresets(MotionPresets.Added(presets, new MotionPreset(name, SelectedGazeMode, CurrentPresetValues(), disabledSliders.ToList(), HandTracking.IsChecked == true)));
     }
 
     private async Task RenamePresetAsync(MotionPreset preset)

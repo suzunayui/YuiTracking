@@ -34,6 +34,7 @@ internal static class PresetFile
             writer.WriteStartArray("disabled");
             foreach (var key in preset.Disabled ?? new List<string>()) writer.WriteStringValue(key);
             writer.WriteEndArray();
+            if (preset.HandTracking is bool handTracking) writer.WriteBoolean("handTracking", handTracking);
             writer.WriteEndObject();
         }
         return Encoding.UTF8.GetString(stream.ToArray());
@@ -62,7 +63,8 @@ internal static class PresetFile
             if (root.TryGetProperty("disabled", out var disabledItems) && disabledItems.ValueKind == JsonValueKind.Array)
                 foreach (var item in disabledItems.EnumerateArray())
                     if (item.ValueKind == JsonValueKind.String && item.GetString() is string key && Keys.Contains(key) && !disabled.Contains(key)) disabled.Add(key);
-            return new MotionPreset(name, gazeMode, values, disabled);
+            bool? handTracking = root.TryGetProperty("handTracking", out var handItem) && handItem.ValueKind is JsonValueKind.True or JsonValueKind.False ? handItem.GetBoolean() : null;
+            return new MotionPreset(name, gazeMode, values, disabled, handTracking);
         }
         catch (JsonException) { throw new InvalidDataException(Unreadable); }
     }

@@ -19,7 +19,7 @@
  $('settings-card').onclick=async()=>{
   try{
    const result=await host.settingsCard(card());
-   setStatus(result.saved?'設定の画像を保存して、コピーしました。':'設定の画像をコピーしました。',true);
+   setStatus(result.saved?(result.copied?'設定の画像を保存して、コピーしました。':'設定の画像を保存しました。'):(result.copied?'設定の画像をコピーしました。':'設定の画像をコピーできませんでした。'),true);
   }catch(error){showError(error);}
  };
 })();

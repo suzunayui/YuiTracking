@@ -7,13 +7,14 @@
   const current=motionValues(),gazeMode=$('gazeMode').value;
   for(const button of bar.querySelectorAll('.preset-button')){
    const preset=presets.find(item=>item.name===button.dataset.name);
-   button.setAttribute('aria-pressed',!!preset&&PresetLogic.matches(preset,gazeMode,current,disabledSliders));
+   button.setAttribute('aria-pressed',!!preset&&PresetLogic.matches(preset,gazeMode,current,disabledSliders,$('handTracking').checked));
   }
  }
  window.refreshPresetSelection=refresh;
  function applyPreset(preset){
   for(const [key,value] of Object.entries(preset.values))if(keys.includes(key))$(key).value=value;
   if([...$('gazeMode').options].some(option=>option.value===preset.gazeMode))$('gazeMode').value=preset.gazeMode;
+  if(typeof preset.handTracking==='boolean')$('handTracking').checked=preset.handTracking;
   setDisabledSliders(preset.disabled);
   apply();
  }
@@ -62,7 +63,7 @@
  }
  async function addPreset(){
   const name=await askName('プリセットを保存',PresetLogic.nextName(presets),null);
-  if(name)await store(PresetLogic.added(presets,{name,gazeMode:$('gazeMode').value,values:motionValues(),disabled:disabledSliders}));
+  if(name)await store(PresetLogic.added(presets,{name,gazeMode:$('gazeMode').value,values:motionValues(),disabled:disabledSliders,handTracking:$('handTracking').checked}));
  }
  async function importPreset(){const updated=await host.importPreset();if(updated){presets=updated;render();setStatus('プリセットをインポートしました。',true);}}
  function choosePresetToExport(){
@@ -80,7 +81,7 @@
   exporter.showModal();
  }
  const presetActions={
-  overwrite:preset=>store(PresetLogic.overwritten(presets,preset.name,$('gazeMode').value,motionValues(),disabledSliders)),
+  overwrite:preset=>store(PresetLogic.overwritten(presets,preset.name,$('gazeMode').value,motionValues(),disabledSliders,$('handTracking').checked)),
   rename:async preset=>{const name=await askName('名前を変更',preset.name,preset.name);if(name)await store(PresetLogic.renamed(presets,preset.name,name));},
   delete:preset=>store(PresetLogic.without(presets,preset.name))
  };

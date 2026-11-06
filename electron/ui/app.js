@@ -11,7 +11,8 @@ window.yuiHost.addEventListener('message',event=>$('preview').contentWindow.post
 window.addEventListener('message',event=>{if(event.source!==$('preview').contentWindow||event.origin!==location.origin)return;if(event.data?.yuiRenderer)window.yuiHost.postMessage(event.data.yuiRenderer);if(event.data?.yuiAvatarFrame instanceof ArrayBuffer&&event.data.yuiAvatarFrame.byteLength===1280*720*4)host.sendAvatarFrame(event.data.yuiAvatarFrame).catch(showError).finally(()=>$('preview').contentWindow.postMessage({yuiCommand:{type:'frameAck'}},location.origin));});
 new MutationObserver(()=>{$('status').hidden=['VRMを表示中','内蔵サンプルを表示中'].includes($('status').textContent);}).observe($('status'),{childList:true,characterData:true,subtree:true});
 function setStatus(text,temporary=false){clearTimeout(statusTimer);const revision=++statusRevision;$('status').textContent=text;if(temporary)statusTimer=setTimeout(()=>{if(statusRevision===revision)$('status').textContent=active?'トラッキング中':'VRMを表示中';},3000);}
-function showError(error){setStatus(error.message||String(error));}
+// Errors from the main process arrive wrapped in Electron's own wording.
+function showError(error){setStatus(String(error.message||error).replace(/^Error invoking remote method '[^']*': (?:\w*Error: )?/,''));}
 function send(type,rest={}){host.command({type,...rest});}
 let disabledSliders=[];
 function values(){return {...Object.fromEntries(keys.map(key=>[key,Number($(key).value)])),gazeMode:$('gazeMode').value,handTracking:$('handTracking').checked,disabledSliders};}

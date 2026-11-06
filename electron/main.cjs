@@ -1,4 +1,4 @@
-const {app,BrowserWindow,clipboard,dialog,ipcMain,nativeImage,protocol,net,session,globalShortcut,systemPreferences}=require('electron');
+const {app,BrowserWindow,clipboard,ClipboardItem,dialog,ipcMain,protocol,net,session,globalShortcut,systemPreferences}=require('electron');
 const fs=require('node:fs/promises');
 const path=require('node:path');
 const {execFile}=require('node:child_process');
@@ -78,7 +78,7 @@ function safePresets(value){
   if(!name||name.length>20||names.has(name.toLowerCase())||!['tracking','camera','fixed'].includes(item.gazeMode)||!item.values||typeof item.values!=='object')return [];
   names.add(name.toLowerCase());
   const {gazeMode:_gaze,handTracking:_hand,disabledSliders:_off,...values}=safeSettings(item.values);
-  return [{name,gazeMode:item.gazeMode,values,disabled:presetLogic.safeDisabled(item.disabled)}];
+  return [{name,gazeMode:item.gazeMode,values,disabled:presetLogic.safeDisabled(item.disabled),...(typeof item.handTracking==='boolean'?{handTracking:item.handTracking}:{})}];
  }).slice(0,30);
 }
 ipcMain.handle('presets',event=>trusted(event,'ui')?safePresets(settings.motionPresets):[]);
@@ -124,11 +124,12 @@ ipcMain.handle('settings-card',(event,card)=>{
 async function finishSettingsCard(dataUrl){
  const bytes=vrmHistory.decodeThumbnail(dataUrl,16*1024*1024);
  if(!bytes)throw new Error('設定の画像を作れませんでした。');
- clipboard.writeImage(nativeImage.createFromBuffer(bytes));
+ let copied=false;
+ try{await clipboard.write([new ClipboardItem({'image/png':new Blob([bytes],{type:'image/png'})})]);copied=true;}catch(error){console.error(error);}
  const result=await dialog.showSaveDialog(window,{title:'設定を画像で保存',defaultPath:'YuiTracking-設定.png',filters:[{name:'PNG',extensions:['png']}]});
- if(result.canceled||!result.filePath)return {saved:false};
+ if(result.canceled||!result.filePath)return {saved:false,copied};
  await fs.writeFile(result.filePath,bytes);
- return {saved:true};
+ return {saved:true,copied};
 }
 ipcMain.handle('info',event=>trusted(event,'ui')?{version:app.getVersion(),platform:process.platform,cameraPermission:process.platform==='darwin'?systemPreferences.getMediaAccessStatus('camera'):undefined}:{});
 ipcMain.handle('native-cameras',async event=>{if(!trusted(event,'ui')||process.platform!=='darwin')return [];try{const {stdout}=await promisify(execFile)('/usr/sbin/system_profiler',['SPCameraDataType','-json'],{timeout:5000,maxBuffer:1024*1024});return (JSON.parse(stdout).SPCameraDataType||[]).map(item=>item._name).filter(name=>typeof name==='string');}catch{return [];}});
